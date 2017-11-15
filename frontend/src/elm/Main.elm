@@ -90,7 +90,17 @@ view model =
         [ h1 [] [ text "lists" ]
         , button [ onClick LoadLists ] [ text "reload lists" ]
         , ul []
-            (List.map (\l -> li [] [ em [] [ text l.name ] ]) model.lists)
+            (model.lists
+                |> List.map
+                    (\l ->
+                        li []
+                            [ b []
+                                [ ((l.id |> toString) ++ ": ") |> text
+                                ]
+                            , text l.name
+                            ]
+                    )
+            )
         ]
 
 
