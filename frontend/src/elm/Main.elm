@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Html exposing (..)
 import Html.Events exposing (..)
-import Random exposing (..)
+import Random
 
 
 -- App
@@ -23,7 +23,7 @@ main =
 
 
 type alias Model =
-    { lists : List Int }
+    { lists : List String }
 
 
 init : ( Model, Cmd Msg )
@@ -37,7 +37,7 @@ init =
 
 type Msg
     = LoadLists
-    | GetLists (List Int)
+    | GetLists (List String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -45,11 +45,16 @@ update msg model =
     case msg of
         LoadLists ->
             ( model
-            , Random.generate GetLists (Random.list 6 (int 0 100))
+            , Random.generate
+                GetLists
+                ((Random.list 6
+                    (Random.map (\n -> n |> toString) (Random.int 0 100))
+                 )
+                )
             )
 
         GetLists lists ->
-            ( model
+            ( Model lists
             , Cmd.none
             )
 
