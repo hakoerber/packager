@@ -1,12 +1,15 @@
 module Main exposing (..)
 
+-- import Dict exposing (..)
+
 import Html exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode
+import Json.Decode as JDec
+import Json.Decode.Pipeline as JDecP
 
 
--- import Json.Decode
+-- import JDec
 -- App
 
 
@@ -25,12 +28,25 @@ main =
 
 
 type alias Model =
-    { lists : List String }
+    { lists : List PkgList }
 
 
 init : ( Model, Cmd Msg )
 init =
     ( Model [], Cmd.none )
+
+
+type alias PkgList =
+    { id : Int
+    , name : String
+    }
+
+
+decodePkgList : JDec.Decoder PkgList
+decodePkgList =
+    JDecP.decode PkgList
+        |> JDecP.required "id" JDec.int
+        |> JDecP.required "name" JDec.string
 
 
 
@@ -39,7 +55,7 @@ init =
 
 type Msg
     = LoadLists
-    | GetLists (Result Http.Error (List String))
+    | GetLists (Result Http.Error (List PkgList))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -52,7 +68,7 @@ update msg model =
             ( Model newlists, Cmd.none )
 
         GetLists (Err result) ->
-            ( Model [ toString result ], Cmd.none )
+            ( model, Cmd.none )
 
 
 
@@ -72,9 +88,9 @@ view : Model -> Html Msg
 view model =
     div []
         [ h1 [] [ text "lists" ]
-        , button [ onClick LoadLists ] [ text "load lists" ]
+        , button [ onClick LoadLists ] [ text "reload lists" ]
         , ul []
-            (List.map (\l -> li [] [ text l ]) model.lists)
+            (List.map (\l -> li [] [ em [] [ text l.name ] ]) model.lists)
         ]
 
 
@@ -98,7 +114,7 @@ getLists =
                 , headers = headers
                 , url = url
                 , body = Http.emptyBody
-                , expect = Http.expectJson (Json.Decode.list Json.Decode.string)
+                , expect = (Http.expectJson (JDec.list decodePkgList))
                 , timeout = Nothing
                 , withCredentials = False
                 }

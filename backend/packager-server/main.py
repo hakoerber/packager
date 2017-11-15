@@ -9,16 +9,15 @@ def get_lists():
     connection = sqlite3.connect('../data/example.db')
     cursor = connection.cursor()
 
-    print(list(cursor.execute('''SELECT * FROM lists''')))
-
+    cursor.execute('''SELECT * FROM lists''')
+    raw = cursor.fetchall()
     lists = [
-        "list_item_1",
-        "list_item_2",
-        "list_item_3",
-        "this shiny new item",
-        "more stuff"
-    ]
+        {
+            'id': i,
+            'name': raw[i][0],
+        } for i in range(len(raw))]
 
+    cursor.close()
     connection.commit()
     connection.close()
 
