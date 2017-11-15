@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 from flask import Flask, jsonify
 
+import sqlite3
+
 app = Flask(__name__)
 
 def get_lists():
-    return [
+    connection = sqlite3.connect('../data/example.db')
+    cursor = connection.cursor()
+
+    print(list(cursor.execute('''SELECT * FROM lists''')))
+
+    lists = [
         "list_item_1",
         "list_item_2",
         "list_item_3",
+        "this shiny new item",
+        "more stuff"
     ]
+
+    connection.commit()
+    connection.close()
+
+    return lists
 
 @app.route('/')
 def index():

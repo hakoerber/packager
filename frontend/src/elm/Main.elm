@@ -2,9 +2,11 @@ module Main exposing (..)
 
 import Html exposing (..)
 import Html.Events exposing (..)
-import Random
+import Http
+import Json.Decode
 
 
+-- import Json.Decode
 -- App
 
 
@@ -37,26 +39,20 @@ init =
 
 type Msg
     = LoadLists
-    | GetLists (List String)
+    | GetLists (Result Http.Error (List String))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         LoadLists ->
-            ( model
-            , Random.generate
-                GetLists
-                ((Random.list 6
-                    (Random.map (\n -> n |> toString) (Random.int 0 100))
-                 )
-                )
-            )
+            ( model, getLists )
 
-        GetLists lists ->
-            ( Model lists
-            , Cmd.none
-            )
+        GetLists (Ok newlists) ->
+            ( Model newlists, Cmd.none )
+
+        GetLists (Err result) ->
+            ( Model [ toString result ], Cmd.none )
 
 
 
@@ -77,5 +73,34 @@ view model =
     div []
         [ h1 [] [ text "lists" ]
         , button [ onClick LoadLists ] [ text "load lists" ]
-        , div [] [ text (toString model.lists) ]
+        , ul []
+            (List.map (\l -> li [] [ text l ]) model.lists)
         ]
+
+
+
+-- HTTP
+
+
+getLists : Cmd Msg
+getLists =
+    let
+        headers =
+            [ Http.header "Access-Control-Allow-Origin" "*"
+            ]
+
+        url =
+            "http://localhost:8000/api/v1/lists/"
+
+        request =
+            Http.request
+                { method = "GET"
+                , headers = headers
+                , url = url
+                , body = Http.emptyBody
+                , expect = Http.expectJson (Json.Decode.list Json.Decode.string)
+                , timeout = Nothing
+                , withCredentials = False
+                }
+    in
+        Http.send GetLists request
