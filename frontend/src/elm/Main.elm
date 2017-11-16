@@ -29,17 +29,25 @@ main =
 
 
 type alias Model =
-    { lists : List PkgList }
+    { lists : List PkgList
+    , newList : Maybe NewPkgList
+    , err : Maybe String
+    }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model [], Cmd.none )
+    ( Model [] Nothing Nothing, Cmd.none )
 
 
 type alias PkgList =
     { id : Int
     , name : String
+    }
+
+
+type alias NewPkgList =
+    { name : String
     }
 
 
@@ -57,6 +65,7 @@ decodePkgList =
 type Msg
     = LoadLists
     | GetLists (Result Http.Error (List PkgList))
+    | AddList
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -66,10 +75,13 @@ update msg model =
             ( model, getLists )
 
         GetLists (Ok newlists) ->
-            ( Model newlists, Cmd.none )
+            ( { model | lists = newlists }, Cmd.none )
 
         GetLists (Err result) ->
             ( model, Cmd.none )
+
+        AddList ->
+            ( { model | newList = Just (NewPkgList "hi") }, Cmd.none )
 
 
 
@@ -98,13 +110,13 @@ view model =
     div []
         [ h1 [] [ text "Lists" ]
         , button [ onClick LoadLists ] [ text "Reload Lists" ]
-        , table [ tableStyle ]
-            ([ tr
+        , table [ tableStyle ] <|
+            [ tr
                 [ tableStyle ]
                 [ th [ tableStyle ] [ text "ID" ]
                 , th [ tableStyle ] [ text "Name" ]
                 ]
-             ]
+            ]
                 ++ (model.lists
                         |> List.map
                             (\l ->
@@ -115,7 +127,8 @@ view model =
                                     ]
                             )
                    )
-            )
+        , input [ placeholder "New List Name" ] []
+        , button [ onClick AddList ] [ text "Add New List" ]
         ]
 
 
