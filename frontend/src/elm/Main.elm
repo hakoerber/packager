@@ -100,21 +100,22 @@ view model =
         , button [ onClick LoadLists ] [ text "Reload Lists" ]
         , section []
             [ table [ tableStyle ]
-                (List.concat
-                    [ [ tr [ tableStyle ] [ th [ tableStyle ] [ text "ID" ], th [ tableStyle ] [ text "name" ] ] ]
-                    , (model.lists
-                        |> List.map
-                            (\l ->
-                                tr
-                                    [ tableStyle ]
-                                    [ td [ tableStyle ]
-                                        [ l.id |> toString |> text
-                                        ]
-                                    , td [ tableStyle ] [ text l.name ]
-                                    ]
-                            )
-                      )
+                ([ tr
+                    [ tableStyle ]
+                    [ th [ tableStyle ] [ text "ID" ]
+                    , th [ tableStyle ] [ text "Name" ]
                     ]
+                 ]
+                    ++ (model.lists
+                            |> List.map
+                                (\l ->
+                                    tr
+                                        [ tableStyle ]
+                                        [ td [ tableStyle ] [ l.id |> toString |> text ]
+                                        , td [ tableStyle ] [ text l.name ]
+                                        ]
+                                )
+                       )
                 )
             ]
         ]
