@@ -4,6 +4,7 @@ module Main exposing (..)
 
 import Html exposing (..)
 import Html.Events exposing (..)
+import Html.Attributes exposing (..)
 import Http
 import Json.Decode as JDec
 import Json.Decode.Pipeline as JDecP
@@ -84,23 +85,38 @@ subscriptions model =
 -- View
 
 
+tableStyle : Attribute Msg
+tableStyle =
+    style
+        [ ( "border", "1px solid black" )
+        , ( "padding", "5px" )
+        ]
+
+
 view : Model -> Html Msg
 view model =
     div []
-        [ h1 [] [ text "lists" ]
-        , button [ onClick LoadLists ] [ text "reload lists" ]
-        , ul []
-            (model.lists
-                |> List.map
-                    (\l ->
-                        li []
-                            [ b []
-                                [ ((l.id |> toString) ++ ": ") |> text
-                                ]
-                            , text l.name
-                            ]
-                    )
-            )
+        [ h1 [] [ text "Lists" ]
+        , button [ onClick LoadLists ] [ text "Reload Lists" ]
+        , section []
+            [ table [ tableStyle ]
+                (List.concat
+                    [ [ tr [ tableStyle ] [ th [ tableStyle ] [ text "ID" ], th [ tableStyle ] [ text "name" ] ] ]
+                    , (model.lists
+                        |> List.map
+                            (\l ->
+                                tr
+                                    [ tableStyle ]
+                                    [ td [ tableStyle ]
+                                        [ l.id |> toString |> text
+                                        ]
+                                    , td [ tableStyle ] [ text l.name ]
+                                    ]
+                            )
+                      )
+                    ]
+                )
+            ]
         ]
 
 
