@@ -51,8 +51,21 @@ def get_list_by_id(list_id):
 def add_new_list(name):
     connection, cursor = get_db_connection()
     cursor.execute('''INSERT INTO lists (id, name) VALUES (NULL, ?)''', (name,))
+    newlist = {
+        'name': name,
+        'id': cursor.lastrowid,
+    }
     db_close(connection, cursor)
     reload_lists()
+    return newlist
+
+def delete_list(list_id):
+    connection, cursor = get_db_connection()
+    cursor.execute('''DELETE FROM lists WHERE id = ?''', (list_id,))
+    result = (cursor.rowcount == 1)
+    db_close(connection, cursor)
+    reload_lists()
+    return result
 
 @app.route('/')
 def index():
@@ -66,12 +79,19 @@ def api():
 def apiv1():
     return "Hello, API version 1!"
 
-@app.route('/api/v1/lists/', methods=('GET', 'POST'))
+@app.route('/api/v1/lists/', methods=('GET', 'POST', 'DELETE'))
 def apiv1_lists():
     if request.method == 'POST':
         payload = request.get_json()
-        add_new_list(payload['name'])
-        return "success"
+        newlist = add_new_list(payload['name'])
+        return jsonify(newlist)
+    elif request.method == 'DELETE':
+        payload = request.get_json()
+        result = delete_list(payload['id'])
+        if not result:
+            return ("error", 400)
+        else:
+            return ("success", 200)
     else:
         return jsonify(get_lists())
 
