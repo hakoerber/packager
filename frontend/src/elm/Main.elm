@@ -6,11 +6,32 @@ import Html exposing (..)
 import Html.Events exposing (..)
 import Html.Attributes exposing (..)
 import Http
-import Json.Decode as JDec
-import Json.Decode.Pipeline as JDecP
+import Json.Decode
+import Json.Decode.Pipeline
+import Json.Encode
 
 
--- import JDec
+-- Constants
+
+
+restEndpoint : String
+restEndpoint =
+    "http://localhost:8000/api/v1/lists/"
+
+
+
+-- restPaths : { a : String }
+-- restPaths =
+--     { lists = "lists" }
+
+
+httpHeaders : List Http.Header
+httpHeaders =
+    [ Http.header "Access-Control-Allow-Origin" "*"
+    ]
+
+
+
 -- App
 
 
@@ -31,13 +52,15 @@ main =
 type alias Model =
     { lists : List PkgList
     , newList : Maybe NewPkgList
-    , err : Maybe String
+    , err : Maybe Http.Error
+    , text : String
+    , deleteList : Maybe PkgList
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model [] Nothing Nothing, Cmd.none )
+    ( Model [] Nothing Nothing "" Nothing, getLists )
 
 
 type alias PkgList =
@@ -51,11 +74,26 @@ type alias NewPkgList =
     }
 
 
-decodePkgList : JDec.Decoder PkgList
+decodePkgList : Json.Decode.Decoder PkgList
 decodePkgList =
-    JDecP.decode PkgList
-        |> JDecP.required "id" JDec.int
-        |> JDecP.required "name" JDec.string
+    Json.Decode.Pipeline.decode PkgList
+        |> Json.Decode.Pipeline.required "id" Json.Decode.int
+        |> Json.Decode.Pipeline.required "name" Json.Decode.string
+
+
+encodePkgList : PkgList -> Json.Encode.Value
+encodePkgList record =
+    Json.Encode.object
+        [ ( "name", Json.Encode.string <| record.name )
+        , ( "id", Json.Encode.int <| record.id )
+        ]
+
+
+encodeNewPkgList : NewPkgList -> Json.Encode.Value
+encodeNewPkgList newPkgList =
+    Json.Encode.object
+        [ ( "name", Json.Encode.string <| newPkgList.name )
+        ]
 
 
 
@@ -63,25 +101,62 @@ decodePkgList =
 
 
 type Msg
-    = LoadLists
-    | GetLists (Result Http.Error (List PkgList))
-    | AddList
+    = GetLists
+    | OnGetLists (Result Http.Error (List PkgList))
+    | AddList String
+    | OnAddList (Result Http.Error PkgList)
+    | TextInput String
+    | DeleteList PkgList
+    | OnDeleteList (Result Http.Error ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        LoadLists ->
+        GetLists ->
             ( model, getLists )
 
-        GetLists (Ok newlists) ->
+        OnGetLists (Ok newlists) ->
             ( { model | lists = newlists }, Cmd.none )
 
-        GetLists (Err result) ->
+        OnGetLists (Err result) ->
             ( model, Cmd.none )
 
-        AddList ->
-            ( { model | newList = Just (NewPkgList "hi") }, Cmd.none )
+        AddList name ->
+            ( model, addList (NewPkgList name) )
+
+        OnAddList (Ok list) ->
+            let
+                newmodel1 =
+                    { model | lists = model.lists ++ [ list ] }
+
+                newmodel2 =
+                    { newmodel1 | text = "" }
+            in
+                ( newmodel2, Cmd.none )
+
+        OnAddList (Err result) ->
+            ( { model | err = Just result }, Cmd.none )
+
+        TextInput text ->
+            ( { model | text = text }, Cmd.none )
+
+        DeleteList list ->
+            ( { model | deleteList = Just list }, removeList list )
+
+        OnDeleteList (Ok ()) ->
+            let
+                newModel1 =
+                    { model | lists = List.filter (\f -> (Just f) /= model.deleteList) model.lists }
+
+                newModel2 =
+                    { newModel1 | deleteList = Nothing }
+            in
+                ( newModel2, Cmd.none )
+
+        -- ( model, Cmd.none )
+        OnDeleteList (Err result) ->
+            ( { model | err = Just result }, Cmd.none )
 
 
 
@@ -102,14 +177,33 @@ tableStyle =
     style
         [ ( "border", "1px solid black" )
         , ( "padding", "5px" )
+        , ( "margin", "20px" )
         ]
+
+
+buttonStyle : Attribute Msg
+buttonStyle =
+    style
+        [ ( "margin", "20px" ) ]
+
+
+inputStyle : Attribute Msg
+inputStyle =
+    style
+        [ ( "margin", "20px" ) ]
+
+
+headerStyle : Attribute Msg
+headerStyle =
+    style
+        [ ( "margin", "20px" ) ]
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ h1 [] [ text "Lists" ]
-        , button [ onClick LoadLists ] [ text "Reload Lists" ]
+        [ h1 [ headerStyle ] [ text "Lists" ]
+        , button [ onClick GetLists, buttonStyle ] [ text "Reload Lists" ]
         , table [ tableStyle ] <|
             [ tr
                 [ tableStyle ]
@@ -124,11 +218,12 @@ view model =
                                     [ tableStyle ]
                                     [ td [ tableStyle ] [ l.id |> toString |> text ]
                                     , td [ tableStyle ] [ text l.name ]
+                                    , td [ tableStyle ] [ button [ onClick (DeleteList l) ] [ text "X" ] ]
                                     ]
                             )
                    )
-        , input [ placeholder "New List Name" ] []
-        , button [ onClick AddList ] [ text "Add New List" ]
+        , input [ placeholder "New List Name", onInput TextInput, value model.text, inputStyle ] []
+        , button [ onClick (AddList model.text), buttonStyle ] [ text "Add New List" ]
         ]
 
 
@@ -139,22 +234,57 @@ view model =
 getLists : Cmd Msg
 getLists =
     let
-        headers =
-            [ Http.header "Access-Control-Allow-Origin" "*"
-            ]
-
-        url =
-            "http://localhost:8000/api/v1/lists/"
-
         request =
             Http.request
                 { method = "GET"
-                , headers = headers
-                , url = url
+                , headers = httpHeaders
+                , url = restEndpoint
                 , body = Http.emptyBody
-                , expect = (Http.expectJson (JDec.list decodePkgList))
+                , expect = (Http.expectJson (Json.Decode.list decodePkgList))
                 , timeout = Nothing
                 , withCredentials = False
                 }
     in
-        Http.send GetLists request
+        Http.send OnGetLists request
+
+
+addList : NewPkgList -> Cmd Msg
+addList pkgList =
+    let
+        headers =
+            [ Http.header "Access-Control-Allow-Origin" "*"
+            ]
+
+        request =
+            Http.request
+                { method = "POST"
+                , headers = httpHeaders
+                , url = restEndpoint
+                , body = (Http.jsonBody (encodeNewPkgList pkgList))
+                , expect = (Http.expectJson decodePkgList)
+                , timeout = Nothing
+                , withCredentials = False
+                }
+    in
+        Http.send OnAddList request
+
+
+removeList : PkgList -> Cmd Msg
+removeList pkgList =
+    let
+        headers =
+            [ Http.header "Access-Control-Allow-Origin" "*"
+            ]
+
+        request =
+            Http.request
+                { method = "DELETE"
+                , headers = httpHeaders
+                , url = restEndpoint
+                , body = (Http.jsonBody (encodePkgList pkgList))
+                , expect = Http.expectStringResponse (\_ -> Ok ())
+                , timeout = Nothing
+                , withCredentials = False
+                }
+    in
+        Http.send OnDeleteList request
