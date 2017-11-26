@@ -79,31 +79,31 @@ def api():
 def apiv1():
     return "Hello, API version 1!"
 
-@app.route('/api/v1/lists/', methods=('GET', 'POST', 'DELETE'))
+@app.route('/api/v1/lists/', methods=('GET', 'POST'))
 def apiv1_lists():
     if request.method == 'POST':
         payload = request.get_json()
         newlist = add_new_list(payload['name'])
         return jsonify(newlist)
-    elif request.method == 'DELETE':
-        payload = request.get_json()
-        result = delete_list(payload['id'])
-        if not result:
-            return ("error", 400)
-        else:
-            return ("success", 200)
     else:
         return jsonify(get_lists())
 
 
-@app.route('/api/v1/lists/<int:list_id>/')
+@app.route('/api/v1/lists/<int:list_id>/', methods=('GET', 'DELETE'))
 def apiv1_list_by_id(list_id):
-    pkglist = get_list_by_id(list_id)
-    print(pkglist)
-    if pkglist:
-        return jsonify(pkglist)
-    else:
-        return ("id not found", 404)
+    if request.method == 'GET':
+        pkglist = get_list_by_id(list_id)
+        print(pkglist)
+        if pkglist:
+            return jsonify(pkglist)
+        else:
+            return ("id not found", 404)
+    elif request.method == 'DELETE':
+        result = delete_list(list_id)
+        if not result:
+            return ("error", 400)
+        else:
+            return ("success", 200)
 
 
 
