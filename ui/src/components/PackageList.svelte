@@ -1,10 +1,13 @@
 <script lang="ts">
     import PackageItem from "./PackageItem.svelte"
-    import { fade, fly, draw } from 'svelte/transition';
+    import { createEventDispatcher } from 'svelte';
+    import { fade } from 'svelte/transition';
 
     export let name;
     export let items;
     export let id;
+
+    const dispatch = createEventDispatcher();
 
     let active = false;
     let shown_items = [];
@@ -25,8 +28,10 @@
         ellipsed = true
     }
 
-    function onClick(e) {
-        window.history.pushState({}, "", `/lists/${e}`);
+    function onClick(id) {
+        dispatch('select', {
+            id: id
+        });
     }
 </script>
 
