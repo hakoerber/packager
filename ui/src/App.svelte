@@ -4,6 +4,7 @@
 
 <script lang="ts">
     import PackageLists from "./routes/PackageLists.svelte";
+    import Home from "./routes/Home.svelte";
 
     $: {
         const path = window.location.pathname;
@@ -12,7 +13,7 @@
         let component;
 
         if (path == "/") {
-            window.location.replace("/lists/");
+            compontent = Home;
         } else if (path == "/lists/") {
             console.log("Routing to package lists");
             component = PackageLists;

@@ -26,7 +26,7 @@
     }
 
     function onClick(e) {
-        window.location = `/lists/${e}`;
+        window.history.pushState({}, "", `/lists/${e}`);
     }
 </script>
 
