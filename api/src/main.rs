@@ -1,6 +1,13 @@
 use std::collections::HashMap;
 
 #[derive(Debug)]
+enum Duration {
+    Days(i32),
+    Weeks(i32),
+    Months(i32),
+}
+
+#[derive(Debug)]
 enum Period {
     Daily(i32),
     Weekly(i32),
@@ -19,7 +26,26 @@ enum ItemUsage {
 enum ItemSize {
     None,
     Pack(i32),
+    Name(String),
     Grams(i32),
+}
+
+#[derive(Debug)]
+struct PreparationStep {
+    name: String,
+    start: Duration,
+}
+
+impl PreparationStep {
+    fn new(name: String, start: Duration) -> PreparationStep {
+        PreparationStep { name, start }
+    }
+}
+
+#[derive(Debug)]
+enum Preparation {
+    None,
+    Steps(Vec<PreparationStep>),
 }
 
 #[derive(Debug)]
@@ -28,25 +54,34 @@ struct PackageItem {
     size: ItemSize,
     count: i32,
     usage: ItemUsage,
+    preparation: Preparation,
 }
 
 impl PackageItem {
-    fn new(name: String, size: ItemSize, count: i32, usage: ItemUsage) -> PackageItem {
+    fn new(
+        name: String,
+        size: ItemSize,
+        count: i32,
+        usage: ItemUsage,
+        preparation: Preparation,
+    ) -> PackageItem {
         PackageItem {
-            name: name,
-            size: size,
-            count: count,
-            usage: usage,
+            name,
+            size,
+            count,
+            usage,
+            preparation,
         }
     }
 
     fn new_simple(name: String) -> PackageItem {
-        PackageItem {
-            name: name,
-            size: ItemSize::None,
-            count: 1,
-            usage: ItemUsage::Singleton,
-        }
+        PackageItem::new(
+            name,
+            ItemSize::None,
+            1,
+            ItemUsage::Singleton,
+            Preparation::None,
+        )
     }
 }
 
@@ -66,7 +101,7 @@ struct TripItem<'a> {
 impl TripItem<'_> {
     fn from_package_item(package_item: &PackageItem) -> TripItem {
         TripItem {
-            package_item: package_item,
+            package_item,
             status: TripItemStatus::Pending,
         }
     }
@@ -94,7 +129,7 @@ impl<'a> TripList<'a> {
             items.push(TripItem::from_package_item(item));
         }
 
-        TripList { items: items }
+        TripList { items }
     }
 }
 
@@ -108,8 +143,8 @@ struct Trip<'a> {
 impl<'a> Trip<'a> {
     fn from_package_list(name: String, date: String, list: &'a PackageList) -> Trip<'a> {
         Trip {
-            name: name,
-            date: date,
+            name,
+            date,
             list: TripList::from_package_list(list),
         }
     }
@@ -121,18 +156,64 @@ fn main() {
         PackageItem::new_simple(String::from("Rucksack")),
         PackageItem::new_simple(String::from("Regenhülle für Rucksack")),
         PackageItem::new_simple(String::from("Normale Schuhe")),
+        PackageItem::new(
+            String::from("Taschentücher"),
+            ItemSize::Pack(1),
+            1,
+            ItemUsage::Infinite,
+            Preparation::None,
+        ),
+        PackageItem::new(
+            String::from("Handy"),
+            ItemSize::None,
+            1,
+            ItemUsage::Infinite,
+            Preparation::Steps(vec![PreparationStep::new(
+                String::from("Aufladen"),
+                Duration::Days(1),
+            )]),
+        ),
+        PackageItem::new(
+            String::from("Kopfhörer"),
+            ItemSize::None,
+            1,
+            ItemUsage::Infinite,
+            Preparation::Steps(vec![PreparationStep::new(
+                String::from("Aufladen"),
+                Duration::Days(1),
+            )]),
+        ),
+        PackageItem::new(
+            String::from("Mundschutz"),
+            ItemSize::None,
+            1,
+            ItemUsage::Periodic(Period::Weekly(1)),
+            Preparation::None,
+        ),
+        PackageItem::new_simple(String::from("Ladekabel")),
         //
         // Geld & Karten
-        PackageItem::new_simple(String::from("Geld")),
+        PackageItem::new(
+            String::from("Bargeld"),
+            ItemSize::Name(String::from("Euro")),
+            100,
+            ItemUsage::Infinite,
+            Preparation::Steps(vec![PreparationStep::new(
+                String::from("Abheben"),
+                Duration::Days(1),
+            )]),
+        ),
         PackageItem::new_simple(String::from("Kreditkarte")),
         PackageItem::new_simple(String::from("Pass")),
         PackageItem::new_simple(String::from("Krankenversicherungskarte")),
         PackageItem::new_simple(String::from("Krankenversicherungskarte (Zusatz)")),
         PackageItem::new_simple(String::from("Auslandskrankenversicherungsnachweis")),
+        PackageItem::new_simple(String::from("Notfalltelefonnummernliste")),
         PackageItem::new_simple(String::from("ADAC-Karte")),
         PackageItem::new_simple(String::from("Impfausweiß (EU)")),
         PackageItem::new_simple(String::from("Führerschein")),
         PackageItem::new_simple(String::from("Internationaler Führerschein")),
+        PackageItem::new_simple(String::from("Tagebuch")),
         //
         // Waschzeug
         PackageItem::new_simple(String::from("Waschbeutel")),
@@ -146,6 +227,7 @@ fn main() {
             ItemSize::Pack(1),
             1,
             ItemUsage::Infinite,
+            Preparation::None,
         ),
         PackageItem::new_simple(String::from("Zahnbürste")),
         PackageItem::new(
@@ -153,6 +235,7 @@ fn main() {
             ItemSize::None,
             1,
             ItemUsage::Periodic(Period::Daily(2)),
+            Preparation::None,
         ),
         PackageItem::new_simple(String::from("Deo")),
         PackageItem::new_simple(String::from("Duschgel / Shampoo")),
@@ -163,36 +246,42 @@ fn main() {
             ItemSize::Pack(1),
             1,
             ItemUsage::Infinite,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Erste-Hilfe-Set"),
             ItemSize::None,
             1,
             ItemUsage::Infinite,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Paracetamol"),
             ItemSize::Pack(1),
             1,
             ItemUsage::Infinite,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Autan"),
             ItemSize::Pack(1),
             1,
             ItemUsage::Infinite,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Pflaster"),
             ItemSize::Pack(1),
             1,
             ItemUsage::Infinite,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Zeckenkarte"),
             ItemSize::None,
             1,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         //
         // Badesachen
@@ -206,12 +295,17 @@ fn main() {
         PackageItem::new_simple(String::from("Zelt")),
         PackageItem::new_simple(String::from("Luftmatratze")),
         PackageItem::new_simple(String::from("Campingstuhl")),
+        PackageItem::new_simple(String::from("Panzertape")),
+        PackageItem::new_simple(String::from("Tarp")),
+        PackageItem::new_simple(String::from("Hängematte")),
         PackageItem::new_simple(String::from("Topf")),
         PackageItem::new_simple(String::from("Teller")),
         PackageItem::new_simple(String::from("Messer")),
         PackageItem::new_simple(String::from("Gabel")),
         PackageItem::new_simple(String::from("Löffel")),
         PackageItem::new_simple(String::from("Stirnlampe")),
+        PackageItem::new_simple(String::from("Geschirrtuch")),
+        PackageItem::new_simple(String::from("Spüllappen")),
         PackageItem::new_simple(String::from("Taschenlampe")),
         PackageItem::new_simple(String::from("Feuerzeug")),
         PackageItem::new_simple(String::from("Tasse")),
@@ -221,6 +315,7 @@ fn main() {
             ItemSize::Grams(1500),
             1,
             ItemUsage::Periodic(Period::Days(2)),
+            Preparation::None,
         ),
         PackageItem::new_simple(String::from("Campingkocher")),
         PackageItem::new(
@@ -228,6 +323,7 @@ fn main() {
             ItemSize::Pack(1),
             1,
             ItemUsage::Periodic(Period::Days(3)),
+            Preparation::None,
         ),
         PackageItem::new_simple(String::from("Kaffeekochaufsatz")),
         PackageItem::new(
@@ -235,12 +331,28 @@ fn main() {
             ItemSize::None,
             1,
             ItemUsage::Periodic(Period::Days(5)),
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Müllsäcke"),
             ItemSize::Pack(1),
             1,
             ItemUsage::Infinite,
+            Preparation::None,
+        ),
+        PackageItem::new(
+            String::from("Teelichter"),
+            ItemSize::None,
+            1,
+            ItemUsage::Periodic(Period::Daily(3)),
+            Preparation::None,
+        ),
+        PackageItem::new(
+            String::from("Klopapier"),
+            ItemSize::Name(String::from("Rolle")),
+            1,
+            ItemUsage::Periodic(Period::Weekly(1)),
+            Preparation::None,
         ),
         //
         // Essen
@@ -249,6 +361,7 @@ fn main() {
             ItemSize::Grams(100),
             1,
             ItemUsage::Periodic(Period::Days(3)),
+            Preparation::None,
         ),
         //
         // Wanderzeug
@@ -256,66 +369,105 @@ fn main() {
         PackageItem::new_simple(String::from("Trinkblase")),
         //
         // Klamotten
-        PackageItem::new(String::from("Cap"), ItemSize::None, 1, ItemUsage::Singleton),
+        PackageItem::new(
+            String::from("Cap"),
+            ItemSize::None,
+            1,
+            ItemUsage::Singleton,
+            Preparation::None,
+        ),
         PackageItem::new(
             String::from("Regenjacke"),
             ItemSize::None,
             1,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Daunenjacke"),
             ItemSize::None,
             1,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Pullover"),
             ItemSize::None,
             1,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Lange Hose"),
             ItemSize::None,
             2,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Kurze Hose"),
             ItemSize::None,
             1,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Jogginghose"),
             ItemSize::None,
             1,
             ItemUsage::Singleton,
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Socken"),
             ItemSize::None,
             1,
             ItemUsage::Periodic(Period::Daily(1)),
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("Unterhose"),
             ItemSize::None,
             1,
             ItemUsage::Periodic(Period::Daily(1)),
+            Preparation::None,
         ),
         PackageItem::new(
             String::from("T-Shirt"),
             ItemSize::None,
             1,
             ItemUsage::Periodic(Period::Days(2)),
+            Preparation::None,
         ),
         //
         // Misc
         PackageItem::new_simple(String::from("Trinkflasche")),
+        PackageItem::new_simple(String::from("Dyneemaschnur")),
         PackageItem::new_simple(String::from("Ladegerät")),
-        PackageItem::new_simple(String::from("Powerbank")),
+        PackageItem::new(
+            String::from("Powerbank"),
+            ItemSize::None,
+            1,
+            ItemUsage::Infinite,
+            Preparation::Steps(vec![PreparationStep::new(
+                String::from("Aufladen"),
+                Duration::Days(1),
+            )]),
+        ),
+        PackageItem::new(
+            String::from("Desinfektionsgel"),
+            ItemSize::None,
+            1,
+            ItemUsage::Periodic(Period::Weekly(1)),
+            Preparation::None,
+        ),
+        PackageItem::new(
+            String::from("Karabiner"),
+            ItemSize::None,
+            3,
+            ItemUsage::Singleton,
+            Preparation::None,
+        ),
         PackageItem::new_simple(String::from("Ersatzbrille")),
         PackageItem::new_simple(String::from("Sonnenbrille")),
         PackageItem::new_simple(String::from("Ohrenstöpsel")),
