@@ -1,13 +1,16 @@
-use serde::ser::{Serialize, SerializeStruct, Serializer};
+use serde::ser::{SerializeStruct, Serializer};
+use serde::{Serialize, Deserialize};
 use warp::Filter;
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 enum Duration {
     None,
     Days(i32),
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 enum Period {
     Daily(i32),
     Weekly(i32),
@@ -15,6 +18,7 @@ enum Period {
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 enum ItemUsage {
     Singleton,
     Periodic(Period),
@@ -22,6 +26,7 @@ enum ItemUsage {
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 enum ItemSize {
     None,
     Pack(i32),
@@ -30,6 +35,7 @@ enum ItemSize {
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 struct PreparationStep {
     name: String,
     start: Duration,
@@ -42,6 +48,7 @@ impl PreparationStep {
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 enum Preparation {
     None,
     Steps(Vec<PreparationStep>),
@@ -509,14 +516,14 @@ fn get_lists() -> Vec<PackageList> {
             ],
         ),
         PackageList::new_from_items(
-            String::from("Geld & Karten"),
+            String::from("Fahrrad"),
             vec![
                 PackageItem::new_simple(String::from("Fahrrad")),
                 PackageItem::new_simple(String::from("Fahrradhelm")),
             ],
         ),
         PackageList::new_from_items(
-            String::from("Geld & Karten"),
+            String::from("Misc"),
             vec![
                 PackageItem::new_simple(String::from("Trinkflasche")),
                 PackageItem::new_simple(String::from("Dyneemaschnur")),
@@ -587,6 +594,7 @@ fn get_lists() -> Vec<PackageList> {
 #[tokio::main]
 async fn main() {
     let accept_json = warp::header::exact("accept", "application/json");
+    let cors = warp::cors().allow_any_origin();
 
     let root = warp::path::end().map(|| "Hi");
     let v1 = warp::path!("v1")
@@ -597,7 +605,8 @@ async fn main() {
         .and(warp::path::end())
         .and(warp::get())
         .and(accept_json)
-        .map(|| warp::reply::json(&get_lists()));
+        .map(|| warp::reply::json(&get_lists()))
+        .with(cors);
 
     let routes = root.or(v1).or(lists);
 
