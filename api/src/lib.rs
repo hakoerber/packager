@@ -1,12 +1,14 @@
 use uuid::Uuid;
 
 pub mod packagelist;
-pub use packagelist::PackageList;
 pub use packagelist::PackageItem;
-// use self::packagelist;
+pub use packagelist::PackageList;
 
 pub mod router;
-// pub use crate::packager::packagelist;
+
+pub mod trip;
+pub use trip::Trip;
+pub use trip::TripList;
 
 pub fn get_list(id: Uuid) -> Option<packagelist::PackageList> {
     println!("Looking for id {}", id);
@@ -19,6 +21,21 @@ pub fn get_list(id: Uuid) -> Option<packagelist::PackageList> {
     }
     println!("Not Found!");
     None
+}
+
+pub fn get_trips() -> Vec<Trip> {
+    let package_lists = get_lists();
+    vec![
+        Trip::from_package_list(
+            Uuid::parse_str("98dd50f9-b945-48e0-8fa9-41a3fd8b897e").unwrap(),
+            String::from("Campingtrip"),
+            String::from("2021-09-06"),
+            vec![
+                package_lists[0].id,
+                package_lists[1].id,
+            ],
+        )
+    ]
 }
 
 pub fn get_lists() -> Vec<packagelist::PackageList> {

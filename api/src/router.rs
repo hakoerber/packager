@@ -1,7 +1,10 @@
-use std::convert::Infallible;
 use serde::Serialize;
+use std::convert::Infallible;
+
 use warp;
 use warp::http::StatusCode;
+use warp::Filter;
+
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -20,23 +23,19 @@ pub fn new() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
     let accept_json = warp::header::exact("accept", "application/json");
     let cors = warp::cors().allow_any_origin();
 
-    let root = warp::path::end()
-        .map(|| "Hi")
-        .recover(handle_rejection);
+    let root = warp::path::end().map(|| "Hi");
 
     let v1 = warp::path!("v1")
         .and(warp::get())
         .and(warp::path::end())
-        .map(warp::reply)
-        .recover(handle_rejection);
+        .map(warp::reply);
 
     let lists = warp::path!("v1" / "lists")
         .and(warp::path::end())
         .and(warp::get())
         .and(accept_json)
         .map(|| warp::reply::json(&super::get_lists()))
-        .with(&cors)
-        .recover(handle_rejection);
+        .with(&cors);
 
     let list = warp::path!("v1" / "lists" / String)
         .and(warp::path::end())
@@ -51,15 +50,24 @@ pub fn new() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
                         None => Err(warp::reject::not_found()),
                     }
                 }
-                Err(e) => Err(warp::reject::custom(InvalidUuid)),
+                Err(_) => Err(warp::reject::custom(InvalidUuid)),
             }
         })
-        .with(&cors)
-        .recover(handle_rejection);
+        .with(&cors);
 
-    let routes = root.or(v1).or(lists).or(list).boxed();
+    let trips = warp::path!("v1" / "trips")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(accept_json)
+        .map(|| warp::reply::json(&super::get_trips()))
+        .with(&cors);
 
-    routes
+    root.or(v1)
+        .or(lists)
+        .or(list)
+        .or(trips)
+        .recover(handle_rejection)
+        .boxed()
 }
 
 // See https://github.com/seanmonstar/warp/blob/master/examples/rejections.rs
@@ -73,7 +81,7 @@ async fn handle_rejection(err: warp::Rejection) -> Result<impl warp::Reply, Infa
     } else if let Some(InvalidUuid) = err.find() {
         code = StatusCode::BAD_REQUEST;
         message = "INVALID_UUID";
-    } else if let Some(e) = err.find::<warp::filters::body::BodyDeserializeError>() {
+    } else if let Some(_) = err.find::<warp::filters::body::BodyDeserializeError>() {
         message = "BAD_REQUEST";
         code = StatusCode::BAD_REQUEST;
     } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {

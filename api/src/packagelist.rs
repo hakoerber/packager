@@ -1,9 +1,9 @@
 use serde::ser::{SerializeStruct, Serializer};
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Duration {
     None,
@@ -16,8 +16,7 @@ impl Duration {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum Period {
     Daily(i32),
     Weekly(i32),
@@ -52,8 +51,7 @@ impl Serialize for Period {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum ItemUsage {
     Singleton,
     Periodic(Period),
@@ -86,9 +84,7 @@ impl Serialize for ItemUsage {
     }
 }
 
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum ItemSize {
     None,
     Pack(i32),
@@ -135,7 +131,7 @@ impl ItemSize {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparationStep {
     name: String,
@@ -150,7 +146,7 @@ impl PreparationStep {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Preparation {
     None,
@@ -163,8 +159,7 @@ impl Preparation {
     }
 }
 
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackageItem {
     pub id: Uuid,
@@ -210,7 +205,7 @@ impl PackageItem {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackageList {
     pub id: Uuid,
@@ -223,4 +218,3 @@ impl PackageList {
         PackageList { id, name, items }
     }
 }
-
