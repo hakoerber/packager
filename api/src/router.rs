@@ -153,7 +153,10 @@ async fn handle_rejection(err: warp::Rejection) -> Result<impl warp::Reply, Infa
     } else if let Some(InvalidUuid) = err.find() {
         code = StatusCode::BAD_REQUEST;
         message = "INVALID_UUID";
-    } else if err.find::<warp::filters::body::BodyDeserializeError>().is_some() {
+    } else if err
+        .find::<warp::filters::body::BodyDeserializeError>()
+        .is_some()
+    {
         message = "BAD_REQUEST";
         code = StatusCode::BAD_REQUEST;
     } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {

@@ -31,10 +31,7 @@ impl TripPackageList {
     }
 
     fn construct_vec(items: Vec<(Uuid, String)>) -> Vec<TripPackageList> {
-        items
-            .into_iter()
-            .map(TripPackageList::construct)
-            .collect()
+        items.into_iter().map(TripPackageList::construct).collect()
     }
 }
 
