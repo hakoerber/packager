@@ -20,19 +20,28 @@
 </script>
 
 <main>
-    <div>
-        {#await getLists()}
-            <p>Loading</p>
-        {:then lists}
-            <div class="m-2 grid grid-cols-3 gap-5 items-start grid-flow-row">
-                {#each lists as list}
-                    <div class="p-3 border rounded-lg border-gray-300 shadow hover:shadow-xl bg-gray-100 bg-opacity-30 hover:bg-opacity-100">
-                        <PackageList id={list.id} name={list.name} items={list.items} on:select={e => redirect(url + e.detail.id)} />
-                    </div>
-                {/each}
-            </div>
-        {:catch error}
-            <p>Something went wrong</p>
-        {/await}
+    <div class="container mx-auto mt-12">
+        <table class="table-auto w-full">
+            <thead>
+                <tr class="font-semibold tracking-wider text-left bg-gray-100 uppercase border-b border-gray-400">
+                    <th class="p-3">Name</th>
+                    <th class="p-3"># Items</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#await getLists()}
+                    <p>Loading</p>
+                {:then lists}
+                    {#each lists as list}
+                        <tr class="border" on:click={e => redirect(url + list.id)}>
+                            <td class="p-3">{list.name}</td>
+                            <td class="p-3">{list.items.length}</td>
+                        </tr>
+                    {/each}
+                {:catch error}
+                    <p>Error: {error}</p>
+                {/await}
+            </tbody>
+        </table>
     </div>
 </main>

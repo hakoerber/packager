@@ -1,4 +1,4 @@
-use packager;
+use std::env;
 
 #[tokio::main]
 async fn main() {
@@ -32,7 +32,19 @@ async fn main() {
     // for item in &trip.list.items {
     //     println!("{:?}", item);
     // }
+    let args: Vec<String> = env::args().skip(1).collect();
+    match args.get(0) {
+        None => (),
+        Some(cmd) => match cmd.as_ref() {
+            "--load-example-data" => {
+                packager::db::load().unwrap();
+            }
+            _ => panic!("Unknown argument: \"{}\"", cmd),
+        },
+    };
 
     let router = packager::router::new();
+
+    println!("Initialization done, listening for connections");
     warp::serve(router).run(([127, 0, 0, 1], 9000)).await;
 }

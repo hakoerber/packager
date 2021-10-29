@@ -4,22 +4,37 @@ version = "0.1.0"
 authors = [
     "Hannes Körber <hannes@hkoerber.de>"
 ]
-edition = "2021"
+edition = "2018"
 readme = "README.md"
 repository = "https://github.com/hkoerber/packager/"
 license = "AGPL-3.0-only"
 
 publish = false
 
+[profile.release]
+lto = true
+
 [lib]
 name = "packager"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
 warp = "0.3"
-
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-uuid = { version  = "0.8", features = ["serde", "v4"] }
+[dependencies.tokio]
+version  = "1"
+features = ["full"]
+
+
+[dependencies.serde]
+version  = "1.0"
+features = ["derive"]
+
+[dependencies.uuid]
+version  = "0.8"
+features = ["serde", "v4"]
+
+[dependencies.rusqlite]
+version  = "0.26.0"
+features = ["uuid"]
 

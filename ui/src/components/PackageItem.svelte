@@ -2,9 +2,9 @@
     export let data;
 </script>
 
-<main>
+<div>
     {data.name}
-</main>
+</div>
 
 <style>
 </style>

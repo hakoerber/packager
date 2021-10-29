@@ -1,5 +1,5 @@
 use serde::ser::{SerializeStruct, Serializer};
-use serde::{Serialize};
+use serde::Serialize;
 
 use uuid::Uuid;
 
@@ -134,20 +134,20 @@ impl ItemSize {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparationStep {
-    name: String,
+    pub id: Uuid,
+    pub name: String,
 
     #[serde(skip_serializing_if = "Duration::is_none")]
-    start: Duration,
+    pub start: Duration,
 }
 
 impl PreparationStep {
-    pub fn new(name: String, start: Duration) -> PreparationStep {
-        PreparationStep { name, start }
+    pub fn new(id: Uuid, name: String, start: Duration) -> PreparationStep {
+        PreparationStep { id, name, start }
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum Preparation {
     None,
     Steps(Vec<PreparationStep>),
@@ -159,19 +159,38 @@ impl Preparation {
     }
 }
 
+impl Serialize for Preparation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Preparation::None => {
+                // serializer.serialize_unit_variant("Preparation", 0, "null")
+                let steps: Vec<i32> = vec![];
+                serializer.serialize_newtype_variant("Preparation", 1, "steps", &steps)
+                // let mut s = serializer.serialize_seq(Some(0))?;
+                // s.end()
+            }
+            Preparation::Steps(steps) => {
+                serializer.serialize_newtype_variant("Preparation", 1, "steps", steps)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackageItem {
     pub id: Uuid,
-    name: String,
+    pub name: String,
 
     #[serde(skip_serializing_if = "ItemSize::is_none")]
     size: ItemSize,
-    count: i32,
+    pub count: i32,
     usage: ItemUsage,
 
-    #[serde(skip_serializing_if = "Preparation::is_none")]
-    preparation: Preparation,
+    pub preparation: Preparation,
 }
 
 impl PackageItem {
@@ -216,5 +235,17 @@ pub struct PackageList {
 impl PackageList {
     pub fn new_from_items(id: Uuid, name: String, items: Vec<PackageItem>) -> PackageList {
         PackageList { id, name, items }
+    }
+
+    pub fn new(id: Uuid, name: String) -> PackageList {
+        PackageList {
+            id,
+            name,
+            items: Vec::new(),
+        }
+    }
+
+    pub fn set_items(&mut self, items: Vec<PackageItem>) {
+        self.items = items;
     }
 }

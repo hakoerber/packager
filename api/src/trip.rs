@@ -1,5 +1,5 @@
+use serde::Serialize;
 use uuid::Uuid;
-use serde::{Serialize};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,42 +11,63 @@ pub enum TripItemStatus {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TripItem<'a> {
-    pub id: Uuid,
-
-    pub package_item: &'a super::PackageItem,
-    pub status: TripItemStatus,
+pub struct TripParameters {
+    pub days: i32,
 }
 
-impl TripItem<'_> {
-    pub fn from_package_item(id: Uuid, package_item: &super::PackageItem) -> TripItem {
-        TripItem {
-            id,
-            package_item,
-            status: TripItemStatus::Pending,
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TripPackageList {
+    pub id: Uuid,
+    pub name: String,
+}
+
+impl TripPackageList {
+    fn construct(item: (Uuid, String)) -> TripPackageList {
+        TripPackageList {
+            id: item.0,
+            name: item.1,
         }
     }
 
-    pub fn set_status(&mut self, status: TripItemStatus) {
-        self.status = status;
+    fn construct_vec(items: Vec<(Uuid, String)>) -> Vec<TripPackageList> {
+        items
+            .into_iter()
+            .map(TripPackageList::construct)
+            .collect()
     }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TripList<'a> {
-    pub id: Uuid,
-    pub items: Vec<TripItem<'a>>,
+pub enum TripState {
+    Planned,
+    Packing,
+    Active,
+    Finished,
 }
 
-impl<'a> TripList<'a> {
-    pub fn from_package_list(id: Uuid, list: &'a super::PackageList) -> TripList<'a> {
-        let mut items = Vec::new();
-        for item in &list.items {
-            items.push(TripItem::from_package_item(Uuid::new_v4(), item));
+impl rusqlite::types::FromSql for TripState {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        match value.as_i64()? {
+            1 => Ok(TripState::Planned),
+            2 => Ok(TripState::Packing),
+            3 => Ok(TripState::Active),
+            4 => Ok(TripState::Finished),
+            v => Err(rusqlite::types::FromSqlError::OutOfRange(v)),
         }
+    }
+}
 
-        TripList { id, items }
+impl rusqlite::types::ToSql for TripState {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput> {
+        let v = rusqlite::types::Value::Integer(match self {
+            TripState::Planned => 1,
+            TripState::Packing => 2,
+            TripState::Active => 3,
+            TripState::Finished => 4,
+        });
+        rusqlite::Result::Ok(rusqlite::types::ToSqlOutput::Owned(v))
     }
 }
 
@@ -56,21 +77,50 @@ pub struct Trip {
     pub id: Uuid,
     pub name: String,
     pub date: String,
-    pub package_list_ids: Vec<Uuid>,
+    pub parameters: TripParameters,
+    pub package_lists: Vec<TripPackageList>,
+    pub state: TripState,
 }
 
 impl Trip {
-    pub fn from_package_list(
+    pub fn new(
         id: Uuid,
         name: String,
         date: String,
-        package_list_ids: Vec<Uuid>,
+        parameters: TripParameters,
+        state: TripState,
     ) -> Trip {
         Trip {
             id,
             name,
             date,
-            package_list_ids,
+            parameters,
+            package_lists: vec![],
+            state,
         }
+    }
+
+    pub fn from_package_list(
+        id: Uuid,
+        name: String,
+        date: String,
+        parameters: TripParameters,
+        package_lists: Vec<(Uuid, String)>,
+        state: TripState,
+    ) -> Trip {
+        let lists = TripPackageList::construct_vec(package_lists);
+        Trip {
+            id,
+            name,
+            date,
+            parameters,
+            package_lists: lists,
+            state,
+        }
+    }
+
+    pub fn set_package_lists(&mut self, package_lists: Vec<(Uuid, String)>) {
+        let v = TripPackageList::construct_vec(package_lists);
+        self.package_lists = v;
     }
 }
