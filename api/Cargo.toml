@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = [
     "Hannes Körber <hannes@hkoerber.de>"
 ]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 repository = "https://github.com/hkoerber/packager/"
 license = "AGPL-3.0-only"
