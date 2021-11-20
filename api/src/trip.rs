@@ -1,5 +1,10 @@
+use std::rc::Rc;
+
 use serde::Serialize;
 use uuid::Uuid;
+
+use crate::PackageItem;
+use crate::PackageList;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -7,6 +12,36 @@ pub enum TripItemStatus {
     Pending,
     Ready,
     Packed,
+}
+
+impl rusqlite::types::FromSql for TripItemStatus {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        match value.as_i64()? {
+            1 => Ok(TripItemStatus::Pending),
+            2 => Ok(TripItemStatus::Ready),
+            3 => Ok(TripItemStatus::Packed),
+            v => Err(rusqlite::types::FromSqlError::OutOfRange(v)),
+        }
+    }
+}
+
+impl rusqlite::types::ToSql for TripItemStatus {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput> {
+        let v = rusqlite::types::Value::Integer(match self {
+            TripItemStatus::Pending => 1,
+            TripItemStatus::Ready => 2,
+            TripItemStatus::Packed => 3,
+        });
+        rusqlite::Result::Ok(rusqlite::types::ToSqlOutput::Owned(v))
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TripItem {
+    pub status: TripItemStatus,
+    pub package_item: PackageItem,
+    pub package_list: Rc<PackageList>,
 }
 
 #[derive(Debug, Serialize)]

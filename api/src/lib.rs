@@ -19,6 +19,8 @@ pub mod trip;
 pub use trip::Trip;
 pub use trip::TripParameters;
 pub use trip::TripState;
+pub use trip::TripItem;
+pub use trip::TripItemStatus;
 
 pub fn get_list(id: Uuid) -> Option<packagelist::PackageList> {
     self::db::get_list(id).unwrap()
@@ -50,4 +52,12 @@ pub fn new_item(list_id: Uuid, item_name: String, item_count: i32) -> packagelis
 
 pub fn get_trips() -> Vec<Trip> {
     self::db::get_trips().unwrap()
+}
+
+pub fn get_trip(trip_id: Uuid) -> Option<Trip> {
+    self::db::get_trip(trip_id).unwrap()
+}
+
+pub fn get_trip_items(trip_id: Uuid) -> Option<Vec<TripItem>> {
+    self::db::get_trip_items(trip_id).unwrap()
 }

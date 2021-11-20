@@ -36,7 +36,7 @@
                 {:then trips}
                     {#each trips as trip}
                         <tr class="border" on:click={e => redirect(url + trip.id)}>
-                            <td class="p-3">{trip.name}</td>
+                            <td class="p-3" on:click={() => redirect(`/trips/${trip.id}`)}>{trip.name}</td>
                             <td class="p-3">{trip.date}</td>
                             <td class="p-3">{trip.parameters.days}</td>
                             {#if trip.state == "active"}

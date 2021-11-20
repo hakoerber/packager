@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use rusqlite;
 use uuid::Uuid;
 
@@ -12,6 +15,8 @@ use super::PreparationStep;
 use super::Trip;
 use super::TripParameters;
 use super::TripState;
+use super::TripItem;
+use super::TripItemStatus;
 
 pub fn load() -> rusqlite::Result<()> {
     let example_lists = vec![
@@ -726,6 +731,20 @@ pub fn load() -> rusqlite::Result<()> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE trip_items (
+            trip_id             TEXT NOT NULL,
+            packagelistitem_id  TEXT NOT NULL,
+            status              INTEGER NOT NULL,
+
+            FOREIGN KEY(trip_id) REFERENCES trips(id)
+            FOREIGN KEY(packagelistitem_id) REFERENCES packagelistitems(id)
+
+            PRIMARY KEY(trip_id, packagelistitem_id)
+        )",
+        [],
+    )?;
+
     for list in example_lists {
         conn.execute(
             "INSERT INTO
@@ -1039,4 +1058,221 @@ pub fn get_trips() -> rusqlite::Result<Vec<Trip>> {
     }
 
     Ok(trips)
+}
+
+pub fn get_trip(trip_id: Uuid) -> rusqlite::Result<Option<Trip>> {
+    let conn = rusqlite::Connection::open("./sqlite.db")?;
+
+    let mut statement = conn.prepare(
+        "SELECT
+            trips.id AS trip_id,
+            trips.name AS trip_name,
+            trips.date AS trip_date,
+            trips.days AS trip_days,
+            trips.state AS trip_state
+        FROM trips
+        WHERE
+            trip_id = ?1
+        ",
+    )?;
+
+    let trip_query_result = statement.query_map(rusqlite::params![trip_id], |row| {
+        Ok(Trip{
+            id: row.get_unwrap(0),
+            name: row.get_unwrap(1),
+            date: row.get_unwrap(2),
+            parameters: TripParameters{
+                days: row.get_unwrap(3),
+            },
+            package_lists: vec![],
+            state: row.get_unwrap(4),
+        })
+    })?;
+
+    let mut trip_query_result: Vec<Trip> = trip_query_result.flatten().collect();
+
+    if trip_query_result.is_empty() {
+        return Ok(None);
+    }
+
+    let mut trip: Trip = trip_query_result.remove(0);
+
+    let mut statement = conn.prepare(
+        "SELECT
+            trip_packagelist.packagelist_id as package_list_id,
+            packagelists.name as package_list_name
+        FROM trip_packagelist
+        INNER JOIN packagelists
+            ON packagelists.id == trip_packagelist.packagelist_id
+        WHERE
+            trip_packagelist.trip_id = ?1
+
+        ",
+    )?;
+
+    let lists: Vec<(Uuid, String)> = statement
+        .query_map(rusqlite::params![trip_id], |row| {
+            Ok((row.get_unwrap(0), row.get_unwrap(1)))
+        })?
+        .flatten()
+        .collect();
+
+    trip.set_package_lists(lists);
+
+    Ok(Some(trip))
+}
+
+pub fn get_trip_items(trip_id: Uuid) -> rusqlite::Result<Option<Vec<TripItem>>> {
+    // there has to be better way to get the rested option result
+    let trip: Option<Trip> = get_trip(trip_id)?;
+    println!("Getting trip items");
+    if let None = trip {
+        return Ok(None)
+    }
+    let trip = trip.unwrap();
+
+    let conn = rusqlite::Connection::open("./sqlite.db")?;
+
+    let mut statement = conn.prepare(
+        "SELECT
+            trip_items.packagelistitem_id,
+            status AS status,
+            pli.id AS packageitem_id,
+            pli.name AS packageitem_name,
+            pli.count AS packageitem_count,
+        FROM trip_items
+        INNER JOIN packagelistitems as pli
+            ON trip_items.packagelistitem_id = pli.id
+        WHERE
+            trip_items.trip_id = ?1
+        ",
+    )?;
+
+    let mut result : Vec<TripItem> = Vec::new();
+
+    let trip_items : Vec<TripItem> = statement.query_map(rusqlite::params![trip_id], |row| {
+        let package_item = PackageItem::new(
+            row.get_unwrap(2),
+            row.get_unwrap(3),
+            ItemSize::None,
+            row.get_unwrap(4),
+            ItemUsage::Singleton,
+            Preparation::None,
+        );
+
+        let package_list_id = row.get_unwrap(5);
+
+        let package_list = Rc::new(PackageList::new(
+            package_list_id,
+            row.get_unwrap(6),
+        ));
+
+        Ok(TripItem{
+            status: row.get_unwrap(1),
+            package_item,
+            package_list: Rc::clone(package_lists.get(&package_list_id).unwrap()),
+        })
+    })?.flatten().collect();
+
+    println!("Found {} trip items in database", trip_items.len());
+    // get all package list items, so we know what we SHOULD have
+    let mut package_list_items = vec![];
+    for package_list in &trip.package_lists {
+        package_list_items.append(&mut get_list_items(package_list.id)?);
+    }
+
+    println!("There should be {} items according to the package lists", package_list_items.len());
+
+    let package_list_item_ids: Vec<Uuid> = package_list_items.iter().map(|item| item.id).collect();
+
+    // three possibilities:
+    //
+    // * The trip item is there => use it
+    // * The trip item is not there => create it with defaults
+    // * There is a trip item that should no be there (e.g. because the package
+    //   list was changed and a package item was removed)
+    //
+    //   We can either just not use it (letting it rot in the database). It will
+    //   never be removed automatically. But if we later add it again, something
+    //   will break (e.g. if someone re-attaches the package list to the trip).
+
+    // first run: get all trip items that have the trip id set. We need to
+    // check this list against the items. If there are any returned that are
+    // NOT part of the package list items, we remove them
+    for package_item in package_list_items {
+
+
+        for trip_item in &trip_items {
+            let item_id = trip_item.package_item.id;
+            if !package_list_item_ids.contains(&item_id) {
+                // there is a trip item that does no longer have a corresponding
+                // package list item (because a package list was detached).
+                // Remove it
+                println!("Would remove package item with id {} (\"{}\")",
+                    package_item.id, package_item.name);
+                // conn.execute(
+                //     "DELETE
+                //     FROM trip_items
+                //     WHERE
+                //         trip_items.trip_id = ?1
+                //         AND
+                //         trip_items.packagelistitem_id = ?2
+                //     ",
+                //     rusqlite::params![trip_id, package_item.id]
+                // )?;
+                continue
+            }
+        }
+
+        if !trip_items.iter().map(|i| i.package_item.id).collect::<Vec<Uuid>>().contains(&package_item.id) {
+            println!("Found new trip item!");
+
+            println!("Looking into hashmap with {:?}", package_item.id);
+            let list = Rc::clone(package_lists.get(&package_item.id).unwrap());
+            let new_trip_item = TripItem {
+                status: TripItemStatus::Pending,
+                package_item,
+                package_list: list,
+            };
+
+            conn.execute(
+                "INSERT INTO
+                    trip_items (
+                        trip_id,
+                        packagelistitem_id,
+                        status
+                    ) VALUES (
+                        ?1,
+                        ?2,
+                        ?3
+                    )
+                ",
+                rusqlite::params![
+                    trip_id,
+                    new_trip_item.package_item.id,
+                    new_trip_item.status
+                ]
+            )?;
+
+
+            result.push(new_trip_item);
+            continue;
+        }
+
+        // If we've come so far, the trip is actually in the database, so let's
+        // just use it
+        println!("Using trip item from database");
+        let list = Rc::clone(package_lists.get(&package_item.id).unwrap());
+        result.push(TripItem {
+            status: TripItemStatus::Pending,
+            package_item,
+            package_list: list,
+        });
+
+    }
+
+
+
+
+    Ok(Some(result))
 }

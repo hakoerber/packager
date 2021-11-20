@@ -131,6 +131,40 @@ pub fn new() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
         .map(|| warp::reply::json(&super::get_trips()))
         .with(&cors);
 
+    let trip = warp::path!("v1" / "trips" / String)
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(accept_json)
+        .and_then(|trip_id: String| async move {
+            match Uuid::parse_str(&trip_id) {
+                Ok(trip_id) => {
+                    match &super::get_trip(trip_id) {
+                        Some(trip) => Ok(warp::reply::json(trip)),
+                        None => Err(warp::reject::not_found()),
+                    }
+                },
+                Err(_) => Err(warp::reject::custom(InvalidUuid)),
+            }
+        })
+        .with(&cors);
+
+    let trip_items = warp::path!("v1" / "trips" / String / "items")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(accept_json)
+        .and_then(|trip_id: String| async move {
+            match Uuid::parse_str(&trip_id) {
+                Ok(trip_id) => {
+                    match &super::get_trip_items(trip_id) {
+                        Some(trip) => Ok(warp::reply::json(trip)),
+                        None => Err(warp::reject::not_found()),
+                    }
+                },
+                Err(_) => Err(warp::reject::custom(InvalidUuid)),
+            }
+        })
+        .with(&cors);
+
     root.or(v1)
         .or(lists)
         .or(list)
@@ -138,6 +172,8 @@ pub fn new() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
         .or(list_items)
         .or(preparation)
         .or(trips)
+        .or(trip)
+        .or(trip_items)
         .recover(handle_rejection)
         .boxed()
 }

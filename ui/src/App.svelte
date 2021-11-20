@@ -8,6 +8,8 @@
     import PackageList from "./routes/PackageList.svelte";
     import Preparation from "./routes/Preparation.svelte";
     import Trips from "./routes/Trips.svelte";
+    import Trip from "./routes/Trip.svelte";
+    import NotFound from "./routes/NotFound.svelte";
 
     function normalize(path) {
         return path.replace(/\/+$/, '') + "/";
@@ -32,6 +34,10 @@
         } else if (urlParts[0] == "trips" && urlParts.length == 1) {
             console.log("=> Trips");
             currentRoute = Trips;
+        } else if (urlParts[0] == "trips" && urlParts.length == 2) {
+            console.log("=> Trip");
+            currentRoute = Trip;
+            data = {id: urlParts[1]};
         } else if (urlParts[0] == "lists" && urlParts.length == 2) {
             console.log("=> PackageList");
             currentRoute = PackageList;
@@ -45,6 +51,7 @@
             data = {list_id: urlParts[1], item_id: urlParts[3]};
         } else {
             console.log("No matching route found");
+            currentRoute = NotFound;
         }
     }
 
