@@ -35,6 +35,6 @@ version  = "0.8"
 features = ["serde", "v4"]
 
 [dependencies.rusqlite]
-version  = "0.26.0"
+version  = "0.26.2"
 features = ["uuid"]
 
