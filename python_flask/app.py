@@ -430,7 +430,82 @@ def edit_list_submit(id):
             return make_response("", 404)
         pkglist.name = name
         pkglist.description = description
-        db.session.commit()
+        try:
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            with t.tr(id="pkglist-edit-row") as doc:
+                with t.td(
+                    colspan=2, _class=cls("border-none", "bg-purple-100", "h-10")
+                ):
+                    t.p(
+                        f"Name {name} already exists",
+                        _class=cls("text-red-400", "text-sm"),
+                    )
+                    with t.div(_class=cls("flex", "flex-row", "h-full")):
+                        with t.div(
+                            _class=cls(
+                                "box-border" "border",
+                                "border-2",
+                                "border-red-500",
+                                "bg-purple-100",
+                                "mr-1",
+                            )
+                        ):
+                            with t.div(_class=cls("h-full")):
+                                t._input(
+                                    _class=cls(
+                                        "bg-purple-100", "w-full", "h-full", "px-2"
+                                    ),
+                                    type="text",
+                                    name="name",
+                                    value=name,
+                                )
+                        with t.div(
+                            _class=cls(
+                                "border",
+                                "border-1",
+                                "border-purple-500",
+                                "bg-purple-100",
+                            )
+                        ):
+                            t._input(
+                                _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
+                                type="text",
+                                name="description",
+                                value=description,
+                            )
+                t.td(
+                    t.span(_class=cls("mdi", "mdi-cancel", "text-xl")),
+                    id="edit-packagelist-abort",
+                    data_hx_post=f"/list/{id}/edit/cancel",
+                    data_hx_target="#pkglist-edit-row",
+                    data_hx_swap="outerHTML",
+                    _class=cls(
+                        "border",
+                        "bg-red-200",
+                        "hover:bg-red-400",
+                        "cursor-pointer",
+                        "w-8",
+                        "text-center",
+                    ),
+                ),
+                t.td(
+                    t.span(_class=cls("mdi", "mdi-content-save", "text-xl")),
+                    id="edit-packagelist-save",
+                    data_hx_post=f"/list/{id}/edit/submit",
+                    data_hx_target="#pkglist-edit-row",
+                    data_hx_swap="outerHTML",
+                    data_hx_include="closest tr",
+                    _class=cls(
+                        "border",
+                        "bg-green-200",
+                        "hover:bg-green-400",
+                        "cursor-pointer",
+                        "w-8",
+                        "text-center",
+                    ),
+                ),
+            return make_response(doc.render(), 200)
     except:
         raise
 
