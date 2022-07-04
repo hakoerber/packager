@@ -146,6 +146,7 @@ def new_pkglist_form(name=None, description=None, error=False, errormsg=None):
         data_hx_target="#pkglist-manager",
         data_hx_swap="outerHTML",
         _class=cls("mt-8", "p-5", "border-2", "border-gray-200"),
+        **{"x-on:htmx:before-request": "(e) => submit_enabled || e.preventDefault()"},
     ) as doc:
         with t.div(_class=cls("mb-5", "flex", "flex-row", "items-center")):
             t.span(_class=cls("mdi", "mdi-playlist-plus", "text-2xl", "mr-4"))
@@ -183,7 +184,7 @@ def new_pkglist_form(name=None, description=None, error=False, errormsg=None):
                                 "focus:border-purple-500" if not error else None,
                             ),
                             **{
-                                "x-on:change": "submit_enabled = $event.srcElement.value.length !== 0;"
+                                "x-on:input": "submit_enabled = $event.srcElement.value.trim().length !== 0;"
                             },
                         )
                         t.p(
@@ -216,14 +217,14 @@ def new_pkglist_form(name=None, description=None, error=False, errormsg=None):
                         "focus:border-purple-500",
                     ),
                 )
-            t.p(**{"x-text": "submit_enabled"})
             t._input(
                 type="submit",
                 value="Add",
+                **{
+                    "x-bind:class": 'submit_enabled ? "" : "cursor-not-allowed opacity-50"'
+                },
                 _class=cls(
                     "py-2",
-                    "cursor-not-allowed" if error else None,
-                    "opacity-50" if error else None,
                     "border-2",
                     "rounded",
                     "border-gray-300",
@@ -236,18 +237,19 @@ def new_pkglist_form(name=None, description=None, error=False, errormsg=None):
     return doc
 
 
-def pkglist_manager(error=False, errormsg=None):
+def pkglist_manager(name=None, description=None, error=False, errormsg=None):
     assert not (error and not errormsg)
     with t.div(
         id="pkglist-manager",
         _class=cls("p-8", "max-w-xl"),
         **{
-            "x-data": '{ submit_enabled: document.getElementById("listname").textLength !== 0 }'
+            "x-data": '{ submit_enabled: document.getElementById("listname").value.trim().length !== 0 }'
         },
     ) as doc:
-        t.script(raw(open("app.js").read()))
         pkglist_table()
-        new_pkglist_form(error=error, errormsg=errormsg)
+        new_pkglist_form(
+            name=name, description=description, error=error, errormsg=errormsg
+        )
     return doc
 
 
@@ -263,40 +265,56 @@ def root():
             href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css",
         )
     with doc:
+        t.script(raw(open("app.js").read()))
         pkglist_manager()
 
-    return doc.render()
+    return make_response(doc.render(), 200)
 
 
 @app.route("/list/", methods=["POST"])
 def add_new_list():
     name = request.form["name"]
     description = request.form["description"]
+    error, errormsg = validate_name(name)
+
+    print(error, errormsg)
+    if not error:
+        if add_packagelist(name=name, description=description) is False:
+            error = True
+            errormsg = f'Name "{name}" already exists'
+
+    return make_response(
+        pkglist_manager(
+            name=name, description=description, error=error, errormsg=errormsg
+        ).render(),
+        200,
+    )
+
+
+def validate_name(name):
     error, errormsg = False, None
+
     if len(name) == 0:
         error = True
         errormsg = f"Name cannot be empty"
-    elif add_packagelist(name=name, description=description) is False:
+    elif name.isspace():
         error = True
-        errormsg = f'A package list with name "{name}" already exists'
+        errormsg = f"Name cannot be only whitespace"
 
-    return pkglist_manager(error=error, errormsg=errormsg).render()
+    return error, errormsg
 
 
 @app.route("/list/name/validate", methods=["POST"])
 def validate_list_name():
     name = request.form["name"]
 
-    error, errormsg = False, None
+    error, errormsg = validate_name(name)
 
-    if PackageList.query.filter_by(name=name).first() is not None:
-        error = True
-        errormsg = f'Name "{name}" already exists'
-    if len(name) == 0:
-        error = True
-        errormsg = f"Name cannot be empty"
-
-    doc = new_pkglist_form(name, error, errormsg)
+    if not error:
+        if PackageList.query.filter_by(name=name).first() is not None:
+            error = True
+            errormsg = f'Name "{name}" already exists'
+    doc = new_pkglist_form(name=name, error=error, errormsg=errormsg)
 
     return make_response(doc.render(), 200)
 
@@ -448,10 +466,14 @@ def edit_list_submit(id):
     return make_response(doc.render(), 200)
 
 
-@app.route("/list/<uuid:id>/edit", methods=["POST"])
-def edit_list(id):
-    pkglist = get_packagelist_by_id(id)
-    with t.tr(_class="h-10", id="pkglist-edit-row") as doc:
+def get_edit_list(pkglist):
+    with t.tr(
+        _class="h-10",
+        id="pkglist-edit-row",
+        **{
+            "x-data": '{ edit_submit_enabled: document.getElementById("listedit-name").value.trim().length() !== 0 }'
+        },
+    ) as doc:
         with t.td(colspan=2, _class=cls("border-none", "bg-purple-100", "h-full")):
             with t.div(_class=cls("flex", "flex-row", "h-full")):
                 with t.div(
@@ -466,8 +488,12 @@ def edit_list(id):
                     t._input(
                         _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
                         type="text",
+                        id="listedit-name",
                         name="name",
                         value=pkglist.name,
+                        **{
+                            "x-on:input": "edit_submit_enabled = $event.srcElement.value.trim().length !== 0;"
+                        },
                     )
                 with t.div(
                     _class=cls(
@@ -501,7 +527,7 @@ def edit_list(id):
             data_hx_post=f"/list/{pkglist.id}/edit/submit",
             data_hx_target="#pkglist-edit-row",
             data_hx_swap="outerHTML",
-            data_hx_include="closest tr",
+            data_hx_include="closest #pkglist-edit-row",
             _class=cls(
                 "border",
                 "bg-green-200",
@@ -510,8 +536,19 @@ def edit_list(id):
                 "w-8",
                 "text-center",
             ),
+            **{
+                "x-bind:class": 'edit_submit_enabled || "cursor-not-allowed opacity-50"',
+                "x-on:htmx:before-request": "(e) => edit_submit_enabled || e.preventDefault()",
+            },
         ),
-    return make_response(doc.render(), 200)
+    return doc
+
+
+@app.route("/list/<uuid:id>/edit", methods=["POST"])
+def edit_list(id):
+    pkglist = get_packagelist_by_id(id)
+
+    return make_response(get_edit_list(pkglist).render(), 200)
 
 
 @app.route("/list/<uuid:id>", methods=["DELETE"])
