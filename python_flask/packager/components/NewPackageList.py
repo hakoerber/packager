@@ -13,6 +13,9 @@ def NewPackageList(name=None, description=None, error=False, errormsg=None):
         data_hx_post="/list/",
         data_hx_target="#pkglist-manager",
         data_hx_swap="outerHTML",
+        action="/list/",
+        target="_self",
+        method="post",
         _class=cls("mt-8", "p-5", "border-2", "border-gray-200"),
         **{"x-on:htmx:before-request": "(e) => submit_enabled || e.preventDefault()"},
     ) as doc:

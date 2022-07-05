@@ -10,7 +10,7 @@ import dominate
 import dominate.tags as t
 from dominate.util import raw
 
-from .components import PackageListManager
+from .components import PackageListManager, NewPackageList, Home
 
 from flask import request, make_response
 
@@ -45,45 +45,45 @@ def delete_packagelist(id):
 
 @app.route("/")
 def root():
-    doc = dominate.document(title="My cool title")
-    with doc.head:
-        t.script(src="https://unpkg.com/htmx.org@1.7.0")
-        t.script(src="https://cdn.tailwindcss.com")
-        t.script(src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js", defer=True)
-        t.link(
-            rel="stylesheet",
-            href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css",
-        )
-    with doc:
+    return make_response(
+        Home(PackageListManager(get_packagelists()), app.root_path).doc.render(), 200
+    )
 
-        t.script(raw(open(os.path.join(app.root_path, "js/app.js")).read()))
-        PackageListManager(get_packagelists())
 
-    return make_response(doc.render(), 200)
+def is_htmx():
+    return request.headers.get("HX-Request") is not None
 
 
 @app.route("/list/", methods=["POST"])
 def add_new_list():
+    print(f"headers: {request.headers}")
     name = request.form["name"]
     description = request.form["description"]
+
     error, errormsg = validate_name(name)
 
-    print(error, errormsg)
     if not error:
         if add_packagelist(name=name, description=description) is False:
             error = True
             errormsg = f'Name "{name}" already exists'
 
-    return make_response(
-        PackageListManager(
-            get_packagelists(),
-            name=name,
-            description=description,
-            error=error,
-            errormsg=errormsg,
-        ).render(),
-        200,
-    )
+    if is_htmx():
+        return make_response(
+            str(
+                PackageListManager(
+                    get_packagelists(),
+                    name=name,
+                    description=description,
+                    error=error,
+                    errormsg=errormsg,
+                )
+            ),
+            200 if error else 201,
+        )
+    else:
+        r = make_response("", 303)
+        r.headers["Location"] = "/"
+        return r
 
 
 def validate_name(name):
@@ -109,7 +109,7 @@ def validate_list_name():
         if PackageList.query.filter_by(name=name).first() is not None:
             error = True
             errormsg = f'Name "{name}" already exists'
-    doc = new_pkglist_form(name=name, error=error, errormsg=errormsg)
+    doc = NewPackageList(name=name, error=error, errormsg=errormsg)
 
     return make_response(doc.render(), 200)
 

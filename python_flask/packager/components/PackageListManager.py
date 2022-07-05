@@ -25,6 +25,3 @@ class PackageListManager:
             )
 
         self.doc = doc
-
-    def render(self):
-        return self.doc.render()
