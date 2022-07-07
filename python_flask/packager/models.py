@@ -8,6 +8,10 @@ class PackageList(db.Model):
     description = db.Column(db.Text)
     items = db.relationship("PackageListItem", backref="packagelist", lazy=True)
 
+    edit = False
+    error = False
+    errormsg = None
+
 
 class PackageListItem(db.Model):
     __tablename__ = "packagelistitem"

@@ -10,7 +10,14 @@ import dominate
 import dominate.tags as t
 from dominate.util import raw
 
-from .components import PackageListManager, NewPackageList, Home
+from .components import (
+    PackageListManager,
+    NewPackageList,
+    Home,
+    PackageListTableRowEdit,
+    PackageListTableRowNormal,
+    PackageListTableRow,
+)
 
 from flask import request, make_response
 
@@ -45,8 +52,29 @@ def delete_packagelist(id):
 
 @app.route("/")
 def root():
+    packagelists = get_packagelists()
+    error = False
+    if not is_htmx():
+        edit = request.args.get("edit")
+        if edit is not None:
+            match = [p for p in packagelists if p.id == edit]
+            if match:
+                match[0].edit = True
+                error = request.args.get("error")
+                if error and bool(int(error)):
+                    match[0].error = True
+                    errormsg = request.args.get("msg")
+                    if errormsg:
+                        match[0].errormsg = errormsg
+                    else:
+                        name = request.args.get("name")
+                        if name:
+                            match[0].errormsg = f"Invalid name: {name}"
+                        else:
+                            match[0].errormsg = f"Invalid name"
+
     return make_response(
-        Home(PackageListManager(get_packagelists()), app.root_path).doc.render(), 200
+        Home(PackageListManager(packagelists), app.root_path).doc.render(), 200
     )
 
 
@@ -56,7 +84,6 @@ def is_htmx():
 
 @app.route("/list/", methods=["POST"])
 def add_new_list():
-    print(f"headers: {request.headers}")
     name = request.form["name"]
     description = request.form["description"]
 
@@ -69,15 +96,13 @@ def add_new_list():
 
     if is_htmx():
         return make_response(
-            str(
-                PackageListManager(
-                    get_packagelists(),
-                    name=name,
-                    description=description,
-                    error=error,
-                    errormsg=errormsg,
-                )
-            ),
+            PackageListManager(
+                get_packagelists(),
+                name=name,
+                description=description,
+                error=error,
+                errormsg=errormsg,
+            ).doc.render(),
             200 if error else 201,
         )
     else:
@@ -116,309 +141,63 @@ def validate_list_name():
 
 @app.route("/list/<uuid:id>/edit/cancel", methods=["POST"])
 def edit_list_cancel(id):
+    print("cancelling" * 20)
     pkglist = PackageList.query.filter_by(id=str(id)).first()
-
-    with t.tr(_class=cls("h-10", "even:bg-gray-100", "hover:bg-purple-200")) as doc:
-        t.td(pkglist.name, _class=cls("border", "px-2")),
-        t.td(str(pkglist.description), _class=cls("border", "px-2")),
-        t.td(
-            t.span(_class=cls("mdi", "mdi-delete", "text-xl")),
-            id="delete-packagelist",
-            data_hx_delete=f"/list/{pkglist.id}",
-            _class=cls(
-                "border",
-                "bg-red-200",
-                "hover:bg-red-400",
-                "cursor-pointer",
-                "w-8",
-                "text-center",
-            ),
-        ),
-        t.td(
-            t.span(_class=cls("mdi", "mdi-pencil", "text-xl")),
-            id="edit-packagelist",
-            data_hx_post=f"/list/{pkglist.id}/edit",
-            _class=cls(
-                "border",
-                "bg-blue-200",
-                "hover:bg-blue-400",
-                "cursor-pointer",
-                "w-8",
-                "text-center",
-            ),
-        ),
-    return make_response(doc.render(), 200)
+    return make_response(PackageListTableRowNormal(pkglist).doc.render(), 200)
 
 
-@app.route("/list/<uuid:id>/edit/submit", methods=["POST"])
+@app.route("/list/<uuid:id>/edit/submit/", methods=["POST"])
 def edit_list_submit(id):
     name = request.form["name"]
     description = request.form["description"]
-    if len(name) == 0:
-        with t.tr(id="pkglist-edit-row") as doc:
-            with t.td(colspan=3, _class=cls("border-none", "bg-purple-100", "h-10")):
-                t.p("Name cannot be empty", _class=cls("text-red-400", "text-sm"))
-                with t.div(_class=cls("flex", "flex-row", "h-full")):
-                    with t.div(
-                        _class=cls(
-                            "box-border" "border",
-                            "border-2",
-                            "border-red-500",
-                            "bg-purple-100",
-                            "mr-1",
-                        )
-                    ):
-                        with t.div(_class=cls("h-full")):
-                            t._input(
-                                _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
-                                type="text",
-                                name="name",
-                                value=name,
-                            )
-                    with t.div(
-                        _class=cls(
-                            "border", "border-1", "border-purple-500", "bg-purple-100"
-                        )
-                    ):
-                        t._input(
-                            _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
-                            type="text",
-                            name="description",
-                            value=description,
-                        )
-            t.td(
-                t.span(_class=cls("mdi", "mdi-cancel", "text-xl")),
-                id="edit-packagelist-abort",
-                data_hx_post=f"/list/{id}/edit/cancel",
-                data_hx_target="#pkglist-edit-row",
-                data_hx_swap="outerHTML",
-                _class=cls(
-                    "border",
-                    "bg-red-200",
-                    "hover:bg-red-400",
-                    "cursor-pointer",
-                    "w-8",
-                    "text-center",
-                ),
-            ),
-            t.td(
-                t.span(_class=cls("mdi", "mdi-content-save", "text-xl")),
-                id="edit-packagelist-save",
-                data_hx_post=f"/list/{id}/edit/submit",
-                data_hx_target="#pkglist-edit-row",
-                data_hx_swap="outerHTML",
-                data_hx_include="closest tr",
-                _class=cls(
-                    "border",
-                    "bg-green-200",
-                    "hover:bg-green-400",
-                    "cursor-pointer",
-                    "w-8",
-                    "text-center",
-                ),
-            ),
-        return make_response(doc.render(), 200)
+    error, errormsg = validate_name(name)
+
+    if error:
+        if is_htmx():
+            return make_response(
+                PackageListTableRowEdit(error=True, errormsg=errormsg).doc.render(), 200
+            )
+        else:
+            r = make_response("", 303)
+            r.headers["Location"] = f"/?edit={id}&error=1&msg={errormsg}"
+            return r
+
+    pkglist = PackageList.query.filter_by(id=str(id)).first()
+    if pkglist is None:
+        # todo what to do without js?
+        return make_response("", 404)
+
+    pkglist.name = name
+    pkglist.description = description
 
     try:
-        pkglist = PackageList.query.filter_by(id=str(id)).first()
-        if pkglist is None:
-            return make_response("", 404)
-        pkglist.name = name
-        pkglist.description = description
-        try:
-            db.session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            with t.tr(id="pkglist-edit-row") as doc:
-                with t.td(
-                    colspan=3, _class=cls("border-none", "bg-purple-100", "h-10")
-                ):
-                    t.p(
-                        f"Name {name} already exists",
-                        _class=cls("text-red-400", "text-sm"),
-                    )
-                    with t.div(_class=cls("flex", "flex-row", "h-full")):
-                        with t.div(
-                            _class=cls(
-                                "box-border" "border",
-                                "border-2",
-                                "border-red-500",
-                                "bg-purple-100",
-                                "mr-1",
-                            )
-                        ):
-                            with t.div(_class=cls("h-full")):
-                                t._input(
-                                    _class=cls(
-                                        "bg-purple-100", "w-full", "h-full", "px-2"
-                                    ),
-                                    type="text",
-                                    name="name",
-                                    value=name,
-                                )
-                        with t.div(
-                            _class=cls(
-                                "border",
-                                "border-1",
-                                "border-purple-500",
-                                "bg-purple-100",
-                            )
-                        ):
-                            t._input(
-                                _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
-                                type="text",
-                                name="description",
-                                value=description,
-                            )
-                t.td(
-                    t.span(_class=cls("mdi", "mdi-cancel", "text-xl")),
-                    id="edit-packagelist-abort",
-                    data_hx_post=f"/list/{id}/edit/cancel",
-                    data_hx_target="#pkglist-edit-row",
-                    data_hx_swap="outerHTML",
-                    _class=cls(
-                        "border",
-                        "bg-red-200",
-                        "hover:bg-red-400",
-                        "cursor-pointer",
-                        "w-8",
-                        "text-center",
-                    ),
-                ),
-                t.td(
-                    t.span(_class=cls("mdi", "mdi-content-save", "text-xl")),
-                    id="edit-packagelist-save",
-                    data_hx_post=f"/list/{id}/edit/submit",
-                    data_hx_target="#pkglist-edit-row",
-                    data_hx_swap="outerHTML",
-                    data_hx_include="closest tr",
-                    _class=cls(
-                        "border",
-                        "bg-green-200",
-                        "hover:bg-green-400",
-                        "cursor-pointer",
-                        "w-8",
-                        "text-center",
-                    ),
-                ),
-            return make_response(doc.render(), 200)
-    except:
-        raise
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        db.session.rollback()
+        errormsg = f'Name "{name}" already exists'
+        if is_htmx():
+            pkglist.error = True
+            pkglist.errormsg = errormsg
+            return make_response(PackageListTableRowEdit(pkglist).doc.render(), 200)
+        else:
+            r = make_response("", 303)
+            r.headers["Location"] = f"/?edit={id}&name={name}&error=1&msg={errormsg}"
+            return r
 
-    with t.tr(_class=cls("h-10", "even:bg-gray-100", "hover:bg-purple-200")) as doc:
-        t.td(pkglist.name, _class=cls("border", "px-2")),
-        t.td(str(pkglist.description), _class=cls("border", "px-2")),
-        t.td(
-            t.span(_class=cls("mdi", "mdi-delete", "text-xl")),
-            id="delete-packagelist",
-            data_hx_delete=f"/list/{pkglist.id}",
-            _class=cls(
-                "border",
-                "bg-red-200",
-                "hover:bg-red-400",
-                "cursor-pointer",
-                "w-8",
-                "text-center",
-            ),
-        ),
-        t.td(
-            t.span(_class=cls("mdi", "mdi-pencil", "text-xl")),
-            id="edit-packagelist",
-            data_hx_post=f"/list/{pkglist.id}/edit",
-            _class=cls(
-                "border",
-                "bg-blue-200",
-                "hover:bg-blue-400",
-                "cursor-pointer",
-                "w-8",
-                "text-center",
-            ),
-        ),
-    return make_response(doc.render(), 200)
-
-
-def get_edit_list(pkglist):
-    with t.tr(
-        _class="h-10",
-        id="pkglist-edit-row",
-        **{
-            "x-data": '{ edit_submit_enabled: document.getElementById("listedit-name").value.trim().length !== 0 }'
-        },
-    ) as doc:
-        with t.td(colspan=3, _class=cls("border-none", "bg-purple-100", "h-full")):
-            with t.div(_class=cls("flex", "flex-row", "h-full")):
-                with t.div(
-                    _class=cls(
-                        "border",
-                        "border-1",
-                        "border-purple-500",
-                        "bg-purple-100",
-                        "mr-1",
-                    )
-                ):
-                    t._input(
-                        _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
-                        type="text",
-                        id="listedit-name",
-                        name="name",
-                        value=pkglist.name,
-                        **{
-                            "x-on:input": "edit_submit_enabled = $event.srcElement.value.trim().length !== 0;"
-                        },
-                    )
-                with t.div(
-                    _class=cls(
-                        "border", "border-1", "border-purple-500", "bg-purple-100"
-                    )
-                ):
-                    t._input(
-                        _class=cls("bg-purple-100", "w-full", "h-full", "px-2"),
-                        type="text",
-                        name="description",
-                        value=pkglist.description,
-                    )
-        t.td(
-            t.span(_class=cls("mdi", "mdi-cancel", "text-xl")),
-            id="edit-packagelist-abort",
-            data_hx_post=f"/list/{pkglist.id}/edit/cancel",
-            data_hx_target="#pkglist-edit-row",
-            data_hx_swap="outerHTML",
-            _class=cls(
-                "border",
-                "bg-red-200",
-                "hover:bg-red-400",
-                "cursor-pointer",
-                "w-8",
-                "text-center",
-            ),
-        ),
-        t.td(
-            t.span(_class=cls("mdi", "mdi-content-save", "text-xl")),
-            id="edit-packagelist-save",
-            data_hx_post=f"/list/{pkglist.id}/edit/submit",
-            data_hx_target="#pkglist-edit-row",
-            data_hx_swap="outerHTML",
-            data_hx_include="closest #pkglist-edit-row",
-            _class=cls(
-                "border",
-                "bg-green-200",
-                "hover:bg-green-400",
-                "cursor-pointer",
-                "w-8",
-                "text-center",
-            ),
-            **{
-                "x-bind:class": 'edit_submit_enabled || "cursor-not-allowed opacity-50"',
-                "x-on:htmx:before-request": "(e) => edit_submit_enabled || e.preventDefault()",
-            },
-        ),
-    return doc
+    if is_htmx():
+        return make_response(PackageListTableRowNormal(pkglist).doc.render(), 200)
+    else:
+        r = make_response("", 303)
+        r.headers["Location"] = "/"
+        return r
 
 
 @app.route("/list/<uuid:id>/edit", methods=["POST"])
 def edit_list(id):
     pkglist = get_packagelist_by_id(id)
 
-    return make_response(get_edit_list(pkglist).render(), 200)
+    out = PackageListTableRowEdit(pkglist).doc
+    return make_response(out.render(), 200)
 
 
 @app.route("/list/<uuid:id>", methods=["DELETE"])

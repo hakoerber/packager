@@ -17,7 +17,17 @@ def NewPackageList(name=None, description=None, error=False, errormsg=None):
         target="_self",
         method="post",
         _class=cls("mt-8", "p-5", "border-2", "border-gray-200"),
-        **{"x-on:htmx:before-request": "(e) => submit_enabled || e.preventDefault()"},
+        **{
+            "x-on:htmx:before-request": "(e) => submit_enabled || e.preventDefault()",
+            "x-data": alpinedata(
+                {
+                    "submit_enabled": (
+                        jsbool(not error)
+                        + '&& document.getElementById("listname").value.trim().length !== 0'
+                    )
+                }
+            ),
+        },
     ) as doc:
         with t.div(_class=cls("mb-5", "flex", "flex-row", "items-center")):
             t.span(_class=cls("mdi", "mdi-playlist-plus", "text-2xl", "mr-4"))
@@ -41,6 +51,7 @@ def NewPackageList(name=None, description=None, error=False, errormsg=None):
                             data_hx_target="#new-pkglist",
                             data_hx_post="/list/name/validate",
                             data_hx_swap="outerHTML",
+                            data_hx_trigger="changed",
                             _class=cls(
                                 "block",
                                 "w-full",
@@ -92,7 +103,7 @@ def NewPackageList(name=None, description=None, error=False, errormsg=None):
                 type="submit",
                 value="Add",
                 **{
-                    "x-bind:class": 'submit_enabled ? "" : "cursor-not-allowed opacity-50"'
+                    "x-bind:class": 'submit_enabled ? "cursor-pointer" : "cursor-not-allowed opacity-50"'
                 },
                 _class=cls(
                     "py-2",

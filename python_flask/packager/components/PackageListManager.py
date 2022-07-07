@@ -12,13 +12,7 @@ class PackageListManager:
         self, pkglists, name=None, description=None, error=False, errormsg=None
     ):
         assert not (error and not errormsg)
-        with t.div(
-            id="pkglist-manager",
-            _class=cls("p-8", "max-w-xl"),
-            **{
-                "x-data": '{ submit_enabled: document.getElementById("listname").value.trim().length !== 0 }'
-            },
-        ) as doc:
+        with t.div(id="pkglist-manager", _class=cls("p-8", "max-w-xl")) as doc:
             PackageListTable(pkglists),
             NewPackageList(
                 name=name, description=description, error=error, errormsg=errormsg
