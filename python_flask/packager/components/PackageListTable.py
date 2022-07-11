@@ -30,7 +30,7 @@ class PackageListTableRowEdit:
                 if error:
                     t.p(errormsg, _class=cls("text-red-400", "text-sm"))
                 with t.div(_class=cls("flex", "flex-row", "h-full")):
-                    with t.div(
+                    with t.span(
                         _class=cls(
                             "border",
                             "border-1",
@@ -50,7 +50,7 @@ class PackageListTableRowEdit:
                                 "x-on:input": "edit_submit_enabled = $event.srcElement.value.trim().length !== 0;"
                             },
                         )
-                    with t.div(
+                    with t.span(
                         _class=cls(
                             "border", "border-1", "border-purple-500", "bg-purple-100"
                         )
@@ -79,7 +79,8 @@ class PackageListTableRowEdit:
                     data_hx_target="closest tr",
                     data_hx_swap="outerHTML",
                 ):
-                    t.span(_class=cls("mdi", "mdi-cancel", "text-xl")),
+                    with t.button():
+                        t.span(_class=cls("mdi", "mdi-cancel", "text-xl")),
             with t.td(
                 id="edit-packagelist-save",
                 _class=cls(
@@ -105,12 +106,7 @@ class PackageListTableRowNormal:
         with t.tr(_class=cls("h-10", "even:bg-gray-100", "hover:bg-purple-200")) as doc:
             t.td(pkglist.name, _class=cls("border", "px-2")),
             t.td(str(pkglist.description), _class=cls("border", "px-2")),
-            t.td(
-                t.span(_class=cls("mdi", "mdi-delete", "text-xl")),
-                id="delete-packagelist",
-                data_hx_delete=f"/list/{pkglist.id}",
-                data_hx_target="closest tr",
-                data_hx_swap="outerHTML",
+            with t.td(
                 _class=cls(
                     "border",
                     "bg-red-200",
@@ -118,8 +114,16 @@ class PackageListTableRowNormal:
                     "cursor-pointer",
                     "w-8",
                     "text-center",
-                ),
-            ),
+                )
+            ):
+                with t.a(
+                    data_hx_delete=f"/list/{pkglist.id}",
+                    data_hx_target="closest tr",
+                    data_hx_swap="outerHTML",
+                    href=f"/list/{pkglist.id}/delete",
+                ):
+                    with t.button():
+                        t.span(_class=cls("mdi", "mdi-delete", "text-xl"))
             with t.td(
                 _class=cls(
                     "border",
@@ -131,17 +135,15 @@ class PackageListTableRowNormal:
                 )
             ):
                 with t.a(
-                    id="edit-packagelist",
                     data_hx_post=f"/list/{pkglist.id}/edit",
                     href=f"/?edit={pkglist.id}",
                     data_hx_target="closest tr",
                     data_hx_swap="outerHTML",
+                    id="edit-packagelist",
                 ):
-                    t.span(_class=cls("mdi", "mdi-pencil", "text-xl")),
-            t.td(
-                t.span(_class=cls("mdi", "mdi-arrow-right", "text-xl")),
-                id="edit-packagelist",
-                # data_hx_post=f"/list/{pkglist.id}/show",
+                    with t.button():
+                        t.span(_class=cls("mdi", "mdi-pencil", "text-xl")),
+            with t.td(
                 _class=cls(
                     "border",
                     "bg-green-200",
@@ -149,8 +151,11 @@ class PackageListTableRowNormal:
                     "cursor-pointer",
                     "w-8",
                     "text-center",
-                ),
-            ),
+                )
+            ):
+                with t.button():
+                    t.span(_class=cls("mdi", "mdi-arrow-right", "text-xl"))
+                # data_hx_post=f"/list/{pkglist.id}/show",
         self.doc = doc
 
 

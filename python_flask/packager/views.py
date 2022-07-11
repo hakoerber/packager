@@ -245,6 +245,15 @@ def edit_list(id):
     return make_response(out.render(), 200)
 
 
+@app.route("/list/<uuid:id>/delete", methods=["GET"])
+def delete_list_via_get(id):
+    if not delete_packagelist(id=id):
+        return make_response("", 404)
+    r = make_response("", 303)
+    r.headers["Location"] = "/"
+    return r
+
+
 @app.route("/list/<uuid:id>", methods=["DELETE"])
 def delete_list(id):
     if not delete_packagelist(id=id):

@@ -42,7 +42,7 @@ def NewPackageList(name=None, description=None, error=False, errormsg=None):
                         _for="listname",
                         _class=cls("font-bold", "w-1/2", "p-2", "text-center"),
                     )
-                    with t.div(_class=cls("w-1/2")):
+                    with t.span(_class=cls("w-1/2")):
                         t._input(
                             type="text",
                             id="listname",
@@ -80,25 +80,26 @@ def NewPackageList(name=None, description=None, error=False, errormsg=None):
                     _for="listdesc",
                     _class=cls("font-bold", "w-1/2", "text-center"),
                 )
-                t._input(
-                    type="text",
-                    id="listdesc",
-                    name="description",
-                    **{"value": description} if description is not None else {},
-                    _class=cls(
-                        "block",
-                        "w-1/2",
-                        "p-2",
-                        "bg-gray-50",
-                        "appearance-none",
-                        "border-2",
-                        "border-gray-300",
-                        "rounded",
-                        "focus:outline-none",
-                        "focus:bg-white",
-                        "focus:border-purple-500",
-                    ),
-                )
+                with t.span(_class=cls("w-1/2")):
+                    t._input(
+                        type="text",
+                        id="listdesc",
+                        name="description",
+                        **{"value": description} if description is not None else {},
+                        _class=cls(
+                            "block",
+                            "w-full",
+                            "p-2",
+                            "bg-gray-50",
+                            "appearance-none",
+                            "border-2",
+                            "border-gray-300",
+                            "rounded",
+                            "focus:outline-none",
+                            "focus:bg-white",
+                            "focus:border-purple-500",
+                        ),
+                    )
             t._input(
                 type="submit",
                 value="Add",
