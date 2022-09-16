@@ -4,19 +4,15 @@ import dominate
 import dominate.tags as t
 from dominate.util import raw
 
+from ..helpers import *
+
 
 class Home:
-    def __init__(self, element, root_path):
-        doc = dominate.document(title="Packager")
-        with doc.head:
-            t.script(src="https://unpkg.com/htmx.org@1.7.0")
-            t.script(src="https://cdn.tailwindcss.com")
-            t.script(src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js", defer=True)
-            t.link(
-                rel="stylesheet",
-                href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css",
-            )
-        with doc:
-            t.script(raw(open(os.path.join(root_path, "js/app.js")).read()))
-        doc.add(element.doc)
+    def __init__(self):
+        with t.div(id="home", _class=cls("p-8", "max-w-xl")) as doc:
+            with t.p():
+                t.a("Inventory", href="/inventory/")
+            with t.p():
+                t.a("Trips", href="/trips/")
+
         self.doc = doc
