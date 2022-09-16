@@ -12,6 +12,7 @@ from dominate.util import raw
 
 from .components import (
     PackageListManager,
+    PackageListItemManager,
     NewPackageList,
     Home,
     PackageListTableRowEdit,
@@ -25,6 +26,16 @@ from flask import request, make_response
 def get_packagelists():
     return PackageList.query.all()
 
+
+def get_categories():
+    return PackageListItemCategory.query.all()
+
+
+def get_all_items():
+    return PackageListItem.query.all()
+
+def get_items(category):
+    return PackageListItem.query.filter_by(category_id=str(category.id))
 
 def get_packagelist_by_id(id):
     return PackageList.query.filter_by(id=str(id)).first()
@@ -52,7 +63,8 @@ def delete_packagelist(id):
 
 @app.route("/")
 def root():
-    packagelists = get_packagelists()
+    categories = get_categories()
+    items = get_all_items()
     error = False
     if not is_htmx():
         edit = request.args.get("edit")
@@ -74,7 +86,40 @@ def root():
                             match[0].errormsg = f"Invalid name"
 
     return make_response(
-        Home(PackageListManager(packagelists), app.root_path).doc.render(), 200
+        Home(PackageListItemManager(categories, items), app.root_path).doc.render(), 200
+    )
+
+
+@app.route("/category/<uuid:id>")
+def category(id):
+    categories = get_categories()
+    print(id)
+    for c in categories:
+        print(f"{c.id} | {c.name}")
+    active_category = [c for c in categories if str(c.id) == str(id)][0]
+    items = get_items(active_category)
+    error = False
+    if not is_htmx():
+        edit = request.args.get("edit")
+        if edit is not None:
+            match = [p for p in packagelists if p.id == edit]
+            if match:
+                match[0].edit = True
+                error = request.args.get("error")
+                if error and bool(int(error)):
+                    match[0].error = True
+                    errormsg = request.args.get("msg")
+                    if errormsg:
+                        match[0].errormsg = errormsg
+                    else:
+                        name = request.args.get("name")
+                        if name:
+                            match[0].errormsg = f"Invalid name: {name}"
+                        else:
+                            match[0].errormsg = f"Invalid name"
+
+    return make_response(
+        Home(PackageListItemManager(categories, items), app.root_path).doc.render(), 200
     )
 
 

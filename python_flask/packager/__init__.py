@@ -1,5 +1,6 @@
 import uuid
 import sqlalchemy
+import csv
 from flask import Flask
 
 from .helpers import *
@@ -14,42 +15,51 @@ db = SQLAlchemy(app)
 from packager.models import *
 import packager.views
 
-
 db.create_all()
+
 try:
-    db.session.add(
-        PackageList(
-            id="ab2f16c2-d5f5-460b-b149-0fc9eec12887",
-            name="EDC",
-            description="What you always carry",
-        )
-    )
-    db.session.add(
-        PackageList(
-            id="9f3a72cd-7e30-4263-bd52-92fb7bed1242",
-            name="Camping",
-            description="For outdoors",
-        )
-    )
-
-    db.session.add(
-        PackageListItem(
-            id="4c08f0d5-583e-4882-8bea-2b2faab61fff",
-            name="Taschenmesser",
-            description="",
-            packagelist_id="ab2f16c2-d5f5-460b-b149-0fc9eec12887",
-        )
+    categories = (
+        {"id": uuid.uuid4(), "name": "Sleeping"},
+        {"id": uuid.uuid4(), "name": "Shelter"},
+        {"id": uuid.uuid4(), "name": "Fire"},
+        {"id": uuid.uuid4(), "name": "Cooking"},
+        {"id": uuid.uuid4(), "name": "Water"},
+        {"id": uuid.uuid4(), "name": "Protection"},
+        {"id": uuid.uuid4(), "name": "Tools"},
+        {"id": uuid.uuid4(), "name": "Insulation"},
+        {"id": uuid.uuid4(), "name": "Electronics"},
+        {"id": uuid.uuid4(), "name": "Carry"},
+        {"id": uuid.uuid4(), "name": "Medic"},
+        {"id": uuid.uuid4(), "name": "Hygiene"},
     )
 
-    db.session.add(
-        PackageListItem(
-            id="f7fe1c35-23c8-4e57-bec0-56212cff940a",
-            name="Geldbeutel",
-            description="",
-            packagelist_id="ab2f16c2-d5f5-460b-b149-0fc9eec12887",
+    for category in categories:
+        db.session.add(
+            PackageListItemCategory(
+                id=str(category['id']),
+                name=category['name'],
+                description="",
+            )
         )
-    )
 
+    with open("./items.csv") as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            print(row)
+            (name, category, weight) = row
+
+            db.session.add(
+                PackageListItem(
+                    id=str(uuid.uuid4()),
+                    name=name,
+                    description="",
+                    weight=weight,
+                    category_id=str([c['id'] for c in categories if c['name'] == category][0])
+                )
+            )
+
+
+    print("db init done")
     db.session.commit()
 except sqlalchemy.exc.IntegrityError:
     pass
