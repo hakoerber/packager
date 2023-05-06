@@ -461,7 +461,7 @@ def add_new_trip():
     end_date = datetime.date.fromisoformat(request.form["end-date"])
 
     newid = str(uuid.uuid4())
-    db.session.add(Trip(id=newid, name=name, start_date=start_date, end_date=end_date))
+    db.session.add(Trip(id=newid, name=name, start_date=start_date, end_date=end_date, location="Unknown", temp_min=0, temp_max=0, state=TripState.Planning))
     db.session.commit()
 
     r = make_response("", 303)
