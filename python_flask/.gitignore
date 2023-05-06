@@ -1,6 +1,4 @@
 __pycache__/
 /venv/
-*.sqlite
-*.sqlite3
 *.bak
 *.bundle
