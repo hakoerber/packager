@@ -1,3 +1,0 @@
-[submodule "rust/vendor/axohtml"]
-	path = rust/vendor/axohtml
-	url = https://github.com/axodotdev/axohtml

@@ -187,7 +187,7 @@ impl InventoryItemList {
     pub async fn build(items: &Vec<Item>) -> Result<Self, Error> {
         let doc = html!(
             <div>
-                <h1 class=["text-2xl", "mb-5"]>"Categories"</h1>
+                <h1 class=["text-2xl", "mb-5"]>"Items"</h1>
                 <table class=[
                     "table",
                     "table-auto",
@@ -205,7 +205,7 @@ impl InventoryItemList {
                     <tbody>
                         {items.iter().map(|item| html!(
                             <tr class=["h-10", "even:bg-gray-100", "hover:bg-purple-100"]>
-                                <td class=["border", "p-0", "m-0"]>
+                                <td class=["border", "p-2"]>
                                     <a
                                         class=["p-2", "w-full", "inline-block"]
                                         href={
@@ -215,7 +215,7 @@ impl InventoryItemList {
                                     {text!(item.name.clone())}
                                     </a>
                                 </td>
-                                <td class=["border", "p-0", "m-0"]>
+                                <td class=["border", "p-2"]>
                                     {text!(item.weight.to_string())}
                                 </td>
                             </tr>
