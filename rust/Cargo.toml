@@ -20,6 +20,9 @@ version = "0.4.13"
 [dependencies.tracing]
 version = "0.1.37"
 
+[dependencies.tracing-subscriber]
+version = "0.3"
+
 [dependencies.maud]
 version = "0.25"
 

@@ -1,25 +1,28 @@
-use super::Tree;
-use axohtml::html;
+use maud::{html, Markup};
 
 pub struct Home {
-    doc: Tree,
+    doc: Markup,
 }
 
 impl Home {
     pub fn build() -> Self {
-        let doc = html!(
-            <div id="home" class=["p-8", "max-w-xl"]>
-                <p><a href="/inventory">"Inventory"</a></p>
-                <p><a href="/trips">"Trips"</a></p>
-            </div>
+        let doc: Markup = html!(
+            div id="home" class={"p-8" "max-w-xl"} {
+                p {
+                    a href="/inventory" { "Inventory" }
+                }
+                p {
+                    a href="/trips" { "Trips" }
+                }
+            }
         );
 
         Self { doc }
     }
 }
 
-impl Into<Tree> for Home {
-    fn into(self) -> Tree {
+impl Into<Markup> for Home {
+    fn into(self) -> Markup {
         self.doc
     }
 }

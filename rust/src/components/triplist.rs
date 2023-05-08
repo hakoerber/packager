@@ -1,43 +1,38 @@
-use super::Tree;
 use crate::models::*;
 
-use axohtml::{html, text};
+use maud::{html, Markup};
 
 pub struct TripList {
-    doc: Tree,
+    doc: Markup,
 }
 
 impl TripList {
     pub fn build(package_lists: Vec<Trip>) -> Self {
         let doc = html!(
-            <table>
-                <thead>
-                    <tr>
-                        <th>"ID"</th>
-                        <th>"Name"</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {
-                        package_lists.into_iter().map(|list| {
-                            html!(
-                                <tr>
-                                    <td>{text!(list.id.to_string())}</td>
-                                    <td>{text!(list.name)}</td>
-                                </tr>
-                            )
-                        })
+            table {
+                thead {
+                    td {
+                        td { "ID" }
+                        td { "Name" }
                     }
-                </tbody>
-            </table>
+                }
+                tbody {
+                    @for list in package_lists {
+                        tr {
+                            td { (list.id.to_string()) }
+                            td { (list.name) }
+                        }
+                    }
+                }
+            }
         );
 
         Self { doc }
     }
 }
 
-impl Into<Tree> for TripList {
-    fn into(self) -> Tree {
+impl Into<Markup> for TripList {
+    fn into(self) -> Markup {
         self.doc
     }
 }
