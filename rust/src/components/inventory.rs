@@ -196,7 +196,6 @@ impl InventoryItemList {
                     "border",
                     "w-full",
                 ]>
-
                     <thead class=["bg-gray-200"]>
                         <tr class=["h-10"]>
                             <th class=["border", "p-2"]>"Name"</th>
@@ -205,9 +204,19 @@ impl InventoryItemList {
                     </thead>
                     <tbody>
                         {items.iter().map(|item| html!(
-                            <tr>
-                                <td>
+                            <tr class=["h-10", "even:bg-gray-100", "hover:bg-purple-100"]>
+                                <td class=["border", "p-0", "m-0"]>
+                                    <a
+                                        class=["p-2", "w-full", "inline-block"]
+                                        href={
+                                            format!("/inventory/item/{id}/", id=item.id)
+                                        }
+                                        >
                                     {text!(item.name.clone())}
+                                    </a>
+                                </td>
+                                <td class=["border", "p-0", "m-0"]>
+                                    {text!(item.weight.to_string())}
                                 </td>
                             </tr>
                         ))}
