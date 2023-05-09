@@ -17,10 +17,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::SqlError { description } => {
-                write!(f, "SQL error: {}", description)
+                write!(f, "SQL error: {description}")
             }
             Self::UuidError { description } => {
-                write!(f, "UUID error: {}", description)
+                write!(f, "UUID error: {description}")
             }
         }
     }
@@ -29,7 +29,7 @@ impl fmt::Display for Error {
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // defer to Display
-        write!(f, "SQL error: {}", self)
+        write!(f, "SQL error: {self}")
     }
 }
 
@@ -129,7 +129,7 @@ impl<'a> Category {
             id = self.id
         ))
         .fetch(&pool)
-        .map_ok(|row| row.try_into())
+        .map_ok(std::convert::TryInto::try_into)
         .try_collect::<Vec<Result<Item, Error>>>()
         .await?
         .into_iter()

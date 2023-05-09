@@ -19,7 +19,7 @@ pub enum TopLevelPage {
 }
 
 impl Root {
-    pub fn build(body: Markup, active_page: TopLevelPage) -> Self {
+    pub fn build(body: Markup, active_page: &TopLevelPage) -> Self {
         let doc = html!(
             (DOCTYPE)
             html {

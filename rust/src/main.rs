@@ -103,7 +103,7 @@ async fn main() -> Result<(), sqlx::Error> {
 async fn root() -> (StatusCode, Html<String>) {
     (
         StatusCode::OK,
-        Html::from(Root::build(Home::build().into(), TopLevelPage::None).into_string()),
+        Html::from(Root::build(Home::build().into(), &TopLevelPage::None).into_string()),
     )
 }
 
@@ -133,7 +133,7 @@ async fn inventory(
 
     let mut categories = query("SELECT id,name,description FROM inventoryitemcategories")
         .fetch(&state.database_pool)
-        .map_ok(|row| row.try_into())
+        .map_ok(std::convert::TryInto::try_into)
         .try_collect::<Vec<Result<Category, models::Error>>>()
         .await
         // we have two error handling lines here. these are distinct errors
@@ -166,7 +166,7 @@ async fn inventory(
                     .await
                     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
                     .into(),
-                TopLevelPage::Inventory,
+                &TopLevelPage::Inventory,
             )
             .into_string(),
         ),
@@ -178,7 +178,7 @@ async fn trips(
 ) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
     let trips = query("SELECT * FROM trips")
         .fetch(&state.database_pool)
-        .map_ok(|row| row.try_into())
+        .map_ok(std::convert::TryInto::try_into)
         .try_collect::<Vec<Result<Trip, models::Error>>>()
         .await
         // we have two error handling lines here. these are distinct errors
@@ -192,7 +192,7 @@ async fn trips(
 
     Ok((
         StatusCode::OK,
-        Html::from(Root::build(TripList::build(trips).into(), TopLevelPage::Trips).into_string()),
+        Html::from(Root::build(TripList::build(trips).into(), &TopLevelPage::Trips).into_string()),
     ))
 }
 

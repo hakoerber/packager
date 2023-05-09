@@ -14,14 +14,14 @@ impl Inventory {
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-3" {
                     div ."col-span-2" {
-                        ({<InventoryCategoryList as Into<Markup>>::into(InventoryCategoryList::build(&categories).await?)})
+                        ({<InventoryCategoryList as Into<Markup>>::into(InventoryCategoryList::build(&categories))})
                     }
                     div ."col-span-2" {
                         h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
                         @if state.active_category_id.is_some() {
-                            ({<InventoryItemList as Into<Markup>>::into(InventoryItemList::build(categories.iter().find(|category| category.active).unwrap().items()).await?)})
+                            ({<InventoryItemList as Into<Markup>>::into(InventoryItemList::build(categories.iter().find(|category| category.active).unwrap().items()))})
                         }
-                        ({<InventoryNewItemForm as Into<Markup>>::into(InventoryNewItemForm::build(&state, &categories).await?)})
+                        ({<InventoryNewItemForm as Into<Markup>>::into(InventoryNewItemForm::build(&state, &categories))})
 
                     }
                 }
@@ -43,10 +43,10 @@ pub struct InventoryCategoryList {
 }
 
 impl InventoryCategoryList {
-    pub async fn build(categories: &Vec<Category>) -> Result<Self, Error> {
+    pub fn build(categories: &Vec<Category>) -> Self {
         let biggest_category_weight: u32 = categories
             .iter()
-            .map(|category| category.total_weight())
+            .map(Category::total_weight)
             .max()
             .unwrap_or(1);
 
@@ -116,8 +116,8 @@ impl InventoryCategoryList {
                                             format!(
                                                 "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
                                                 width=(
-                                                    category.total_weight() as f32
-                                                    / biggest_category_weight as f32
+                                                    f64::from(category.total_weight())
+                                                    / f64::from(biggest_category_weight)
                                                     * 100.0
                                                 )
                                             )
@@ -131,7 +131,7 @@ impl InventoryCategoryList {
                             }
                             td ."border" ."p-0" ."m-0" {
                                 p ."p-2" ."m-2" {
-                                    (categories.iter().map(|category| category.total_weight()).sum::<u32>().to_string())
+                                    (categories.iter().map(Category::total_weight).sum::<u32>().to_string())
                                 }
                             }
                         }
@@ -140,7 +140,7 @@ impl InventoryCategoryList {
             }
         );
 
-        Ok(Self { doc })
+        Self { doc }
     }
 }
 
@@ -155,7 +155,7 @@ pub struct InventoryItemList {
 }
 
 impl InventoryItemList {
-    pub async fn build(items: &Vec<Item>) -> Result<Self, Error> {
+    pub fn build(items: &Vec<Item>) -> Self {
         let biggest_item_weight: u32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         let doc = html!(
             div #items {
@@ -196,7 +196,7 @@ impl InventoryItemList {
                                         position:absolute;
                                         left:0;
                                         bottom:0;
-                                        right:0;", width=(item.weight as f32 / biggest_item_weight as f32 * 100.0))) {}
+                                        right:0;", width=(f64::from(item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
                                     }
                                     td
                                         ."border"
@@ -222,7 +222,7 @@ impl InventoryItemList {
             }
         );
 
-        Ok(Self { doc })
+        Self { doc }
     }
 }
 
@@ -237,7 +237,7 @@ pub struct InventoryNewItemForm {
 }
 
 impl InventoryNewItemForm {
-    pub async fn build(state: &ClientState, categories: &Vec<Category>) -> Result<Self, Error> {
+    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Self {
         let doc = html!(
 
             form
@@ -335,7 +335,7 @@ impl InventoryNewItemForm {
             }
         );
 
-        Ok(Self { doc })
+        Self { doc }
     }
 }
 
