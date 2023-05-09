@@ -66,7 +66,7 @@ impl Root {
         Self { doc }
     }
 
-    pub fn to_string(self) -> String {
+    pub fn into_string(self) -> String {
         self.doc.into_string()
     }
 }

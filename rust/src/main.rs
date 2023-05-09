@@ -19,8 +19,6 @@ use sqlx::{
 
 use serde::Deserialize;
 
-use tracing_subscriber;
-
 use futures::TryStreamExt;
 use uuid::{uuid, Uuid};
 
@@ -48,6 +46,12 @@ impl ClientState {
         ClientState {
             active_category_id: None,
         }
+    }
+}
+
+impl Default for ClientState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -99,7 +103,7 @@ async fn main() -> Result<(), sqlx::Error> {
 async fn root() -> (StatusCode, Html<String>) {
     (
         StatusCode::OK,
-        Html::from(Root::build(Home::build().into(), TopLevelPage::None).to_string()),
+        Html::from(Root::build(Home::build().into(), TopLevelPage::None).into_string()),
     )
 }
 
@@ -164,7 +168,7 @@ async fn inventory(
                     .into(),
                 TopLevelPage::Inventory,
             )
-            .to_string(),
+            .into_string(),
         ),
     ))
 }
@@ -188,7 +192,7 @@ async fn trips(
 
     Ok((
         StatusCode::OK,
-        Html::from(Root::build(TripList::build(trips).into(), TopLevelPage::Trips).to_string()),
+        Html::from(Root::build(TripList::build(trips).into(), TopLevelPage::Trips).into_string()),
     ))
 }
 
@@ -280,7 +284,7 @@ async fn inventory_item_delete(
     .bind(id.to_string())
     .execute(&state.database_pool)
     .await
-    .map_err(|e| ((StatusCode::BAD_REQUEST, e.to_string())))?;
+    .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
     Ok(Redirect::to(
         headers

@@ -31,8 +31,8 @@ impl TripList {
     }
 }
 
-impl Into<Markup> for TripList {
-    fn into(self) -> Markup {
-        self.doc
+impl From<TripList> for Markup {
+    fn from(val: TripList) -> Self {
+        val.doc
     }
 }

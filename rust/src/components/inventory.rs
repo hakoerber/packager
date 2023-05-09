@@ -32,9 +32,9 @@ impl Inventory {
     }
 }
 
-impl Into<Markup> for Inventory {
-    fn into(self) -> Markup {
-        self.doc
+impl From<Inventory> for Markup {
+    fn from(val: Inventory) -> Self {
+        val.doc
     }
 }
 
@@ -144,9 +144,9 @@ impl InventoryCategoryList {
     }
 }
 
-impl Into<Markup> for InventoryCategoryList {
-    fn into(self) -> Markup {
-        self.doc
+impl From<InventoryCategoryList> for Markup {
+    fn from(val: InventoryCategoryList) -> Self {
+        val.doc
     }
 }
 
@@ -226,9 +226,9 @@ impl InventoryItemList {
     }
 }
 
-impl Into<Markup> for InventoryItemList {
-    fn into(self) -> Markup {
-        self.doc
+impl From<InventoryItemList> for Markup {
+    fn from(val: InventoryItemList) -> Self {
+        val.doc
     }
 }
 
@@ -339,9 +339,9 @@ impl InventoryNewItemForm {
     }
 }
 
-impl Into<Markup> for InventoryNewItemForm {
-    fn into(self) -> Markup {
-        self.doc
+impl From<InventoryNewItemForm> for Markup {
+    fn from(val: InventoryNewItemForm) -> Self {
+        val.doc
     }
 }
 // impl InventoryItemList {

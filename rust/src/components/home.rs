@@ -21,8 +21,8 @@ impl Home {
     }
 }
 
-impl Into<Markup> for Home {
-    fn into(self) -> Markup {
-        self.doc
+impl From<Home> for Markup {
+    fn from(val: Home) -> Self {
+        val.doc
     }
 }
