@@ -1,7 +1,7 @@
 use maud::{html, Markup};
 
 use crate::models::*;
-use crate::State;
+use crate::ClientState;
 use uuid::uuid;
 
 pub struct Inventory {
@@ -9,7 +9,7 @@ pub struct Inventory {
 }
 
 impl Inventory {
-    pub async fn build(state: State, categories: Vec<Category>) -> Result<Self, Error> {
+    pub async fn build(state: ClientState, categories: Vec<Category>) -> Result<Self, Error> {
         let doc = html!(
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-3" {
@@ -198,6 +198,22 @@ impl InventoryItemList {
                                         bottom:0;
                                         right:0;", width=(item.weight as f32 / biggest_item_weight as f32 * 100.0))) {}
                                     }
+                                    td
+                                        ."border"
+                                        ."bg-red-200"
+                                        ."hover:bg-red-400"
+                                        ."cursor-pointer"
+                                        ."w-8"
+                                        ."text-center"
+                                        {
+                                            a
+                                                href = (format!("/inventory/item/{id}/delete", id = item.id))
+                                            {
+                                                button {
+                                                    span ."mdi" ."mdi-delete" ."text-xl" {}
+                                                }
+                                            }
+                                    }
                                 }
                             }
                         }
@@ -221,7 +237,7 @@ pub struct InventoryNewItemForm {
 }
 
 impl InventoryNewItemForm {
-    pub async fn build(state: &State, categories: &Vec<Category>) -> Result<Self, Error> {
+    pub async fn build(state: &ClientState, categories: &Vec<Category>) -> Result<Self, Error> {
         let doc = html!(
 
             form
@@ -238,9 +254,9 @@ impl InventoryNewItemForm {
                 div ."w-11/12" ."mx-auto" {
                     div ."pb-8" {
                         div ."flex" ."flex-row" ."justify-center" ."items-start"{
-                            label for="item-name" .font-bold ."w-1/2" ."p-2" ."text-center" { "Name" }
+                            label for="name" .font-bold ."w-1/2" ."p-2" ."text-center" { "Name" }
                             span ."w-1/2" {
-                                input type="text" id="item-name" name="name"
+                                input type="text" id="new-item-name" name="new-item-name"
                                     ."block"
                                     ."w-full"
                                     ."p-2"
@@ -256,12 +272,12 @@ impl InventoryNewItemForm {
                         }
                     }
                     div ."flex" ."flex-row" ."justify-center" ."items-center" ."pb-8" {
-                        label for="item-weight" .font-bold ."w-1/2" .text-center { "Weight" }
+                        label for="weight" .font-bold ."w-1/2" .text-center { "Weight" }
                         span ."w-1/2" {
                             input
                                 type="text"
-                                id="item-weight"
-                                name="weight"
+                                id="new-item-weight"
+                                name="new-item-weight"
                                 ."block"
                                 ."w-full"
                                 ."p-2"
@@ -280,8 +296,8 @@ impl InventoryNewItemForm {
                         label for="item-category" .font-bold ."w-1/2" .text-center { "Category" }
                         span ."w-1/2" {
                             select
-                                    id="item-category"
-                                    name="category"
+                                    id="new-item-category-id"
+                                    name="new-item-category-id"
                                     ."block"
                                     ."w-full"
                                     ."p-2"
