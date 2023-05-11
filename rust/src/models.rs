@@ -114,13 +114,10 @@ impl<'a> Category {
         self.items().iter().map(|item| item.weight).sum()
     }
 
-    pub async fn populate_items(&'a mut self) -> Result<(), Error> {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(5)
-            .connect("sqlite:///home/hannes-private/sync/items/items.sqlite")
-            .await
-            .unwrap();
-
+    pub async fn populate_items(
+        &'a mut self,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
         let items = sqlx::query(&format!(
             "SELECT
                 id,name,weight,description,category_id
@@ -128,7 +125,7 @@ impl<'a> Category {
             WHERE category_id = '{id}'",
             id = self.id
         ))
-        .fetch(&pool)
+        .fetch(pool)
         .map_ok(std::convert::TryInto::try_into)
         .try_collect::<Vec<Result<Item, Error>>>()
         .await?

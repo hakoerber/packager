@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 use axum::{
-    extract::Path,
-    extract::State,
+    extract::{Path, Query, State},
     headers,
     headers::Header,
     http::{header::HeaderMap, StatusCode},
@@ -39,12 +38,14 @@ pub struct AppState {
 #[derive(Clone)]
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
+    pub edit_item: Option<Uuid>,
 }
 
 impl ClientState {
     pub fn new() -> Self {
         ClientState {
             active_category_id: None,
+            edit_item: None,
         }
     }
 }
@@ -65,7 +66,7 @@ async fn main() -> Result<(), sqlx::Error> {
         .max_connections(5)
         .connect_with(
             SqliteConnectOptions::new()
-                .filename("/home/hannes-private/sync/items/items.sqlite")
+                .filename(std::env::var("SQLITE_DATABASE").expect("env SQLITE_DATABASE not found"))
                 .pragma("foreign_keys", "1"),
         )
         .await
@@ -107,16 +108,31 @@ async fn root() -> (StatusCode, Html<String>) {
     )
 }
 
+#[derive(Deserialize)]
+struct InventoryQuery {
+    edit_item: Option<Uuid>,
+}
+
+impl Default for InventoryQuery {
+    fn default() -> Self {
+        Self { edit_item: None }
+    }
+}
+
 async fn inventory_active(
     Path(id): Path<String>,
-    State(state): State<AppState>,
+    State(mut state): State<AppState>,
+    Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+    state.client_state.edit_item = inventory_query.edit_item;
     inventory(state, Some(id)).await
 }
 
 async fn inventory_inactive(
-    State(state): State<AppState>,
+    State(mut state): State<AppState>,
+    Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+    state.client_state.edit_item = inventory_query.edit_item;
     inventory(state, None).await
 }
 
@@ -147,7 +163,7 @@ async fn inventory(
 
     for category in &mut categories {
         category
-            .populate_items()
+            .populate_items(&state.database_pool)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
 

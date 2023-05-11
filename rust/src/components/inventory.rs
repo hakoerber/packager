@@ -2,7 +2,7 @@ use maud::{html, Markup};
 
 use crate::models::*;
 use crate::ClientState;
-use uuid::uuid;
+use uuid::{uuid, Uuid};
 
 pub struct Inventory {
     doc: Markup,
@@ -19,7 +19,7 @@ impl Inventory {
                     div ."col-span-2" {
                         h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
                         @if state.active_category_id.is_some() {
-                            ({<InventoryItemList as Into<Markup>>::into(InventoryItemList::build(categories.iter().find(|category| category.active).unwrap().items()))})
+                            ({<InventoryItemList as Into<Markup>>::into(InventoryItemList::build(categories.iter().find(|category| category.active).unwrap().items(), state.edit_item))})
                         }
                         ({<InventoryNewItemForm as Into<Markup>>::into(InventoryNewItemForm::build(&state, &categories))})
 
@@ -155,7 +155,7 @@ pub struct InventoryItemList {
 }
 
 impl InventoryItemList {
-    pub fn build(items: &Vec<Item>) -> Self {
+    pub fn build(items: &Vec<Item>, edit_item: Option<Uuid>) -> Self {
         let biggest_item_weight: u32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         let doc = html!(
             div #items {
@@ -178,41 +178,59 @@ impl InventoryItemList {
                         }
                         tbody {
                             @for item in items {
-                                tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" {
-                                    td ."border" ."p-0" {
-                                        a
-                                            ."p-2" ."w-full" ."inline-block"
-                                            href=(
-                                                format!("/inventory/item/{id}/", id=item.id)
-                                            ) {
-
-                                                (item.name.clone())
-                                            }
-                                    }
-                                    td ."border" ."p-2" style="position:relative;" {
-                                        p { (item.weight.to_string()) }
-                                        div ."bg-blue-600" ."h-1.5" style=(format!("
-                                        width: {width}%;
-                                        position:absolute;
-                                        left:0;
-                                        bottom:0;
-                                        right:0;", width=(f64::from(item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
-                                    }
-                                    td
-                                        ."border"
-                                        ."bg-red-200"
-                                        ."hover:bg-red-400"
-                                        ."cursor-pointer"
-                                        ."w-8"
-                                        ."text-center"
-                                        {
+                                @if edit_item.map_or(false, |edit_item| edit_item == item.id) {
+                                    tr { td { (item.name.clone()) " is being edited" }}
+                                } @else {
+                                    tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" {
+                                        td ."border" ."p-0" {
                                             a
-                                                href = (format!("/inventory/item/{id}/delete", id = item.id))
-                                            {
-                                                button {
-                                                    span ."mdi" ."mdi-delete" ."text-xl" {}
+                                                ."p-2" ."w-full" ."inline-block"
+                                                href=(
+                                                    format!("/inventory/item/{id}/", id=item.id)
+                                                ) {
+
+                                                    (item.name.clone())
                                                 }
-                                            }
+                                        }
+                                        td ."border" ."p-2" style="position:relative;" {
+                                            p { (item.weight.to_string()) }
+                                            div ."bg-blue-600" ."h-1.5" style=(format!("
+                                            width: {width}%;
+                                            position:absolute;
+                                            left:0;
+                                            bottom:0;
+                                            right:0;", width=(f64::from(item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
+                                        }
+                                        td
+                                            ."border"
+                                            ."bg-blue-200"
+                                            ."hover:bg-blue-400"
+                                            ."cursor-pointer"
+                                            ."w-8"
+                                            ."text-center"
+                                            {
+                                                a href = (format!("?edit_item={id}", id = item.id))
+                                                {
+                                                    button {
+                                                        span ."mdi" ."mdi-pencil" ."text-xl" {}
+                                                    }
+                                                }
+                                        }
+                                        td
+                                            ."border"
+                                            ."bg-red-200"
+                                            ."hover:bg-red-400"
+                                            ."cursor-pointer"
+                                            ."w-8"
+                                            ."text-center"
+                                            {
+                                                a href = (format!("/inventory/item/{id}/delete", id = item.id))
+                                                {
+                                                    button {
+                                                        span ."mdi" ."mdi-delete" ."text-xl" {}
+                                                    }
+                                                }
+                                        }
                                     }
                                 }
                             }
