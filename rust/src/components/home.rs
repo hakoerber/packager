@@ -9,10 +9,10 @@ impl Home {
         let doc: Markup = html!(
             div id="home" class={"p-8" "max-w-xl"} {
                 p {
-                    a href="/inventory" { "Inventory" }
+                    a href="/inventory/" { "Inventory" }
                 }
                 p {
-                    a href="/trips" { "Trips" }
+                    a href="/trips/" { "Trips" }
                 }
             }
         );

@@ -13,11 +13,12 @@ use sqlx::{
     error::DatabaseError,
     query,
     sqlite::{SqliteConnectOptions, SqliteError, SqlitePoolOptions},
-    Pool, Sqlite,
+    Pool, Row, Sqlite,
 };
 
 use serde::Deserialize;
 
+use futures::TryFutureExt;
 use futures::TryStreamExt;
 use uuid::{uuid, Uuid};
 
@@ -85,6 +86,8 @@ async fn main() -> Result<(), sqlx::Error> {
         .route("/inventory/item/", post(inventory_item_create))
         .route("/inventory/category/:id", get(inventory_active))
         .route("/inventory/item/:id/delete", get(inventory_item_delete))
+        .route("/inventory/item/:id/edit", post(inventory_item_edit))
+        .route("/inventory/item/:id/cancel", get(inventory_item_cancel))
         // .route(
         //     "/inventory/category/:id/items",
         //     post(htmx_inventory_category_items),
@@ -293,7 +296,7 @@ async fn inventory_item_delete(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    query(
+    let results = query(
         "DELETE FROM inventoryitems
         WHERE id = ?",
     )
@@ -302,21 +305,28 @@ async fn inventory_item_delete(
     .await
     .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
-    Ok(Redirect::to(
-        headers
-            .get("referer")
-            .ok_or((
-                StatusCode::BAD_REQUEST,
-                "no referer header found".to_string(),
-            ))?
-            .to_str()
-            .map_err(|e| {
-                (
+    if results.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            format!("item with id {id} not found", id = id),
+        ))
+    } else {
+        Ok(Redirect::to(
+            headers
+                .get("referer")
+                .ok_or((
                     StatusCode::BAD_REQUEST,
-                    format!("referer could not be converted: {}", e),
-                )
-            })?,
-    ))
+                    "no referer header found".to_string(),
+                ))?
+                .to_str()
+                .map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("referer could not be converted: {}", e),
+                    )
+                })?,
+        ))
+    }
 }
 
 // async fn htmx_inventory_category_items(
@@ -360,3 +370,44 @@ async fn inventory_item_delete(
 //         ),
 //     ))
 // }
+#[derive(Deserialize)]
+struct EditItem {
+    #[serde(rename = "edit-item-name")]
+    name: String,
+    #[serde(rename = "edit-item-weight")]
+    weight: u32,
+}
+
+async fn inventory_item_edit(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Form(edit_item): Form<EditItem>,
+) -> Result<Redirect, (StatusCode, String)> {
+    let id = Item::update(&state.database_pool, id, &edit_item.name, edit_item.weight)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            format!("item with id {id} not found", id = id),
+        ))?;
+
+    Ok(Redirect::to(&format!("/inventory/category/{id}", id = id)))
+}
+
+async fn inventory_item_cancel(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Redirect, (StatusCode, String)> {
+    let id = Item::find(&state.database_pool, id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            format!("item with id {id} not found", id = id),
+        ))?;
+
+    Ok(Redirect::to(&format!(
+        "/inventory/category/{id}",
+        id = id.category_id
+    )))
+}

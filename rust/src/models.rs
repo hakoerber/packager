@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use sqlx::sqlite::SqlitePoolOptions;
 
+use futures::TryFutureExt;
 use futures::TryStreamExt;
 
 pub enum Error {
@@ -162,5 +163,62 @@ impl TryFrom<SqliteRow> for Item {
             description: description.to_string(),
             category_id,
         })
+    }
+}
+
+impl Item {
+    pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
+        let item: Result<Result<Item, Error>, sqlx::Error> = sqlx::query(
+            "SELECT * FROM inventoryitems AS item
+            WHERE item.id = ?",
+        )
+        .bind(id.to_string())
+        .fetch_one(pool)
+        .map_ok(std::convert::TryInto::try_into)
+        .await;
+
+        match item {
+            Err(e) => match e {
+                sqlx::Error::RowNotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+            Ok(v) => Ok(Some(v?)),
+        }
+    }
+
+    pub async fn update(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+        name: &str,
+        weight: u32,
+    ) -> Result<Option<Uuid>, Error> {
+        let id: Result<Result<Uuid, Error>, sqlx::Error> = sqlx::query(
+            "UPDATE inventoryitems AS item
+            SET
+                name = ?,
+                weight = ?
+            WHERE item.id = ?
+            RETURNING inventoryitems.category_id AS id
+            ",
+        )
+        .bind(name)
+        .bind(weight)
+        .bind(id.to_string())
+        .fetch_one(pool)
+        .map_ok(|row| {
+            let id: &str = row.try_get("id")?;
+            let uuid: Result<Uuid, uuid::Error> = Uuid::try_parse(id);
+            let uuid: Result<Uuid, Error> = uuid.map_err(|e| e.into());
+            uuid
+        })
+        .await;
+
+        match id {
+            Err(e) => match e {
+                sqlx::Error::RowNotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+            Ok(v) => Ok(Some(v?)),
+        }
     }
 }

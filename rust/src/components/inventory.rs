@@ -162,6 +162,15 @@ impl InventoryItemList {
                 @if items.is_empty() {
                     p ."text-lg" ."text-center" ."py-5" ."text-gray-400" { "[Empty]" }
                 } @else {
+                    @if let Some(edit_item) = edit_item {
+                        form
+                            name="edit-item"
+                            id="edit-item"
+                            action=(format!("/inventory/item/{edit_item}/edit"))
+                            target="_self"
+                            method="post"
+                        {}
+                    }
                     table
                         ."table"
                         ."table-auto"
@@ -179,7 +188,36 @@ impl InventoryItemList {
                         tbody {
                             @for item in items {
                                 @if edit_item.map_or(false, |edit_item| edit_item == item.id) {
-                                    tr { td { (item.name.clone()) " is being edited" }}
+                                    tr ."h-10" {
+                                        td ."border" ."p-2" ."bg-blue-100" {
+                                            input ."w-full"
+                                                type="text"
+                                                id="edit-item-name"
+                                                name="edit-item-name"
+                                                form="edit-item"
+                                                value=(item.name)
+                                            {}
+                                        }
+                                        td ."border" ."p-2" ."bg-blue-100" {
+                                            input ."w-full"
+                                                type="number"
+                                                id="edit-item-weight"
+                                                name="edit-item-weight"
+                                                form="edit-item"
+                                                value=(item.weight)
+                                            {}
+                                        }
+                                        td ."border" ."p-2" ."bg-green-100" {
+                                            button type="submit" form="edit-item" {
+                                                span ."mdi" ."mdi-content-save" ."text-xl" {}
+                                            }
+                                        }
+                                        td ."border" ."p-2" ."bg-red-100" {
+                                            a href=(format!("/inventory/item/{id}/cancel", id = item.id)) {
+                                                span ."mdi" ."mdi-cancel" ."text-xl" {}
+                                            }
+                                        }
+                                    }
                                 } @else {
                                     tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" {
                                         td ."border" ."p-0" {

@@ -56,7 +56,8 @@ impl Root {
                             }} { "Trips" }
                         }
                     }
-                    div hx-boost="true" {
+                    // div hx-boost="true" {
+                    div {
                         (body)
                     }
                 }
