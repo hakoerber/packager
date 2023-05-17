@@ -82,9 +82,13 @@ async fn main() -> Result<(), sqlx::Error> {
     let app = Router::new()
         .route("/", get(root))
         .route("/trips/", get(trips))
+        .route("/trip/", post(trip_create))
+        .route("/trip/:id/", get(trip))
+        .route("/trip/:id/type/:id/add", get(trip_type_add))
+        .route("/trip/:id/type/:id/remove", get(trip_type_remove))
         .route("/inventory/", get(inventory_inactive))
         .route("/inventory/item/", post(inventory_item_create))
-        .route("/inventory/category/:id", get(inventory_active))
+        .route("/inventory/category/:id/", get(inventory_active))
         .route("/inventory/item/:id/delete", get(inventory_item_delete))
         .route("/inventory/item/:id/edit", post(inventory_item_edit))
         .route("/inventory/item/:id/cancel", get(inventory_item_cancel))
@@ -123,7 +127,7 @@ impl Default for InventoryQuery {
 }
 
 async fn inventory_active(
-    Path(id): Path<String>,
+    Path(id): Path<Uuid>,
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
@@ -141,13 +145,8 @@ async fn inventory_inactive(
 
 async fn inventory(
     mut state: AppState,
-    active_id: Option<String>,
+    active_id: Option<Uuid>,
 ) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
-    let active_id = active_id
-        .map(|id| Uuid::try_parse(&id))
-        .transpose()
-        .map_err(|e| (StatusCode::BAD_REQUEST, Html::from(e.to_string())))?;
-
     state.client_state.active_category_id = active_id;
 
     let mut categories = query("SELECT id,name,description FROM inventoryitemcategories")
@@ -188,29 +187,6 @@ async fn inventory(
             )
             .into_string(),
         ),
-    ))
-}
-
-async fn trips(
-    State(state): State<AppState>,
-) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
-    let trips = query("SELECT * FROM trips")
-        .fetch(&state.database_pool)
-        .map_ok(std::convert::TryInto::try_into)
-        .try_collect::<Vec<Result<Trip, models::Error>>>()
-        .await
-        // we have two error handling lines here. these are distinct errors
-        // this one is the SQL error that may arise during the query
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
-        .into_iter()
-        .collect::<Result<Vec<Trip>, models::Error>>()
-        // and this one is the model mapping error that may arise e.g. during
-        // reading of the rows
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
-
-    Ok((
-        StatusCode::OK,
-        Html::from(Root::build(TripList::build(trips).into(), &TopLevelPage::Trips).into_string()),
     ))
 }
 
@@ -285,7 +261,7 @@ async fn inventory_item_create(
     })?;
 
     Ok(Redirect::to(&format!(
-        "/inventory/category/{id}",
+        "/inventory/category/{id}/",
         id = new_item.category_id
     )))
 }
@@ -342,7 +318,7 @@ async fn inventory_item_delete(
 //         "SELECT
 //             i.id, i.name, i.description, i.weight, i.category_id
 //         FROM inventoryitemcategories AS c
-//         LEFT JOIN inventoryitems AS i
+//         INNER JOIN inventoryitems AS i
 //         ON i.category_id = c.id WHERE c.id = '{id}';",
 //         id = id,
 //     ))
@@ -390,7 +366,7 @@ async fn inventory_item_edit(
             format!("item with id {id} not found", id = id),
         ))?;
 
-    Ok(Redirect::to(&format!("/inventory/category/{id}", id = id)))
+    Ok(Redirect::to(&format!("/inventory/category/{id}/", id = id)))
 }
 
 async fn inventory_item_cancel(
@@ -406,7 +382,219 @@ async fn inventory_item_cancel(
         ))?;
 
     Ok(Redirect::to(&format!(
-        "/inventory/category/{id}",
+        "/inventory/category/{id}/",
         id = id.category_id
     )))
+}
+
+#[derive(Deserialize)]
+struct NewTrip {
+    #[serde(rename = "new-trip-name")]
+    name: String,
+    #[serde(rename = "new-trip-start-date")]
+    start_date: time::Date,
+    #[serde(rename = "new-trip-end-date")]
+    end_date: time::Date,
+}
+
+async fn trip_create(
+    State(state): State<AppState>,
+    Form(new_trip): Form<NewTrip>,
+) -> Result<Redirect, (StatusCode, String)> {
+    let id = Uuid::new_v4();
+    query(
+        "INSERT INTO trips
+            (id, name, start_date, end_date)
+        VALUES
+            (?, ?, ?, ?)",
+    )
+    .bind(id.to_string())
+    .bind(&new_trip.name)
+    .bind(new_trip.start_date)
+    .bind(new_trip.end_date)
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::Database(ref error) => {
+            let sqlite_error = error.downcast_ref::<SqliteError>();
+            if let Some(code) = sqlite_error.code() {
+                match &*code {
+                    "2067" => {
+                        // SQLITE_CONSTRAINT_UNIQUE
+                        (
+                            StatusCode::BAD_REQUEST,
+                            format!(
+                                "trip with name \"{name}\" already exists",
+                                name = new_trip.name,
+                            ),
+                        )
+                    }
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("got error with unknown code: {}", sqlite_error.to_string()),
+                    ),
+                }
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("got error without code: {}", sqlite_error.to_string()),
+                )
+            }
+        }
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("got unknown error: {}", e.to_string()),
+        ),
+    })?;
+
+    Ok(Redirect::to(&format!("/trips/{id}/", id = id.to_string())))
+}
+
+async fn trips(
+    State(state): State<AppState>,
+) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+    let trips: Vec<models::Trip> = query("SELECT * FROM trips")
+        .fetch(&state.database_pool)
+        .map_ok(std::convert::TryInto::try_into)
+        .try_collect::<Vec<Result<models::Trip, models::Error>>>()
+        .await
+        // we have two error handling lines here. these are distinct errors
+        // this one is the SQL error that may arise during the query
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
+        .into_iter()
+        .collect::<Result<Vec<models::Trip>, models::Error>>()
+        // and this one is the model mapping error that may arise e.g. during
+        // reading of the rows
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+
+    Ok((
+        StatusCode::OK,
+        Html::from(
+            Root::build(TripManager::build(trips).into(), &TopLevelPage::Trips).into_string(),
+        ),
+    ))
+}
+
+async fn trip(
+    Path(id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+    let mut trip: models::Trip =
+        query("SELECT id,name,start_date,end_date,state,location,temp_min,temp_max FROM trips WHERE id = ?")
+            .bind(id.to_string())
+            .fetch_one(&state.database_pool)
+            .map_ok(std::convert::TryInto::try_into)
+            .await
+            .map_err(|e: sqlx::Error| match e {
+                sqlx::Error::RowNotFound => (
+                    StatusCode::NOT_FOUND,
+                    Html::from(format!("trip with id {} not found", id)),
+                ),
+                _ => (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())),
+            })?
+            .map_err(|e: Error| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+
+    trip.load_triptypes(&state.database_pool)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+
+    Ok((
+        StatusCode::OK,
+        Html::from(
+            Root::build(
+                components::Trip::build(&trip).into_markup(),
+                &TopLevelPage::Trips,
+            )
+            .into_string(),
+        ),
+    ))
+}
+
+async fn trip_type_remove(
+    Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+) -> Result<Redirect, (StatusCode, Html<String>)> {
+    let results = query(
+        "DELETE FROM trips_to_triptypes AS ttt
+        WHERE ttt.trip_id = ?
+            AND ttt.trip_type_id = ?
+        ",
+    )
+    .bind(trip_id.to_string())
+    .bind(type_id.to_string())
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, Html::from(e.to_string())))?;
+
+    if results.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            Html::from(format!("type {type_id} is not active for trip {trip_id}")),
+        ))
+    } else {
+        Ok(Redirect::to(&format!("/trip/{trip_id}/")))
+    }
+}
+
+async fn trip_type_add(
+    Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+) -> Result<Redirect, (StatusCode, Html<String>)> {
+    let results = query(
+        "INSERT INTO trips_to_triptypes
+        (trip_id, trip_type_id) VALUES (?, ?)",
+    )
+    .bind(trip_id.to_string())
+    .bind(type_id.to_string())
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::Database(ref error) => {
+            let sqlite_error = error.downcast_ref::<SqliteError>();
+            if let Some(code) = sqlite_error.code() {
+                match &*code {
+                    "787" => {
+                        // SQLITE_CONSTRAINT_FOREIGNKEY
+                        (
+                            StatusCode::BAD_REQUEST,
+                            // TODO: this is not perfect, as both foreign keys
+                            // may be responsible for the error. how can we tell
+                            // which one?
+                            Html::from(format!("invalid id: {}", code.to_string())),
+                        )
+                    }
+                    "2067" => {
+                        // SQLITE_CONSTRAINT_UNIQUE
+                        (
+                            StatusCode::BAD_REQUEST,
+                            Html::from(format!(
+                                "type {type_id} is already active for trip {trip_id}"
+                            )),
+                        )
+                    }
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Html::from(format!(
+                            "got error with unknown code: {}",
+                            sqlite_error.to_string()
+                        )),
+                    ),
+                }
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Html::from(format!(
+                        "got error without code: {}",
+                        sqlite_error.to_string()
+                    )),
+                )
+            }
+        }
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Html::from(format!("got unknown error: {}", e.to_string())),
+        ),
+    })?;
+
+    Ok(Redirect::to(&format!("/trip/{trip_id}/")))
 }

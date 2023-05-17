@@ -2,13 +2,11 @@ use maud::{html, Markup, DOCTYPE};
 
 pub mod home;
 pub mod inventory;
-pub mod triplist;
-
-mod theme;
+pub mod trip;
 
 pub use home::*;
 pub use inventory::*;
-pub use triplist::*;
+pub use trip::*;
 
 pub struct Root {
     doc: Markup,

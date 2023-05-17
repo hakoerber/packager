@@ -98,7 +98,7 @@ impl InventoryCategoryList {
                                         id="select-category"
                                         href=(
                                             format!(
-                                                "/inventory/category/{id}",
+                                                "/inventory/category/{id}/",
                                                 id=category.id
                                             )
                                         )

@@ -1,7 +1,13 @@
-use sqlx::{sqlite::SqliteRow, Row};
+use sqlx::{
+    database::Database,
+    database::HasValueRef,
+    sqlite::{Sqlite, SqliteRow},
+    Decode, Row,
+};
 use std::convert;
 use std::error;
 use std::fmt;
+use std::str::FromStr;
 use uuid::Uuid;
 
 use sqlx::sqlite::SqlitePoolOptions;
@@ -13,6 +19,7 @@ pub enum Error {
     SqlError { description: String },
     UuidError { description: String },
     NotFoundError { description: String },
+    InvalidEnumError { description: String },
 }
 
 impl fmt::Display for Error {
@@ -26,6 +33,9 @@ impl fmt::Display for Error {
             }
             Self::NotFoundError { description } => {
                 write!(f, "Not found: {description}")
+            }
+            Self::InvalidEnumError { description } => {
+                write!(f, "Enum error: {description}")
             }
         }
     }
@@ -56,11 +66,41 @@ impl convert::From<sqlx::Error> for Error {
 
 impl error::Error for Error {}
 
+#[derive(sqlx::Type)]
+pub enum TripState {
+    Planning,
+    Planned,
+    Active,
+    Review,
+    Done,
+}
+
+impl fmt::Display for TripState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Planning => "Planning",
+                Self::Planned => "Planned",
+                Self::Active => "Active",
+                Self::Review => "Review",
+                Self::Done => "Done",
+            },
+        )
+    }
+}
+
 pub struct Trip {
     pub id: Uuid,
     pub name: String,
     pub start_date: time::Date,
     pub end_date: time::Date,
+    pub state: TripState,
+    pub location: String,
+    pub temp_min: i32,
+    pub temp_max: i32,
+    types: Option<Vec<TripType>>,
 }
 
 impl TryFrom<SqliteRow> for Trip {
@@ -70,15 +110,88 @@ impl TryFrom<SqliteRow> for Trip {
         let name: &str = row.try_get("name")?;
         let id: &str = row.try_get("id")?;
         let start_date: time::Date = row.try_get("start_date")?;
-        let end_date: time::Date = row.try_get("start_date")?;
+        let end_date: time::Date = row.try_get("end_date")?;
+        let state: TripState = row.try_get("state")?;
+        let location = row.try_get("location")?;
+        let temp_min = row.try_get("temp_min")?;
+        let temp_max = row.try_get("temp_max")?;
+
         let id: Uuid = Uuid::try_parse(id)?;
 
         Ok(Trip {
-            name: name.to_string(),
             id,
+            name: name.to_string(),
             start_date,
             end_date,
+            state,
+            location,
+            temp_min,
+            temp_max,
+            types: None,
         })
+    }
+}
+
+impl<'a> Trip {
+    pub fn types(&'a self) -> &Vec<TripType> {
+        self.types
+            .as_ref()
+            .expect("you need to call load_triptypes()")
+    }
+}
+
+impl<'a> Trip {
+    pub async fn load_triptypes(
+        &'a mut self,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
+        let types = sqlx::query(
+            "
+            SELECT
+                type.id as id,
+                type.name as name,
+                CASE WHEN inner.id IS NOT NULL THEN true ELSE false END AS active
+            FROM triptypes AS type
+                LEFT JOIN (
+                    SELECT type.id as id, type.name as name
+                    FROM trips as trip
+                    INNER JOIN trips_to_triptypes as ttt
+                        ON ttt.trip_id = trip.id
+                    INNER JOIN triptypes AS type
+                        ON type.id == ttt.trip_type_id
+                    WHERE trip.id = ?
+                ) AS inner
+                ON inner.id = type.id
+            ",
+        )
+        .bind(self.id.to_string())
+        .fetch(pool)
+        .map_ok(std::convert::TryInto::try_into)
+        .try_collect::<Vec<Result<TripType, Error>>>()
+        .await?
+        .into_iter()
+        .collect::<Result<Vec<TripType>, Error>>()?;
+
+        self.types = Some(types);
+        Ok(())
+    }
+}
+
+pub struct TripType {
+    pub id: Uuid,
+    pub name: String,
+    pub active: bool,
+}
+
+impl TryFrom<SqliteRow> for TripType {
+    type Error = Error;
+
+    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+        let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
+        let name: String = row.try_get::<&str, _>("name")?.to_string();
+        let active: bool = row.try_get("active")?;
+
+        Ok(Self { id, name, active })
     }
 }
 

@@ -43,6 +43,7 @@ version = "0.3.28"
 
 [dependencies.time]
 version = "0.3.21"
+features = ["serde"]
 
 [dependencies.serde]
 version = "1.0.162"
