@@ -14,15 +14,17 @@ impl Inventory {
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-3" {
                     div ."col-span-2" {
-                        ({<InventoryCategoryList as Into<Markup>>::into(InventoryCategoryList::build(&categories))})
+                        (InventoryCategoryList::build(&state, &categories).into_markup())
                     }
                     div ."col-span-2" {
                         h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
-                        @if state.active_category_id.is_some() {
-                            ({<InventoryItemList as Into<Markup>>::into(InventoryItemList::build(categories.iter().find(|category| category.active).unwrap().items(), state.edit_item))})
+                        @if let Some(active_category_id) = state.active_category_id {
+                            (InventoryItemList::build(&state, categories.iter().find(|category| category.id == active_category_id)
+                                                      .ok_or(Error::NotFoundError { description: format!("no category with id {}", active_category_id) })?
+                                                      .items())
+                             .into_markup())
                         }
-                        ({<InventoryNewItemForm as Into<Markup>>::into(InventoryNewItemForm::build(&state, &categories))})
-
+                        (InventoryNewItemForm::build(&state, &categories).into_markup())
                     }
                 }
             }
@@ -43,7 +45,7 @@ pub struct InventoryCategoryList {
 }
 
 impl InventoryCategoryList {
-    pub fn build(categories: &Vec<Category>) -> Self {
+    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Self {
         let biggest_category_weight: u32 = categories
             .iter()
             .map(Category::total_weight)
@@ -68,20 +70,20 @@ impl InventoryCategoryList {
                     }
                     thead ."bg-gray-200" {
                         tr ."h-10" {
-                            th ."border" ."p-2" { "Name" }
+                            th ."border" ."p-2" ."w-3/5" { "Name" }
                             th ."border" ."p-2" { "Weight" }
                         }
                     }
                     tbody {
                         @for category in categories {
-                            tr class={@if category.active {
-                                    "h-10 hover:bg-purple-100 m-3 h-full outline outline-2 outline-indigo-300"
+                            tr class={@if state.active_category_id.map_or(false, |id| category.id == id) {
+                                    "h-10 hover:bg-purple-100 m-3 h-full outline outline-2 outline-indigo-300 pointer-events-none"
                                 } @else {
                                     "h-10 hover:bg-purple-100 m-3 h-full"
                                 }} {
 
                                 td
-                                    class=@if category.active {
+                                    class=@if state.active_category_id.map_or(false, |id| category.id == id) {
                                        "border p-0 m-0 font-bold"
                                     } @else {
                                        "border p-0 m-0"
@@ -142,6 +144,10 @@ impl InventoryCategoryList {
 
         Self { doc }
     }
+
+    fn into_markup(self) -> Markup {
+        self.doc
+    }
 }
 
 impl From<InventoryCategoryList> for Markup {
@@ -155,14 +161,14 @@ pub struct InventoryItemList {
 }
 
 impl InventoryItemList {
-    pub fn build(items: &Vec<Item>, edit_item: Option<Uuid>) -> Self {
+    pub fn build(state: &ClientState, items: &Vec<Item>) -> Self {
         let biggest_item_weight: u32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         let doc = html!(
             div #items {
                 @if items.is_empty() {
                     p ."text-lg" ."text-center" ."py-5" ."text-gray-400" { "[Empty]" }
                 } @else {
-                    @if let Some(edit_item) = edit_item {
+                    @if let Some(edit_item) = state.edit_item {
                         form
                             name="edit-item"
                             id="edit-item"
@@ -174,6 +180,7 @@ impl InventoryItemList {
                     table
                         ."table"
                         ."table-auto"
+                        .table-fixed
                         ."border-collapse"
                         ."border-spacing-0"
                         ."border"
@@ -181,16 +188,18 @@ impl InventoryItemList {
                     {
                         thead ."bg-gray-200" {
                             tr ."h-10" {
-                                th ."border" ."p-2" { "Name" }
+                                th ."border" ."p-2" ."w-3/5" { "Name" }
                                 th ."border" ."p-2" { "Weight" }
+                                th ."border" ."p-2" ."w-10" {}
+                                th ."border" ."p-2" ."w-10" {}
                             }
                         }
                         tbody {
                             @for item in items {
-                                @if edit_item.map_or(false, |edit_item| edit_item == item.id) {
+                                @if state.edit_item.map_or(false, |edit_item| edit_item == item.id) {
                                     tr ."h-10" {
-                                        td ."border" ."p-2" ."bg-blue-100" {
-                                            input ."w-full"
+                                        td ."border" ."bg-blue-300" ."px-2" ."py-0" .flex {
+                                            input ."block" ."w-full" ."bg-blue-100"
                                                 type="text"
                                                 id="edit-item-name"
                                                 name="edit-item-name"
@@ -198,23 +207,29 @@ impl InventoryItemList {
                                                 value=(item.name)
                                             {}
                                         }
-                                        td ."border" ."p-2" ."bg-blue-100" {
-                                            input ."w-full"
-                                                type="number"
-                                                id="edit-item-weight"
-                                                name="edit-item-weight"
-                                                form="edit-item"
-                                                value=(item.weight)
-                                            {}
+                                        td ."border" ."bg-blue-300" ."px-2" ."py-0" {
+                                            // div ."h-full" ."w-full" {
+                                            //     input ."block" ."w-full" ."bg-blue-100"
+                                            //         type="number"
+                                            //         id="edit-item-weight"
+                                            //         name="edit-item-weight"
+                                            //         form="edit-item"
+                                            //         value=(item.weight)
+                                            //     {}
+                                            // }
                                         }
-                                        td ."border" ."p-2" ."bg-green-100" {
-                                            button type="submit" form="edit-item" {
-                                                span ."mdi" ."mdi-content-save" ."text-xl" {}
+                                        td ."border-none" ."bg-green-100" ."hover:bg-green-200" .flex ."p-0" {
+                                            div .aspect-square .w-full .h-full .flex {
+                                                button type="submit" form="edit-item" .m-auto .w-full .h-full {
+                                                    span ."mdi" ."mdi-content-save" ."text-xl" .m-auto {}
+                                                }
                                             }
                                         }
-                                        td ."border" ."p-2" ."bg-red-100" {
-                                            a href=(format!("/inventory/item/{id}/cancel", id = item.id)) {
-                                                span ."mdi" ."mdi-cancel" ."text-xl" {}
+                                        td ."border-none" ."bg-red-100" ."hover:bg-red-200" ."p-0" {
+                                            div .aspect-square .flex .w-full .h-full {
+                                                a href=(format!("/inventory/item/{id}/cancel", id = item.id)) .flex .m-auto .w-full .h-full {
+                                                    span ."mdi" ."mdi-cancel" ."text-xl" .m-auto {}
+                                                }
                                             }
                                         }
                                     }
@@ -247,10 +262,12 @@ impl InventoryItemList {
                                             ."w-8"
                                             ."text-center"
                                             {
-                                                a href = (format!("?edit_item={id}", id = item.id))
-                                                {
-                                                    button {
-                                                        span ."mdi" ."mdi-pencil" ."text-xl" {}
+                                                div .aspect-square .flex .w-full .h-full {
+                                                    a href = (format!("?edit_item={id}", id = item.id)) ."m-auto"
+                                                    {
+                                                        button {
+                                                            span ."mdi" ."mdi-pencil" ."text-xl" {}
+                                                        }
                                                     }
                                                 }
                                         }
@@ -262,10 +279,12 @@ impl InventoryItemList {
                                             ."w-8"
                                             ."text-center"
                                             {
-                                                a href = (format!("/inventory/item/{id}/delete", id = item.id))
-                                                {
-                                                    button {
-                                                        span ."mdi" ."mdi-delete" ."text-xl" {}
+                                                div .aspect-square .flex .w-full .h-full {
+                                                    a href = (format!("/inventory/item/{id}/delete", id = item.id)) ."m-auto"
+                                                    {
+                                                        button {
+                                                            span ."mdi" ."mdi-delete" ."text-xl" {}
+                                                        }
                                                     }
                                                 }
                                         }
@@ -279,6 +298,10 @@ impl InventoryItemList {
         );
 
         Self { doc }
+    }
+
+    fn into_markup(self) -> Markup {
+        self.doc
     }
 }
 
@@ -363,17 +386,12 @@ impl InventoryNewItemForm {
                                     ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
-                                    ."focus:border-purple-500" {
+                                    ."focus:border-purple-500"
+                                    autocomplete="off" // https://stackoverflow.com/a/10096033
+                                {
                                 @for category in categories {
-                                    @if state.active_category_id.map_or(false, |id| id == category.id) {
-
-                                        option value=(category.id) selected="true" {
-                                            (category.name)
-                                        }
-                                    } @else {
-                                        option value=(category.id) {
-                                            (category.name)
-                                        }
+                                    option value=(category.id) selected[state.active_category_id.map_or(false, |id| id == category.id)] {
+                                        (category.name)
                                     }
                                 }
                             }
@@ -392,6 +410,10 @@ impl InventoryNewItemForm {
         );
 
         Self { doc }
+    }
+
+    fn into_markup(self) -> Markup {
+        self.doc
     }
 }
 

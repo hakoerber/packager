@@ -12,6 +12,7 @@ use futures::TryStreamExt;
 pub enum Error {
     SqlError { description: String },
     UuidError { description: String },
+    NotFoundError { description: String },
 }
 
 impl fmt::Display for Error {
@@ -22,6 +23,9 @@ impl fmt::Display for Error {
             }
             Self::UuidError { description } => {
                 write!(f, "UUID error: {description}")
+            }
+            Self::NotFoundError { description } => {
+                write!(f, "Not found: {description}")
             }
         }
     }
@@ -78,12 +82,12 @@ impl TryFrom<SqliteRow> for Trip {
     }
 }
 
+#[derive(Debug)]
 pub struct Category {
     pub id: Uuid,
     pub name: String,
     pub description: String,
     items: Option<Vec<Item>>,
-    pub active: bool,
 }
 
 impl TryFrom<SqliteRow> for Category {
@@ -99,7 +103,6 @@ impl TryFrom<SqliteRow> for Category {
             name: name.to_string(),
             description: description.to_string(),
             items: None,
-            active: false,
         })
     }
 }
@@ -138,6 +141,7 @@ impl<'a> Category {
     }
 }
 
+#[derive(Debug)]
 pub struct Item {
     pub id: Uuid,
     pub name: String,

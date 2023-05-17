@@ -169,12 +169,6 @@ async fn inventory(
             .populate_items(&state.database_pool)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
-
-        if let Some(active_id) = active_id {
-            if category.id == active_id {
-                category.active = true;
-            }
-        }
     }
 
     Ok((
@@ -183,7 +177,12 @@ async fn inventory(
             Root::build(
                 Inventory::build(state.client_state, categories)
                     .await
-                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
+                    .map_err(|e| match e {
+                        Error::NotFoundError { description } => {
+                            (StatusCode::NOT_FOUND, Html::from(description))
+                        }
+                        _ => (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())),
+                    })?
                     .into(),
                 &TopLevelPage::Inventory,
             )
