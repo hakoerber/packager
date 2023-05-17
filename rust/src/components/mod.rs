@@ -4,6 +4,8 @@ pub mod home;
 pub mod inventory;
 pub mod triplist;
 
+mod theme;
+
 pub use home::*;
 pub use inventory::*;
 pub use triplist::*;

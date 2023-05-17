@@ -76,11 +76,17 @@ impl InventoryCategoryList {
                     }
                     tbody {
                         @for category in categories {
-                            tr class={@if state.active_category_id.map_or(false, |id| category.id == id) {
-                                    "h-10 hover:bg-purple-100 m-3 h-full outline outline-2 outline-indigo-300 pointer-events-none"
-                                } @else {
-                                    "h-10 hover:bg-purple-100 m-3 h-full"
-                                }} {
+                            @let active = state.active_category_id.map_or(false, |id| category.id == id);
+                            tr
+                                ."h-10"
+                                ."hover:bg-purple-100"
+                                ."m-3"
+                                ."h-full"
+                                ."outline"[active]
+                                ."outline-2"[active]
+                                ."outline-indigo-300"[active]
+                                ."pointer-events-none"[active]
+                            {
 
                                 td
                                     class=@if state.active_category_id.map_or(false, |id| category.id == id) {
@@ -198,25 +204,27 @@ impl InventoryItemList {
                             @for item in items {
                                 @if state.edit_item.map_or(false, |edit_item| edit_item == item.id) {
                                     tr ."h-10" {
-                                        td ."border" ."bg-blue-300" ."px-2" ."py-0" .flex {
-                                            input ."block" ."w-full" ."bg-blue-100"
-                                                type="text"
-                                                id="edit-item-name"
-                                                name="edit-item-name"
-                                                form="edit-item"
-                                                value=(item.name)
-                                            {}
+                                        td ."border" ."bg-blue-300" ."px-2" ."py-0" {
+                                            div ."h-full" ."w-full" {
+                                                input ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                                                    type="text"
+                                                    id="edit-item-name"
+                                                    name="edit-item-name"
+                                                    form="edit-item"
+                                                    value=(item.name)
+                                                {}
+                                            }
                                         }
                                         td ."border" ."bg-blue-300" ."px-2" ."py-0" {
-                                            // div ."h-full" ."w-full" {
-                                            //     input ."block" ."w-full" ."bg-blue-100"
-                                            //         type="number"
-                                            //         id="edit-item-weight"
-                                            //         name="edit-item-weight"
-                                            //         form="edit-item"
-                                            //         value=(item.weight)
-                                            //     {}
-                                            // }
+                                            div ."h-full" ."w-full" {
+                                                input ."px-1"."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                                                    type="number"
+                                                    id="edit-item-weight"
+                                                    name="edit-item-weight"
+                                                    form="edit-item"
+                                                    value=(item.weight)
+                                                {}
+                                            }
                                         }
                                         td ."border-none" ."bg-green-100" ."hover:bg-green-200" .flex ."p-0" {
                                             div .aspect-square .w-full .h-full .flex {
@@ -255,7 +263,8 @@ impl InventoryItemList {
                                             right:0;", width=(f64::from(item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
                                         }
                                         td
-                                            ."border"
+                                            ."border-none"
+                                            ."p-0"
                                             ."bg-blue-200"
                                             ."hover:bg-blue-400"
                                             ."cursor-pointer"
@@ -272,7 +281,8 @@ impl InventoryItemList {
                                                 }
                                         }
                                         td
-                                            ."border"
+                                            ."border-none"
+                                            ."p-0"
                                             ."bg-red-200"
                                             ."hover:bg-red-400"
                                             ."cursor-pointer"
