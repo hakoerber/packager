@@ -17,7 +17,7 @@ features = ["headers"]
 
 [dependencies.tokio]
 version = "1.28"
-features = ["full"]
+features = ["macros"]
 
 [dependencies.hyper]
 version = "0.14"
