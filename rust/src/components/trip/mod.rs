@@ -66,8 +66,8 @@ impl TripTable {
                     @for trip in trips {
                         tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
                             (TripTableRow::build(trip.id, &trip.name))
-                            (TripTableRow::build(trip.id, &trip.date_start))
-                            (TripTableRow::build(trip.id, &trip.date_end))
+                            (TripTableRow::build(trip.id, trip.date_start))
+                            (TripTableRow::build(trip.id, trip.date_end))
                             (TripTableRow::build(trip.id, (trip.date_end - trip.date_start).whole_days()))
                             (TripTableRow::build(trip.id, trip.state))
                         }
@@ -266,9 +266,9 @@ impl Trip {
                         }
                     }
                 }
-                (TripInfo::build(state, &trip))
-                (TripComment::build(&trip))
-                (TripItems::build(state, &trip)?)
+                (TripInfo::build(state, trip))
+                (TripComment::build(trip))
+                (TripItems::build(state, trip)?)
             }
         ))
     }
@@ -280,12 +280,12 @@ impl TripInfoRow {
     pub fn build(
         name: &str,
         value: Option<impl std::fmt::Display>,
-        attribute_key: TripAttribute,
+        attribute_key: &TripAttribute,
         edit_attribute: Option<&TripAttribute>,
         input_type: InputType,
         has_two_columns: bool,
     ) -> Markup {
-        let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
+        let edit = edit_attribute.map_or(false, |a| a == attribute_key);
         html!(
             @if edit {
                 form
@@ -307,7 +307,7 @@ impl TripInfoRow {
                                 id="new-value"
                                 name="new-value"
                                 form="edit-trip"
-                                value=(value.map_or("".to_string(), |v| v.to_string()))
+                                value=(value.map_or(String::new(), |v| v.to_string()))
                             ;
                         }
                     }
@@ -359,7 +359,7 @@ impl TripInfoRow {
                     }
                 } @else {
                     td ."border" ."p-2" { (name) }
-                    td ."border" ."p-2" { (value.map_or("".to_string(), |v| v.to_string())) }
+                    td ."border" ."p-2" { (value.map_or(String::new(), |v| v.to_string())) }
                     td
                         colspan=(if has_two_columns {"2"} else {"1"})
                         ."border-none"
@@ -406,35 +406,35 @@ impl TripInfo {
                 tbody {
                     (TripInfoRow::build("Location",
                         trip.location.as_ref(),
-                        TripAttribute::Location,
+                        &TripAttribute::Location,
                         state.trip_edit_attribute.as_ref(),
                         InputType::Text,
                         has_two_columns
                     ))
                     (TripInfoRow::build("Start date",
                         Some(trip.date_start),
-                        TripAttribute::DateStart,
+                        &TripAttribute::DateStart,
                         state.trip_edit_attribute.as_ref(),
                         InputType::Date,
                         has_two_columns
                     ))
                     (TripInfoRow::build("End date",
                         Some(trip.date_end),
-                        TripAttribute::DateEnd,
+                        &TripAttribute::DateEnd,
                         state.trip_edit_attribute.as_ref(),
                         InputType::Date,
                         has_two_columns
                     ))
                     (TripInfoRow::build("Temp (min)",
                         trip.temp_min,
-                        TripAttribute::TempMin,
+                        &TripAttribute::TempMin,
                         state.trip_edit_attribute.as_ref(),
                         InputType::Number,
                         has_two_columns
                     ))
                     (TripInfoRow::build("Temp (max)",
                         trip.temp_max,
-                        TripAttribute::TempMax,
+                        &TripAttribute::TempMax,
                         state.trip_edit_attribute.as_ref(),
                         InputType::Number,
                         has_two_columns
@@ -648,7 +648,7 @@ impl TripComment {
                     form="edit-comment"
                     autocomplete="off"
                     oninput=r#"this.style.height = "";this.style.height = this.scrollHeight + 2 + "px""#
-                { (trip.comment.as_ref().unwrap_or(&"".to_string())) }
+                { (trip.comment.as_ref().unwrap_or(&String::new())) }
                 script defer { (PreEscaped(r#"e = document.getElementById("comment"); e.style.height = e.scrollHeight + 2 + "px";"#)) }
 
                 button
@@ -683,23 +683,23 @@ impl TripItems {
         Ok(html!(
             div ."grid" ."grid-cols-4" ."gap-3" {
                 div ."col-span-2" {
-                    (TripCategoryList::build(state, &trip))
+                    (TripCategoryList::build(state, trip))
                 }
                 div ."col-span-2" {
                     h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
                     @if let Some(active_category_id) = state.active_category_id {
                         (TripItemList::build(
-                            &state,
-                            &trip,
-                            &trip
+                            state,
+                            trip,
+                            trip
                                 .categories()
                                 .iter()
                                 .find(|category|
                                     category.category.id == active_category_id
                                 )
                                 .ok_or(
-                                    Error::NotFoundError {
-                                        description: format!("no category with id {}", active_category_id)
+                                    Error::NotFound{
+                                        description: format!("no category with id {active_category_id}")
                                     }
                                 )?
                                 .items

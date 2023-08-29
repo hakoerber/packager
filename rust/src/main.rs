@@ -153,19 +153,13 @@ async fn main() -> Result<(), sqlx::Error> {
 async fn root() -> (StatusCode, Markup) {
     (
         StatusCode::OK,
-        Root::build(Home::build(), &TopLevelPage::None),
+        Root::build(&Home::build(), &TopLevelPage::None),
     )
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct InventoryQuery {
     edit_item: Option<Uuid>,
-}
-
-impl Default for InventoryQuery {
-    fn default() -> Self {
-        Self { edit_item: None }
-    }
 }
 
 async fn inventory_active(
@@ -233,17 +227,15 @@ async fn inventory(
     Ok((
         StatusCode::OK,
         Root::build(
-            Inventory::build(state.client_state, categories)
-                .await
-                .map_err(|e| match e {
-                    Error::NotFoundError { description } => {
-                        (StatusCode::NOT_FOUND, ErrorPage::build(&description))
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        ErrorPage::build(&e.to_string()),
-                    ),
-                })?,
+            &Inventory::build(state.client_state, categories).map_err(|e| match e {
+                Error::NotFound { description } => {
+                    (StatusCode::NOT_FOUND, ErrorPage::build(&description))
+                }
+                _ => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorPage::build(&e.to_string()),
+                ),
+            })?,
             &TopLevelPage::Inventory,
         ),
     ))
@@ -310,7 +302,7 @@ async fn inventory_item_create(
     State(state): State<AppState>,
     Form(new_item): Form<NewItem>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    if new_item.name.len() == 0 {
+    if new_item.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             "name cannot be empty".to_string(),
@@ -505,7 +497,7 @@ async fn inventory_item_edit(
     Path(id): Path<Uuid>,
     Form(edit_item): Form<EditItem>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    if edit_item.name.len() == 0 {
+    if edit_item.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             ErrorPage::build("name cannot be empty"),
@@ -570,7 +562,7 @@ async fn trip_create(
     State(state): State<AppState>,
     Form(new_trip): Form<NewTrip>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    if new_trip.name.len() == 0 {
+    if new_trip.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             "name cannot be empty".to_string(),
@@ -679,7 +671,7 @@ async fn trips(
 
     Ok((
         StatusCode::OK,
-        Root::build(TripManager::build(trips), &TopLevelPage::Trips),
+        Root::build(&TripManager::build(trips), &TopLevelPage::Trips),
     ))
 }
 
@@ -764,8 +756,8 @@ async fn trip(
     Ok((
         StatusCode::OK,
         Root::build(
-            components::Trip::build(&state.client_state, &trip).map_err(|e| match e {
-                Error::NotFoundError { description } => {
+            &components::Trip::build(&state.client_state, &trip).map_err(|e| match e {
+                Error::NotFound { description } => {
                     (StatusCode::NOT_FOUND, ErrorPage::build(&description))
                 }
                 _ => (
@@ -916,7 +908,7 @@ async fn trip_edit_attribute(
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     if let TripAttribute::Name = attribute {
-        if trip_update.new_value.len() == 0 {
+        if trip_update.new_value.is_empty() {
             return Err((
                 StatusCode::UNPROCESSABLE_ENTITY,
                 ErrorPage::build("name cannot be empty"),
@@ -1092,7 +1084,7 @@ async fn inventory_category_create(
     State(state): State<AppState>,
     Form(new_category): Form<NewCategory>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    if new_category.name.len() == 0 {
+    if new_category.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             ErrorPage::build("name cannot be empty"),
@@ -1223,7 +1215,7 @@ async fn trips_types(
     Ok((
         StatusCode::OK,
         Root::build(
-            components::trip::TypeList::build(&state.client_state, trip_types),
+            &components::trip::TypeList::build(&state.client_state, trip_types),
             &TopLevelPage::Trips,
         ),
     ))
@@ -1239,7 +1231,7 @@ async fn trip_type_create(
     State(state): State<AppState>,
     Form(new_trip_type): Form<NewTripType>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    if new_trip_type.name.len() == 0 {
+    if new_trip_type.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             "name cannot be empty".to_string(),
@@ -1305,7 +1297,7 @@ async fn trips_types_edit_name(
     Path(trip_type_id): Path<Uuid>,
     Form(trip_update): Form<TripTypeUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    if trip_update.new_value.len() == 0 {
+    if trip_update.new_value.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             ErrorPage::build("name cannot be empty"),

@@ -17,7 +17,7 @@ pub enum TopLevelPage {
 }
 
 impl Root {
-    pub fn build(body: Markup, active_page: &TopLevelPage) -> Markup {
+    pub fn build(body: &Markup, active_page: &TopLevelPage) -> Markup {
         html!(
             (DOCTYPE)
             html {

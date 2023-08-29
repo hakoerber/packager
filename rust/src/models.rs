@@ -17,40 +17,38 @@ use sqlx::sqlite::SqlitePoolOptions;
 use futures::TryFutureExt;
 use futures::TryStreamExt;
 
-use time::{
-    error::Parse as TimeParseError, format_description::FormatItem, macros::format_description,
-};
+use time::{error::Parse as TimeParse, format_description::FormatItem, macros::format_description};
 
 pub const DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 
 pub enum Error {
-    SqlError { description: String },
-    UuidError { description: String },
-    EnumError { description: String },
-    NotFoundError { description: String },
-    IntError { description: String },
-    TimeParseError { description: String },
+    Sql { description: String },
+    Uuid { description: String },
+    Enum { description: String },
+    NotFound { description: String },
+    Int { description: String },
+    TimeParse { description: String },
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::SqlError { description } => {
+            Self::Sql { description } => {
                 write!(f, "SQL error: {description}")
             }
-            Self::UuidError { description } => {
+            Self::Uuid { description } => {
                 write!(f, "UUID error: {description}")
             }
-            Self::NotFoundError { description } => {
+            Self::NotFound { description } => {
                 write!(f, "Not found: {description}")
             }
-            Self::IntError { description } => {
+            Self::Int { description } => {
                 write!(f, "Integer error: {description}")
             }
-            Self::EnumError { description } => {
+            Self::Enum { description } => {
                 write!(f, "Enum error: {description}")
             }
-            Self::TimeParseError { description } => {
+            Self::TimeParse { description } => {
                 write!(f, "Date parse error: {description}")
             }
         }
@@ -66,7 +64,7 @@ impl fmt::Debug for Error {
 
 impl convert::From<uuid::Error> for Error {
     fn from(value: uuid::Error) -> Self {
-        Error::UuidError {
+        Error::Uuid {
             description: value.to_string(),
         }
     }
@@ -74,7 +72,7 @@ impl convert::From<uuid::Error> for Error {
 
 impl convert::From<sqlx::Error> for Error {
     fn from(value: sqlx::Error) -> Self {
-        Error::SqlError {
+        Error::Sql {
             description: value.to_string(),
         }
     }
@@ -82,15 +80,15 @@ impl convert::From<sqlx::Error> for Error {
 
 impl convert::From<TryFromIntError> for Error {
     fn from(value: TryFromIntError) -> Self {
-        Error::IntError {
+        Error::Int {
             description: value.to_string(),
         }
     }
 }
 
-impl convert::From<TimeParseError> for Error {
-    fn from(value: TimeParseError) -> Self {
-        Error::TimeParseError {
+impl convert::From<TimeParse> for Error {
+    fn from(value: TimeParse) -> Self {
+        Error::TimeParse {
             description: value.to_string(),
         }
     }
@@ -173,8 +171,8 @@ impl std::convert::TryFrom<&str> for TripState {
             "Review" => Self::Review,
             "Done" => Self::Done,
             _ => {
-                return Err(Error::EnumError {
-                    description: format!("{} is not a valid value for TripState", value),
+                return Err(Error::Enum {
+                    description: format!("{value} is not a valid value for TripState"),
                 })
             }
         })

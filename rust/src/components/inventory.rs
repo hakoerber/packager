@@ -7,7 +7,7 @@ use uuid::{uuid, Uuid};
 pub struct Inventory;
 
 impl Inventory {
-    pub async fn build(state: ClientState, categories: Vec<Category>) -> Result<Markup, Error> {
+    pub fn build(state: ClientState, categories: Vec<Category>) -> Result<Markup, Error> {
         let doc = html!(
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-5" {
@@ -20,7 +20,7 @@ impl Inventory {
                         h1 ."text-2xl" ."text-center" { "Items" }
                         @if let Some(active_category_id) = state.active_category_id {
                             (InventoryItemList::build(&state, categories.iter().find(|category| category.id == active_category_id)
-                                                      .ok_or(Error::NotFoundError { description: format!("no category with id {}", active_category_id) })?
+                                                      .ok_or(Error::NotFound{ description: format!("no category with id {}", active_category_id) })?
                                                       .items())
                              )
                         }
@@ -475,7 +475,7 @@ impl InventoryNewItemForm {
                 div ."w-11/12" ."mx-auto" ."flex" ."flex-col" ."gap-8" {
                     (InventoryNewItemFormName::build(None, false))
                     (InventoryNewItemFormWeight::build())
-                    (InventoryNewItemFormCategory::build(&state, categories))
+                    (InventoryNewItemFormCategory::build(state, categories))
                     input type="submit" value="Add"
                         x-bind:disabled="!save_active"
                         ."enabled:cursor-pointer"
