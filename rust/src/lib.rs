@@ -64,9 +64,9 @@ impl fmt::Display for UriPath {
     }
 }
 
-impl<'a> Into<&'a str> for &'a UriPath {
-    fn into(self) -> &'a str {
-        self.0.as_str()
+impl<'a> From<&'a UriPath> for &'a str {
+    fn from(val: &'a UriPath) -> Self {
+        val.0.as_str()
     }
 }
 
