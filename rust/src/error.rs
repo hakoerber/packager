@@ -17,6 +17,7 @@ pub enum RequestError {
     AuthenticationUserNotFound { username: String },
     AuthenticationHeaderMissing,
     AuthenticationHeaderInvalid { message: String },
+    Transport { inner: hyper::Error },
 }
 
 impl std::error::Error for RequestError {}
@@ -35,6 +36,9 @@ impl fmt::Display for RequestError {
             Self::AuthenticationHeaderInvalid { message } => {
                 write!(f, "Authentication header invalid: {message}")
             }
+            Self::Transport { inner } => {
+                write!(f, "HTTP error: {inner}")
+            }
         }
     }
 }
@@ -43,52 +47,19 @@ impl fmt::Display for RequestError {
 pub enum Error {
     Model(models::Error),
     Request(RequestError),
+    Start(StartError),
+    Command(CommandError),
 }
 
 impl std::error::Error for Error {}
-
-#[derive(Debug)]
-pub enum StartError {
-    DatabaseInitError { message: String },
-    DatabaseMigrationError { message: String },
-}
-
-impl std::error::Error for StartError {}
-
-impl fmt::Display for StartError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::DatabaseInitError { message } => {
-                write!(f, "database initialization error: {message}")
-            }
-            Self::DatabaseMigrationError { message } => {
-                write!(f, "database migration error: {message}")
-            }
-        }
-    }
-}
-
-impl From<sqlx::Error> for StartError {
-    fn from(value: sqlx::Error) -> Self {
-        Self::DatabaseInitError {
-            message: value.to_string(),
-        }
-    }
-}
-
-impl From<sqlx::migrate::MigrateError> for StartError {
-    fn from(value: sqlx::migrate::MigrateError) -> Self {
-        Self::DatabaseMigrationError {
-            message: value.to_string(),
-        }
-    }
-}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Model(model_error) => write!(f, "Model error: {model_error}"),
             Self::Request(request_error) => write!(f, "Request error: {request_error}"),
+            Self::Start(start_error) => write!(f, "{start_error}"),
+            Self::Command(command_error) => write!(f, "{command_error}"),
         }
     }
 }
@@ -96,6 +67,18 @@ impl fmt::Display for Error {
 impl From<models::Error> for Error {
     fn from(value: models::Error) -> Self {
         Self::Model(value)
+    }
+}
+
+impl From<StartError> for Error {
+    fn from(value: StartError) -> Self {
+        Self::Start(value)
+    }
+}
+
+impl From<hyper::Error> for Error {
+    fn from(value: hyper::Error) -> Self {
+        Self::Request(RequestError::Transport { inner: value })
     }
 }
 
@@ -146,8 +129,74 @@ impl IntoResponse for Error {
                     StatusCode::UNAUTHORIZED,
                     view::ErrorPage::build(&request_error.to_string()),
                 ),
+                RequestError::Transport { inner } => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    view::ErrorPage::build(&inner.to_string()),
+                ),
             },
+            Self::Start(start_error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                view::ErrorPage::build(&start_error.to_string()),
+            ),
+            Self::Command(command_error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                view::ErrorPage::build(&command_error.to_string()),
+            ),
         }
         .into_response()
+    }
+}
+
+#[derive(Debug)]
+pub enum StartError {
+    DatabaseInitError { message: String },
+    DatabaseMigrationError { message: String },
+}
+
+impl std::error::Error for StartError {}
+
+impl fmt::Display for StartError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::DatabaseInitError { message } => {
+                write!(f, "database initialization error: {message}")
+            }
+            Self::DatabaseMigrationError { message } => {
+                write!(f, "database migration error: {message}")
+            }
+        }
+    }
+}
+
+impl From<sqlx::Error> for StartError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::DatabaseInitError {
+            message: value.to_string(),
+        }
+    }
+}
+
+impl From<sqlx::migrate::MigrateError> for StartError {
+    fn from(value: sqlx::migrate::MigrateError) -> Self {
+        Self::DatabaseMigrationError {
+            message: value.to_string(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CommandError {
+    UserExists { username: String },
+}
+
+impl std::error::Error for CommandError {}
+
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::UserExists { username } => {
+                write!(f, "user \"{username}\" already exists")
+            }
+        }
     }
 }

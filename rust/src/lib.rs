@@ -11,7 +11,7 @@ pub mod sqlite;
 
 mod view;
 
-pub use error::{Error, RequestError, StartError};
+pub use error::{CommandError, Error, RequestError, StartError};
 
 #[derive(Clone)]
 pub struct AppState {
