@@ -11,13 +11,13 @@ impl Inventory {
         target = "packager::html::build",
         name = "build_inventory",
         fields(component = "Inventory")
+        skip(categories)
     )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
         edit_item_id: Option<Uuid>,
     ) -> Markup {
-        tracing::info!("building inventory HTML component");
         html!(
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-5" {
@@ -45,7 +45,8 @@ impl InventoryCategoryList {
     #[tracing::instrument(
         target = "packager::html::build",
         name = "build_inventory_category_list",
-        fields(component = "InventoryCategoryList")
+        fields(component = "InventoryCategoryList"),
+        skip(categories)
     )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
@@ -156,7 +157,8 @@ impl InventoryItemList {
     #[tracing::instrument(
         target = "packager::html::build",
         name = "build_inventory_item_list",
-        fields(component = "InventoryItemList")
+        fields(component = "InventoryItemList"),
+        skip(items)
     )]
     pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
@@ -435,7 +437,8 @@ impl InventoryNewItemFormCategory {
     #[tracing::instrument(
         target = "packager::html::build",
         name = "build_inventory_new_item_form_category",
-        fields(component = "InventoryNewItemFormCategory")
+        fields(component = "InventoryNewItemFormCategory"),
+        skip(categories)
     )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
@@ -480,7 +483,8 @@ impl InventoryNewItemForm {
     #[tracing::instrument(
         target = "packager::html::build",
         name = "build_inventory_new_item_form",
-        fields(component = "InventoryNewItemForm")
+        fields(component = "InventoryNewItemForm"),
+        skip(categories)
     )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,

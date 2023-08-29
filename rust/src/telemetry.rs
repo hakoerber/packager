@@ -7,23 +7,19 @@ use std::time::Duration;
 use axum::Router;
 use http::Request;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
-use tracing::{Span, Subscriber};
+use tracing::Span;
 
 use tracing::Instrument;
 use tracing_subscriber::{
     filter::{LevelFilter, Targets},
-    fmt::{
-        format::{Format, Writer},
-        FmtContext, FormatEvent, FormatFields, Layer,
-    },
+    fmt::{format::Format, Layer},
     layer::SubscriberExt,
     prelude::*,
-    registry::{LookupSpan, Registry},
+    registry::Registry,
 };
 use uuid::Uuid;
 
 use opentelemetry::{global, runtime::Tokio};
-use tracing::Event;
 
 pub enum OpenTelemetryConfig {
     Enabled,
@@ -35,55 +31,9 @@ pub enum TokioConsoleConfig {
     Disabled,
 }
 
-struct DebugFormat;
-
-impl<S, N> FormatEvent<S, N> for DebugFormat
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-    N: for<'a> FormatFields<'a> + 'static,
-{
-    fn format_event(
-        &self,
-        ctx: &FmtContext<'_, S, N>,
-        mut writer: Writer<'_>,
-        event: &Event<'_>,
-    ) -> fmt::Result {
-        let metadata = event.metadata();
-
-        write!(
-            &mut writer,
-            "\n{}\t{}:\t",
-            metadata.level(),
-            metadata.target()
-        )?;
-
-        if let Some(scope) = ctx.event_scope() {
-            for span in scope.from_root() {
-                write!(writer, "span: {:?} {:?}\t", span.metadata(), span.id())?;
-            }
-        } else {
-            write!(writer, "NO SPAN\t")?;
-        };
-
-        ctx.field_format().format_fields(writer.by_ref(), event)?;
-
-        writeln!(writer)
-    }
-}
-
-pub async fn init_tracing<Func, T>(
-    opentelemetry_config: OpenTelemetryConfig,
-    tokio_console_config: TokioConsoleConfig,
-    args: crate::cmd::Args,
-    f: Func,
-) -> T
-where
-    Func: FnOnce(crate::cmd::Args) -> Pin<Box<dyn Future<Output = T>>>,
-    T: std::process::Termination,
-{
-    let mut shutdown_functions: Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>> =
-        vec![];
-
+fn get_stdout_layer<
+    T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+>() -> impl tracing_subscriber::Layer<T> {
     // default is the Full format, there is no way to specify this, but it can be
     // overridden via builder methods
     let stdout_format = Format::default()
@@ -93,34 +43,39 @@ where
         .with_level(true)
         .with_file(false);
 
-    let stdout_format = DebugFormat;
-
-    let stdout_layer = Layer::default()
-        .event_format(stdout_format)
-        .with_writer(io::stdout);
-
     let stdout_filter = Targets::new()
         .with_default(LevelFilter::WARN)
         .with_targets(vec![
             (env!("CARGO_PKG_NAME"), LevelFilter::DEBUG),
+            ("sqlx", LevelFilter::DEBUG),
             ("runtime", LevelFilter::OFF),
-            ("sqlx", LevelFilter::TRACE),
+            ("tokio", LevelFilter::OFF),
         ]);
 
-    let stdout_filter = Targets::new()
-        .with_default(LevelFilter::TRACE)
-        .with_targets(vec![("runtime", LevelFilter::OFF)])
-        .with_targets(vec![("tokio", LevelFilter::OFF)])
-        .with_targets(vec![("hyper", LevelFilter::OFF)]);
+    let stdout_layer = Layer::default()
+        .event_format(stdout_format)
+        .with_writer(io::stdout)
+        .with_filter(stdout_filter);
 
-    let stdout_layer = stdout_layer.with_filter(stdout_filter);
+    stdout_layer.boxed()
+}
 
-    let console_layer = match tokio_console_config {
-        TokioConsoleConfig::Enabled => Some(console_subscriber::Builder::default().spawn()),
-        TokioConsoleConfig::Disabled => None,
-    };
+trait Forwarder {
+    type Config;
 
-    let opentelemetry_layer = match opentelemetry_config {
+    fn build(
+        config: Self::Config,
+        shutdown_functions: &mut Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>>,
+    ) -> Option<Box<dyn tracing_subscriber::Layer<dyn tracing::Subscriber>>>;
+}
+
+fn get_jaeger_layer<
+    T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+>(
+    config: OpenTelemetryConfig,
+    shutdown_functions: &mut Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>>,
+) -> Option<impl tracing_subscriber::Layer<T>> {
+    let opentelemetry_layer = match config {
         OpenTelemetryConfig::Enabled => {
             global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
             // Sets up the machinery needed to export data to Jaeger
@@ -138,9 +93,9 @@ where
                     .with_default(LevelFilter::DEBUG)
                     .with_targets(vec![
                         (env!("CARGO_PKG_NAME"), LevelFilter::DEBUG),
+                        ("sqlx", LevelFilter::DEBUG),
                         ("runtime", LevelFilter::OFF),
                         ("tokio", LevelFilter::OFF),
-                        ("sqlx", LevelFilter::TRACE),
                     ])
             };
 
@@ -149,29 +104,47 @@ where
                 .with_filter(opentelemetry_filter);
 
             shutdown_functions.push(Box::new(|| {
-                println!("shutting down otel");
                 global::shutdown_tracer_provider();
                 Ok(())
             }));
-
-            println!("set up otel");
 
             Some(opentelemetry_layer)
         }
         OpenTelemetryConfig::Disabled => None,
     };
+    opentelemetry_layer
+}
+
+pub async fn init_tracing<Func, T>(
+    opentelemetry_config: OpenTelemetryConfig,
+    tokio_console_config: TokioConsoleConfig,
+    args: crate::cmd::Args,
+    f: Func,
+) -> T
+where
+    Func: FnOnce(crate::cmd::Args) -> Pin<Box<dyn Future<Output = T>>>,
+    T: std::process::Termination,
+{
+    let mut shutdown_functions: Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>> =
+        vec![];
+
+    let console_layer = match tokio_console_config {
+        TokioConsoleConfig::Enabled => Some(console_subscriber::Builder::default().spawn()),
+        TokioConsoleConfig::Disabled => None,
+    };
+
+    let stdout_layer = get_stdout_layer();
+    let jaeger_layer = get_jaeger_layer(opentelemetry_config, &mut shutdown_functions);
 
     let registry = Registry::default()
         .with(console_layer)
-        .with(opentelemetry_layer)
+        .with(jaeger_layer)
         // just an example, you can actuall pass Options here for layers that might be
         // set/unset at runtime
-        .with(Some(stdout_layer))
+        .with(stdout_layer)
         .with(None::<Layer<_>>);
 
     tracing::subscriber::set_global_default(registry).unwrap();
-
-    tracing::debug!("tracing setup finished");
 
     tracing_log::log_tracer::Builder::new().init().unwrap();
 

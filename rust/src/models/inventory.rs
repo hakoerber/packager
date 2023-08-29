@@ -38,7 +38,7 @@ impl Inventory {
 
             Ok::<_, Error>(categories)
         }
-        .instrument(tracing::info_span!("packager::query", "query"))
+        .instrument(tracing::info_span!("packager::sql::query", "query"))
         .await?;
 
         Ok(Self { categories })

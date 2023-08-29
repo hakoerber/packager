@@ -1,18 +1,13 @@
 use axum::{
     error_handling::HandleErrorLayer,
-    extract::State,
     http::header::HeaderMap,
     http::StatusCode,
     middleware,
     routing::{get, post},
     BoxError, Router,
 };
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    ConnectOptions,
-};
 
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
 use crate::{AppState, Error, RequestError, TopLevelPage};
@@ -37,47 +32,10 @@ fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
 }
 
 #[tracing::instrument]
-async fn simple_handler(State(state): State<AppState>) -> &'static str {
-    use tracing::Instrument;
-    let pool = async {
-        SqlitePoolOptions::new()
-            .max_connections(5)
-            .connect_with(
-                SqliteConnectOptions::from_str("/tmp/tmp.JKl26kmKW5")
-                    .unwrap()
-                    .log_statements(log::LevelFilter::Warn)
-                    .log_slow_statements(
-                        log::LevelFilter::Warn,
-                        std::time::Duration::from_millis(100),
-                    )
-                    .tracing_span(tracing::warn_span!("packager::sqlx"))
-                    .pragma("foreign_keys", "1"),
-            )
-            .await
-            .unwrap()
-    }
-    // .instrument(tracing::warn_span!("init_pool"))
-    .await;
-
-    tracing::warn!("test event");
-
-    async {
-        sqlx::query("SELECT * FROM users")
-            .execute(&pool)
-            .await
-            .unwrap()
-    }
-    .instrument(tracing::warn_span!("packager::sqlx"))
-    .await;
-    "ok"
-}
-
-#[tracing::instrument]
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/favicon.svg", get(icon))
         .route("/assets/luggage.svg", get(icon))
-        .route("/q", get(simple_handler))
         .route(
             "/notfound",
             get(|| async {
