@@ -11,7 +11,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use std::fmt;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 
 mod error;
 mod html;
@@ -36,6 +37,8 @@ struct Args {
     database_url: String,
     #[arg(long, default_value_t = 3000)]
     port: u16,
+    #[arg(long)]
+    bind: String,
 }
 
 #[derive(Clone)]
@@ -250,7 +253,12 @@ async fn main() -> Result<(), StartError> {
         })
         .with_state(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
+    let addr = SocketAddr::from((
+        IpAddr::from_str(&args.bind)
+            .map_err(|error| format!("error parsing bind address {}: {}", &args.bind, error))
+            .unwrap(),
+        args.port,
+    ));
     tracing::debug!("listening on {}", addr);
     axum::Server::try_bind(&addr)
         .map_err(|error| format!("error binding to {}: {}", addr, error))
