@@ -35,6 +35,7 @@ impl Root {
                     hx-boost="true"
                 {
                     header
+                        #header
                         ."h-full"
                         ."bg-gray-200"
                         ."p-5"
@@ -53,7 +54,7 @@ impl Root {
                             ."gap-3"
                         {
                             img ."h-12" src="/assets/luggage.svg";
-                            a href="/" { "Packager" }
+                            a #home href="/" { "Packager" }
                         }
                         nav
                             ."grow"
@@ -64,12 +65,14 @@ impl Root {
                             ."content-stretch"
                         {
                             a href="/inventory/"
+                                #header-link-inventory
                                 ."h-full"
                                 ."text-lg"
                                 ."font-bold"[matches!(active_page, TopLevelPage::Inventory)]
                                 ."underline"[matches!(active_page, TopLevelPage::Inventory)]
                             { "Inventory" }
                             a href="/trips/"
+                                #header-link-trips
                                 ."h-full"
                                 ."text-lg"
                                 ."font-bold"[matches!(active_page, TopLevelPage::Trips)]

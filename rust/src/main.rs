@@ -42,6 +42,15 @@ pub struct AppState {
     client_state: ClientState,
 }
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(long)]
+    port: Option<u16>,
+}
+
 #[derive(Clone)]
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
@@ -140,7 +149,9 @@ async fn main() -> Result<(), sqlx::Error> {
         // );
         .with_state(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let args = Args::parse();
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], args.port.unwrap_or(3000)));
     tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())

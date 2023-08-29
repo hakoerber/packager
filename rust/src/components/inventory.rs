@@ -46,6 +46,7 @@ impl InventoryCategoryList {
 
         html!(
             table
+                #category-list
                 ."table"
                 ."table-auto"
                 ."border-collapse"
