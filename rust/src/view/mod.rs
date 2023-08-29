@@ -1,135 +1,130 @@
-use super::Context;
+use std::fmt;
 
-use maud::{html, Markup, PreEscaped, DOCTYPE};
+use base64::Engine as _;
+use sha2::{Digest, Sha256};
 
+use crate::Context;
+use maud::Markup;
+
+pub mod error;
 pub mod home;
 pub mod inventory;
+pub mod root;
 pub mod trip;
 
-pub struct Root;
+pub use error::ErrorPage;
+pub use root::Root;
 
-use crate::TopLevelPage;
+#[derive(Debug)]
+pub enum HtmxAction {
+    Get(String),
+}
 
-impl Root {
-    #[tracing::instrument]
-    pub fn build(context: &Context, body: &Markup, active_page: Option<&TopLevelPage>) -> Markup {
-        let menu_item = |item: TopLevelPage, active_page: Option<&TopLevelPage>| {
-            let active = active_page.map_or(false, |page| *page == item);
-            html!(
-                a
-                    href=(item.path())
-                    #{"header-link-" (item.id())}
-                    ."px-5"
-                    ."flex"
-                    ."h-full"
-                    ."text-lg"
-                    ."hover:bg-gray-300"
-
-                    // invisible top border to fix alignment
-                    ."border-t-gray-200"[active]
-                    ."hover:border-t-gray-300"[active]
-
-                    ."border-b-gray-500"[active]
-                    ."border-y-4"[active]
-                    ."font-bold"[active]
-                { span ."m-auto" ."font-semibold" { (item.name()) }}
-            )
-        };
-
-        html!(
-            (DOCTYPE)
-            html {
-                head {
-                    title { "Packager" }
-                    script src="https://unpkg.com/htmx.org@1.9.4" {}
-                    script src="https://unpkg.com/alpinejs@3.12.3" defer {}
-                    script src="https://cdn.tailwindcss.com/3.3.3" {}
-                    link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" {}
-                    link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg" {}
-                    script { (PreEscaped(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js")))) }
-                    meta name="htmx-config" content=r#"{"useTemplateFragments":true}"# {}
-                }
-                body
-                {
-                    header
-                        #header
-                        ."h-16"
-                        ."bg-gray-200"
-                        ."flex"
-                        ."flex-row"
-                        ."flex-nowrap"
-                        ."justify-between"
-                        ."items-stretch"
-                    {
-                        a
-                            #home
-                            href="/"
-                            ."flex"
-                            ."flex-row"
-                            ."items-center"
-                            ."gap-3"
-                            ."px-5"
-                            ."hover:bg-gray-300"
-                        {
-                            img ."h-12" src="/assets/luggage.svg" {}
-                            span
-                                ."text-xl"
-                                ."font-semibold"
-                            { "Packager" }
-                        }
-                        nav
-                            ."grow"
-                            ."flex"
-                            ."flex-row"
-                            ."justify-center"
-                            ."gap-x-10"
-                            ."items-stretch"
-                        {
-                            (menu_item(TopLevelPage::Inventory, active_page))
-                            (menu_item(TopLevelPage::Trips, active_page))
-                        }
-                        a
-                            ."flex"
-                            ."flex-row"
-                            ."items-center"
-                            ."gap-3"
-                            ."px-5"
-                            ."bg-gray-200"
-                            ."hover:bg-gray-300"
-                            href=(format!("/user/{}", context.user.id))
-                        {
-                            span
-                                ."m-auto"
-                                ."mdi"
-                                ."mdi-account"
-                                ."text-3xl"
-                            {}
-                            p { (context.user.fullname)}
-                        }
-                    }
-                    (body)
-                }
-            }
-        )
+impl fmt::Display for HtmxAction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Get(path) => write!(f, "{}", path),
+        }
     }
 }
 
-pub struct ErrorPage;
+#[derive(Debug)]
+pub enum FallbackAction {
+    Get(String),
+}
 
-impl ErrorPage {
-    #[tracing::instrument]
-    pub fn build(message: &str) -> Markup {
-        html!(
-            (DOCTYPE)
-            html {
-                head {
-                    title { "Packager" }
-                }
-                body {
-                    h1 { "Error" }
-                    p { (message) }
-                }
-            }
-        )
+impl fmt::Display for FallbackAction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Get(path) => write!(f, "{}", path),
+        }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComponentId(String);
+
+impl ComponentId {
+    #[tracing::instrument]
+    // fn new() -> Self {
+    // NOTE: this could also use a static AtomicUsize incrementing integer, which might be faster
+    // Self(random::<u32>())
+    // }
+    #[tracing::instrument]
+    fn html_id(&self) -> String {
+        let id = {
+            let mut hasher = Sha256::new();
+            hasher.update(self.0.as_bytes());
+            hasher.finalize()
+        };
+
+        // 9 bytes is enough to be unique
+        // If this is divisible by 3, it means that we can base64-encode it without
+        // any "=" padding
+        //
+        // cannot panic, as the output for sha256 will always be bit
+        let id = &id[..9];
+
+        // URL_SAFE because we cannot have slashes in the output
+        let id = base64::engine::general_purpose::URL_SAFE.encode(id);
+
+        id
+    }
+}
+
+impl fmt::Display for ComponentId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.html_id())
+    }
+}
+
+#[derive(Debug)]
+pub enum HtmxTarget {
+    Myself,
+    Component(ComponentId),
+}
+
+#[derive(Debug)]
+pub struct HtmxComponent {
+    id: ComponentId,
+    action: HtmxAction,
+    fallback_action: FallbackAction,
+    target: HtmxTarget,
+}
+
+impl HtmxComponent {
+    fn target(&self) -> &ComponentId {
+        match self.target {
+            HtmxTarget::Myself => &self.id,
+            HtmxTarget::Component(ref id) => id,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Parent {
+    Root,
+    Component(ComponentId),
+}
+
+impl From<Parent> for ComponentId {
+    fn from(value: Parent) -> Self {
+        match value {
+            Parent::Root => ComponentId("/".into()),
+            Parent::Component(c) => c,
+        }
+    }
+}
+
+impl From<ComponentId> for Parent {
+    fn from(value: ComponentId) -> Self {
+        Self::Component(value)
+    }
+}
+
+pub trait Component {
+    type Args;
+
+    fn init(parent: Parent, args: Self::Args) -> Self;
+    fn build(self, context: &Context) -> Markup;
 }

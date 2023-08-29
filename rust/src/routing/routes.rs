@@ -5,6 +5,8 @@ use axum::{
     Form,
 };
 
+use crate::view::Component;
+
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -98,12 +100,26 @@ pub struct TripTypeUpdate {
 }
 
 #[tracing::instrument]
-pub async fn root(Extension(current_user): Extension<models::user::User>) -> impl IntoResponse {
-    view::Root::build(
-        &Context::build(current_user),
-        &view::home::Home::build(),
-        None,
-    )
+pub async fn root(
+    Extension(current_user): Extension<models::user::User>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if htmx::is_htmx(&headers) {
+        view::root::Body::init(
+            view::Parent::Root,
+            view::root::BodyArgs {
+                body: &view::home::Home::build(),
+                active_page: None,
+            },
+        )
+        .build(&Context::build(current_user))
+    } else {
+        view::Root::build(
+            &Context::build(current_user),
+            &view::home::Home::build(),
+            None,
+        )
+    }
 }
 
 #[tracing::instrument]
@@ -166,22 +182,38 @@ pub async fn inventory_inactive(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
+    headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = None;
-
     let inventory = models::inventory::Inventory::load(&ctx, &state.database_pool).await?;
 
-    Ok(view::Root::build(
-        &ctx,
-        &view::inventory::Inventory::build(
-            None,
-            &inventory.categories,
-            state.client_state.edit_item,
-        ),
-        Some(&TopLevelPage::Inventory),
-    ))
+    if htmx::is_htmx(&headers) {
+        Ok(view::root::Body::init(
+            view::Parent::Root,
+            view::root::BodyArgs {
+                body: &view::inventory::Inventory::build(
+                    None,
+                    &inventory.categories,
+                    state.client_state.edit_item,
+                ),
+
+                active_page: Some(&TopLevelPage::Inventory),
+            },
+        )
+        .build(&ctx))
+    } else {
+        Ok(view::Root::build(
+            &ctx,
+            &view::inventory::Inventory::build(
+                None,
+                &inventory.categories,
+                state.client_state.edit_item,
+            ),
+            Some(&TopLevelPage::Inventory),
+        ))
+    }
 }
 
 #[tracing::instrument]
@@ -345,15 +377,27 @@ pub async fn trip_create(
 pub async fn trips(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     let trips = models::trips::Trip::all(&ctx, &state.database_pool).await?;
 
-    Ok(view::Root::build(
-        &ctx,
-        &view::trip::TripManager::build(trips),
-        Some(&TopLevelPage::Trips),
-    ))
+    if htmx::is_htmx(&headers) {
+        Ok(view::root::Body::init(
+            view::Parent::Root,
+            view::root::BodyArgs {
+                body: &view::trip::TripManager::build(trips),
+                active_page: Some(&TopLevelPage::Trips),
+            },
+        )
+        .build(&ctx))
+    } else {
+        Ok(view::Root::build(
+            &ctx,
+            &view::trip::TripManager::build(trips),
+            Some(&TopLevelPage::Trips),
+        ))
+    }
 }
 
 #[tracing::instrument]

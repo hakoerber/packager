@@ -406,7 +406,7 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-                        SET " => "pick" => "= ?
+                        SET pick = ?
                         WHERE trip_id = ?
                         AND item_id = ?
                         AND user_id = ?",
