@@ -14,32 +14,24 @@ impl Inventory {
     #[tracing::instrument]
     pub async fn load(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
         let user_id = ctx.user.id.to_string();
-        let categories = async {
-            let mut categories = sqlx::query_as!(
-                DbCategoryRow,
-                "SELECT 
-                id,
-                name,
-                description 
-            FROM inventory_items_categories 
-            WHERE user_id = ?",
-                user_id,
-            )
-            .fetch(pool)
-            .map_ok(|row: DbCategoryRow| row.try_into())
-            .try_collect::<Vec<Result<Category, Error>>>()
-            .await?
-            .into_iter()
-            .collect::<Result<Vec<Category>, Error>>()?;
 
-            for category in &mut categories {
-                category.populate_items(ctx, pool).await?;
-            }
-
-            Ok::<_, Error>(categories)
-        }
-        .instrument(tracing::info_span!("packager::sql::query", "query"))
+        let mut categories = crate::query_all!(
+            pool,
+            DbCategoryRow,
+            Category,
+            "SELECT 
+                    id,
+                    name,
+                    description 
+                FROM inventory_items_categories 
+                WHERE user_id = ?",
+            user_id
+        )
         .await?;
+
+        for category in &mut categories {
+            category.populate_items(ctx, pool).await?;
+        }
 
         Ok(Self { categories })
     }
@@ -81,8 +73,10 @@ impl Category {
     ) -> Result<Option<Category>, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
-        sqlx::query_as!(
+        crate::query_one!(
+            pool,
             DbCategoryRow,
+            Category,
             "SELECT
                 id,
                 name,
@@ -94,10 +88,7 @@ impl Category {
             id_param,
             user_id,
         )
-        .fetch_optional(pool)
-        .await?
-        .map(|row| row.try_into())
-        .transpose()
+        .await
     }
 
     #[tracing::instrument]
@@ -109,7 +100,8 @@ impl Category {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
-        sqlx::query!(
+        crate::execute!(
+            pool,
             "INSERT INTO inventory_items_categories
                 (id, name, user_id)
             VALUES
@@ -118,7 +110,6 @@ impl Category {
             name,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(id)
@@ -144,8 +135,10 @@ impl Category {
     ) -> Result<(), Error> {
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
-        let items = sqlx::query_as!(
+        let items = crate::query_all!(
+            pool,
             DbInventoryItemsRow,
+            Item,
             "SELECT
                 id,
                 name,
@@ -159,12 +152,7 @@ impl Category {
             id,
             user_id,
         )
-        .fetch(pool)
-        .map_ok(|row| row.try_into())
-        .try_collect::<Vec<Result<Item, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<Item>, Error>>()?;
+        .await?;
 
         self.items = Some(items);
         Ok(())
@@ -243,8 +231,10 @@ impl InventoryItem {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
 
-        sqlx::query_as!(
+        crate::query_one!(
+            pool,
             DbInventoryItemRow,
+            Self,
             "SELECT
                     item.id AS id,
                     item.name AS name,
@@ -268,10 +258,7 @@ impl InventoryItem {
             id_param,
             user_id,
         )
-        .fetch_optional(pool)
-        .await?
-        .map(|row| row.try_into())
-        .transpose()
+        .await
     }
 
     #[tracing::instrument]
@@ -281,7 +268,8 @@ impl InventoryItem {
         name: &str,
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
-        Ok(sqlx::query!(
+        crate::query_exists!(
+            pool,
             "SELECT id
             FROM inventory_items
             WHERE 
@@ -290,10 +278,7 @@ impl InventoryItem {
             name,
             user_id
         )
-        .fetch_optional(pool)
-        .await?
-        .map(|_row| ())
-        .is_some())
+        .await
     }
 
     #[tracing::instrument]
@@ -304,7 +289,8 @@ impl InventoryItem {
     ) -> Result<bool, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
-        let results = sqlx::query!(
+        let results = crate::execute!(
+            pool,
             "DELETE FROM inventory_items
             WHERE 
                 id = ?
@@ -312,7 +298,6 @@ impl InventoryItem {
             id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(results.rows_affected() != 0)
@@ -330,7 +315,8 @@ impl InventoryItem {
         let weight = i64::try_from(weight).unwrap();
 
         let id_param = id.to_string();
-        Ok(sqlx::query!(
+        crate::execute_returning_uuid!(
+            pool,
             "UPDATE inventory_items AS item
             SET
                 name = ?,
@@ -345,9 +331,7 @@ impl InventoryItem {
             id_param,
             user_id,
         )
-        .fetch_one(pool)
-        .map_ok(|row| Uuid::try_parse(&row.id))
-        .await??)
+        .await
     }
 
     #[tracing::instrument]
@@ -363,7 +347,8 @@ impl InventoryItem {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
 
-        sqlx::query!(
+        crate::execute!(
+            pool,
             "INSERT INTO inventory_items
                 (id, name, description, weight, category_id, user_id)
             VALUES
@@ -375,7 +360,6 @@ impl InventoryItem {
             category_id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(id)
@@ -389,7 +373,8 @@ impl InventoryItem {
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
-        let weight = sqlx::query!(
+        let weight = crate::execute_returning!(
+            pool,
             "
                 SELECT COALESCE(MAX(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
@@ -399,15 +384,11 @@ impl InventoryItem {
                     category_id = ?
                     AND category.user_id = ?
             ",
+            i64,
+            |row| i64::from(row.weight),
             category_id_param,
             user_id,
         )
-        .fetch_one(pool)
-        .map_ok(|row| {
-            // convert to i64 because that the default integer type, but looks
-            // like COALESCE return i32?
-            i64::from(row.weight)
-        })
         .await?;
 
         Ok(weight)
@@ -454,7 +435,8 @@ impl Item {
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
-        Ok(sqlx::query!(
+        crate::execute_returning!(
+            pool,
             "
                 SELECT COALESCE(SUM(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
@@ -467,15 +449,11 @@ impl Item {
                     AND category.user_id = ?
                     AND t_item.pick = 1
             ",
+            i64,
+            |row| i64::from(row.weight),
             category_id_param,
             user_id,
         )
-        .fetch_one(pool)
-        .map_ok(|row| {
-            // convert to i64 because that the default integer type, but looks
-            // like COALESCE return i32?
-            i64::from(row.weight)
-        })
-        .await?)
+        .await
     }
 }

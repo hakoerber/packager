@@ -47,3 +47,122 @@ pub async fn migrate(url: &str) -> Result<(), StartError> {
 
     Ok(())
 }
+
+#[macro_export]
+macro_rules! query_all {
+    ( $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+        async {
+            let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
+                $struct_row,
+                $query,
+                $( $args )*
+            )
+            .fetch($pool)
+            .map_ok(|row: $struct_row| row.try_into())
+            .try_collect::<Vec<Result<$struct_into, Error>>>()
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<$struct_into>, Error>>();
+
+            result
+
+        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+    };
+}
+
+#[macro_export]
+macro_rules! query_one {
+    ( $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
+        async {
+            let result: Result<Option<$struct_into>, Error> = sqlx::query_as!(
+                $struct_row,
+                $query,
+                $( $args )*
+            )
+            .fetch_optional($pool)
+            .await?
+            .map(|row: $struct_row| row.try_into())
+            .transpose();
+
+            result
+
+        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+    };
+}
+
+#[macro_export]
+macro_rules! query_exists {
+    ( $pool:expr, $query:expr, $( $args:tt )*) => {
+        async {
+            let result: bool = sqlx::query!(
+                $query,
+                $( $args )*
+            )
+            .fetch_optional($pool)
+            .await?
+            .is_some();
+
+            Ok(result)
+
+        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+    };
+}
+
+#[macro_export]
+macro_rules! execute {
+    ( $pool:expr, $query:expr, $( $args:tt )*) => {
+        async {
+            let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
+                $query,
+                $( $args )*
+            )
+            .execute($pool)
+            .await
+            .map_err(|e| e.into());
+
+            result
+
+
+        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+    };
+}
+
+#[macro_export]
+macro_rules! execute_returning {
+    ( $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:tt )*) => {
+        async {
+            let result: Result<$t, Error> = sqlx::query!(
+                $query,
+                $( $args )*
+            )
+            .fetch_one($pool)
+            .map_ok($fn)
+            .await
+            .map_err(Into::into);
+
+            result
+
+
+        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+    };
+}
+
+#[macro_export]
+macro_rules! execute_returning_uuid {
+    ( $pool:expr, $query:expr, $( $args:tt )*) => {
+        async {
+            let result: Result<Uuid, Error> = sqlx::query!(
+                $query,
+                $( $args )*
+            )
+            .fetch_one($pool)
+            .map_ok(|row| Uuid::try_parse(&row.id))
+            .await?
+            .map_err(Into::into);
+
+            result
+
+
+        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+    };
+}
