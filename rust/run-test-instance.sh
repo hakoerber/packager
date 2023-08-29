@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-sleep 100
+cd $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 set -o nounset
 
 port="${1}"
 
 db="$(mktemp)"
 
-export SQLX_OFFLINE=true
 export DATABASE_URL="sqlite://${db}"
 
-cargo run -- --port "${port}"
+exec ./target/debug/packager --port "${port}"

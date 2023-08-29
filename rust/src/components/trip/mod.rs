@@ -39,6 +39,17 @@ impl From<InputType> for &'static str {
     }
 }
 
+fn trip_state_icon(state: &TripState) -> &'static str {
+    match state {
+        TripState::Init => "mdi-magic-staff",
+        TripState::Planning => "mdi-text-box-outline",
+        TripState::Planned => "mdi-clock-outline",
+        TripState::Active => "mdi-play",
+        TripState::Review => "mdi-magnify",
+        TripState::Done => "mdi-check",
+    }
+}
+
 pub struct TripTable;
 
 impl TripTable {
@@ -66,10 +77,15 @@ impl TripTable {
                     @for trip in trips {
                         tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
                             (TripTableRow::build(trip.id, &trip.name))
-                            (TripTableRow::build(trip.id, trip.date_start))
-                            (TripTableRow::build(trip.id, trip.date_end))
+                            (TripTableRow::build(trip.id, trip.date_start.to_string()))
+                            (TripTableRow::build(trip.id, trip.date_end.to_string()))
                             (TripTableRow::build(trip.id, (trip.date_end - trip.date_start).whole_days()))
-                            (TripTableRow::build(trip.id, trip.state))
+                            (TripTableRow::build(trip.id, html!(
+                                span .flex .flex-row .items-center {
+                                    span ."mdi" .(trip_state_icon(&trip.state)) ."text-xl" ."mr-2" {}
+                                    span { (trip.state) }
+                                }
+                            )))
                         }
                     }
                 }
@@ -81,7 +97,7 @@ impl TripTable {
 pub struct TripTableRow;
 
 impl TripTableRow {
-    pub fn build(trip_id: Uuid, value: impl std::fmt::Display) -> Markup {
+    pub fn build(trip_id: Uuid, value: impl maud::Render) -> Markup {
         html!(
             td ."border" ."p-0" ."m-0" {
                 a ."inline-block" ."p-2" ."m-0" ."w-full"
@@ -441,7 +457,12 @@ impl TripInfo {
                     ))
                     tr .h-full {
                         td ."border" ."p-2" { "State" }
-                        td ."border" ."p-2" { (trip.state) }
+                        td ."border" {
+                            span .flex .flex-row .items-center .justify-start ."gap-2" {
+                                span ."mdi" .(trip_state_icon(&trip.state)) ."text-2xl" ."pl-2" {}
+                                span ."pr-2" ."py-2" { (trip.state) }
+                            }
+                        }
                         @let prev_state = trip.state.prev();
                         @let next_state = trip.state.next();
 

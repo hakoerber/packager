@@ -6,7 +6,10 @@ use std::thread;
 use thirtyfour::common::capabilities::firefox::FirefoxPreferences;
 use thirtyfour::{FirefoxCapabilities, WebDriver};
 
+use std::time;
+
 use std::future::Future;
+use std::process::{Command, Stdio};
 
 const PORT: u16 = 3001;
 const BASEURL: &'static str = "http://localhost";
@@ -31,6 +34,14 @@ impl From<WebDriverError> for TestError {
     }
 }
 
+impl From<std::io::Error> for TestError {
+    fn from(error: std::io::Error) -> Self {
+        Self::AppError {
+            message: error.to_string(),
+        }
+    }
+}
+
 fn random_name() -> String {
     let mut rng = rand::thread_rng();
     let length = { 1..=20 }.choose(&mut rng).unwrap();
@@ -49,27 +60,105 @@ where
     R: Future<Output = Result<(), TestError>>,
 {
     let event_in_parent = Arc::new((Mutex::new(false), Condvar::new()));
-
     let event_in_subprocess = Arc::clone(&event_in_parent);
-    let app = thread::spawn(move || {
-        use std::process::Command;
 
-        // panic!();
-        let script = concat!(env!("CARGO_MANIFEST_DIR"), "/run-test-instance.sh");
+    let prepared_event_in_parent = Arc::new((Mutex::new(false), Condvar::new()));
+    let prepared_event_in_subprocess = Arc::clone(&prepared_event_in_parent);
 
-        println!("starting script {script}");
-        let mut handle = Command::new(script).arg(PORT.to_string()).spawn().unwrap();
+    let app = thread::spawn(move || -> Result<(), TestError> {
+        {
+            let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../prepare-test-instance.sh");
 
-        let (lock, cvar) = &*event_in_subprocess;
-        let mut done = lock.lock().unwrap();
-        while !*done {
-            done = cvar.wait(done).unwrap();
+            println!("[sub] starting prepare script {script}");
+            let handle_prepare = Command::new(script)
+                .stdin(Stdio::null())
+                // .stdout(Stdio::null())
+                // .stderr(Stdio::null())
+                .output()?;
+
+            assert!(handle_prepare.status.success());
+            println!("[sub] preparation ok");
+        }
+
+        let mut handle_gecko = {
+            let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../run-test-instance.sh");
+
+            println!("[sub] starting script {script}");
+            let handle = Command::new("geckodriver")
+                .stdin(Stdio::null())
+                // .stdout(Stdio::null())
+                // .stderr(Stdio::null())
+                .spawn()?;
+            println!("[sub] geckodriver started");
+            handle
+        };
+
+        {
+            println!("[sub] sending prepared event");
+            let (lock, cvar) = &*prepared_event_in_subprocess;
+            let mut prepared = lock.lock().unwrap();
+            *prepared = true;
+            cvar.notify_all();
+            println!("[sub] sent prepared event");
+        }
+
+        let mut handle_app = {
+            let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../run-test-instance.sh");
+
+            println!("[sub] starting script {script}");
+            let handle = Command::new(script)
+                .arg(PORT.to_string())
+                .stdin(Stdio::null())
+                // .stdout(Stdio::null())
+                // .stderr(Stdio::null())
+                .spawn()?;
+            println!("[sub] app started");
+            handle
+        };
+
+        {
+            let (lock, cvar) = &*event_in_subprocess;
+            let mut done = lock.lock().unwrap();
+            while !*done {
+                println!("[sub] waiting for done event");
+                done = cvar.wait(done).unwrap();
+            }
+            println!("[sub] done received");
         }
 
         // at worst, the child already exited, so we don't care about the
         // return code
-        let _ = handle.kill();
+        println!("[sub] killing app subprocess");
+        let _ = handle_app.kill()?;
+        handle_app.wait()?;
+        println!("[sub] killed app subprocess");
+
+        println!("[sub] killing gecko subprocess");
+        let _ = handle_gecko.kill()?;
+        handle_gecko.wait()?;
+        println!("[sub] killed gecko subprocess");
+
+        println!("[sub] done");
+
+        Ok(())
     });
+
+    thread::spawn(move || {
+        let (lock, cvar) = &*prepared_event_in_parent;
+        let mut prepared = lock.lock().unwrap();
+        while !*prepared {
+            println!("waiting for prepared event");
+            prepared = cvar.wait(prepared).unwrap();
+        }
+        println!("prepared received");
+    })
+    .join()
+    .unwrap();
+
+    println!("preparations done, starting tests in 1s");
+
+    thread::sleep(time::Duration::from_secs(1));
+
     let prefs = FirefoxPreferences::new();
     let mut caps = FirefoxCapabilities::new();
     caps.set_preferences(prefs)?;
@@ -79,20 +168,35 @@ where
     // cloning works for closing, so it's good enough
     let driver_handle = driver.clone();
 
+    // call the actual function
+    println!("calling test function");
     let result = inner(driver).await;
+    // let result: Result<(), TestError> = Ok(());
+    println!("test function done");
 
+    println!("deinitializing selenium driver");
     driver_handle.quit().await?;
 
-    // if the child panicked and cannot receive the event, we don't care and just
-    // exit
-    let (lock, cvar) = &*event_in_parent;
-    let mut done = lock.lock().unwrap();
-    *done = true;
-    cvar.notify_one();
+    // this has to be done in a separate thread, otherwise the condvar handling
+    // does not work. it's not sure why.
+    thread::spawn(move || {
+        // if the child panicked and cannot receive the event, we don't care and just
+        // continue to the exit
+        println!("sending done event");
+        let (lock, cvar) = &*event_in_parent;
+        let mut done = lock.lock().unwrap();
+        *done = true;
+        cvar.notify_all();
+        println!("sent done event");
+    })
+    .join()
+    .unwrap();
 
-    let _ = app.join().map_err(|_| TestError::AppError {
+    println!("waiting for subprocess");
+    app.join().map_err(|_| TestError::AppError {
         message: "app panicked".to_string(),
-    });
+    })??;
+    println!("all done");
     Ok(result?)
 }
 
@@ -145,6 +249,31 @@ async fn check_table(
 
 #[tokio::test]
 async fn test() -> Result<(), TestError> {
+    let mut handle = {
+        let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../run-test-instance.sh");
+
+        println!("[sub] starting script {script}");
+        let handle = Command::new(script)
+            .arg(PORT.to_string())
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
+        println!("[sub] started");
+        handle
+    };
+
+    // at worst, the child already exited, so we don't care about the
+    // return code
+    println!("[sub] killing subprocess");
+    let _ = handle.kill().expect("failed to kill child");
+    handle.wait().unwrap();
+    println!("[sub] killed subprocess");
+
+    println!("[sub] done");
+
+    // return Ok(());
+
     run_test(|driver: WebDriver| async move {
         for js_enabled in [true] {
             driver.goto(url("/")).await?;
