@@ -21,7 +21,7 @@ use serde_variant::to_variant_name;
 
 use sqlx::{
     error::DatabaseError,
-    query, query_as,
+    query,
     sqlite::{SqliteConnectOptions, SqliteError, SqlitePoolOptions, SqliteRow},
     Pool, Row, Sqlite,
 };
@@ -363,41 +363,18 @@ async fn inventory_item_validate_name(
     State(state): State<AppState>,
     Form(new_item): Form<NewItemName>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    let results = query!(
-        "SELECT id
-        FROM inventory_items
-        WHERE name = ?",
-        new_item.name,
-    )
-    .fetch(&state.database_pool)
-    .map_ok(|_| Ok(()))
-    .try_collect::<Vec<Result<(), models::Error>>>()
-    .await
-    // we have two error handling lines here. these are distinct errors
-    // this one is the SQL error that may arise during the query
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?
-    .into_iter()
-    .collect::<Result<Vec<()>, models::Error>>()
-    // and this one is the model mapping error that may arise e.g. during
-    // reading of the rows
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let exists = models::InventoryItem::name_exists(&state.database_pool, &new_item.name)
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            )
+        })
+        .await?;
 
     Ok((
         StatusCode::OK,
-        components::inventory::InventoryNewItemFormName::build(
-            Some(&new_item.name),
-            !results.is_empty(),
-        ),
+        components::inventory::InventoryNewItemFormName::build(Some(&new_item.name), exists),
     ))
 }
 
@@ -413,72 +390,23 @@ async fn inventory_item_create(
         ));
     }
 
-    let id = Uuid::new_v4();
-    let id_param = id.to_string();
-    let name = &new_item.name;
-    let category_id = new_item.category_id.to_string();
-    query!(
-        "INSERT INTO inventory_items
-            (id, name, description, weight, category_id)
-        VALUES
-            (?, ?, ?, ?, ?)",
-        id_param,
-        name,
-        "",
+    let new_id = models::InventoryItem::save(
+        &state.database_pool,
+        &new_item.name,
+        new_item.category_id,
         new_item.weight,
-        category_id,
     )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref error) => {
-            let sqlite_error = error.downcast_ref::<SqliteError>();
-            if let Some(code) = sqlite_error.code() {
-                match &*code {
-                    "787" => {
-                        // SQLITE_CONSTRAINT_FOREIGNKEY
-                        (
-                            StatusCode::BAD_REQUEST,
-                            components::ErrorPage::build(&format!(
-                                "category {id} not found",
-                                id = new_item.category_id
-                            )),
-                        )
-                    }
-                    "2067" => {
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        (
-                            StatusCode::BAD_REQUEST,
-                            components::ErrorPage::build(&format!(
-                                "item with name \"{name}\" already exists in category {id}",
-                                name = new_item.name,
-                                id = new_item.category_id
-                            )),
-                        )
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        components::ErrorPage::build(&format!(
-                            "got error with unknown code: {}",
-                            sqlite_error.to_string()
-                        )),
-                    ),
-                }
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    components::ErrorPage::build(&format!(
-                        "got error without code: {}",
-                        sqlite_error.to_string()
-                    )),
-                )
-            }
-        }
+    .map_err(|error| match error {
+        models::Error::Constraint { description } => (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&description),
+        ),
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
+            components::ErrorPage::build(&error.to_string()),
         ),
-    })?;
+    })
+    .await?;
 
     if is_htmx(&headers) {
         let inventory = models::Inventory::load(&state.database_pool)
@@ -500,7 +428,7 @@ async fn inventory_item_create(
                 .ok_or((
                     StatusCode::NOT_FOUND,
                     components::ErrorPage::build(&format!(
-                        "a category with id {id} was inserted but does not exist, this is a bug"
+                        "a category with id {new_id} was inserted but does not exist, this is a bug"
                     )),
                 ))?,
         );
@@ -527,52 +455,24 @@ async fn inventory_item_delete(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-) -> Result<Redirect, (StatusCode, String)> {
-    let id_param = id.to_string();
-    let results = query!(
-        "DELETE FROM inventory_items
-        WHERE id = ?",
-        id_param,
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|error| match error {
-        sqlx::Error::Database(ref error) => {
-            let sqlite_error = error.downcast_ref::<SqliteError>();
-            if let Some(code) = sqlite_error.code() {
-                match &*code {
-                    "787" => {
-                        // SQLITE_CONSTRAINT_FOREIGNKEY
-                        (
-                            StatusCode::BAD_REQUEST,
-                            // TODO: this is not perfect, as both foreign keys
-                            // may be responsible for the error. how can we tell
-                            // which one?
-                            format!("item {} cannot be deleted because it's on use in trips. instead, archive it", code.to_string()),
-                        )
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("got error with unknown code: {}", sqlite_error.to_string()),
-                    ),
-                }
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("got error without code: {}", sqlite_error.to_string()),
-                )
-            }
-        }
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("got unknown error: {}", error.to_string()),
-        ),
-    })?;
+) -> Result<Redirect, (StatusCode, Markup)> {
+    let deleted = models::InventoryItem::delete(&state.database_pool, id)
+        .map_err(|error| match error {
+            models::Error::Constraint { ref description } => (
+                StatusCode::NOT_IMPLEMENTED,
+                components::ErrorPage::build(description),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            ),
+        })
+        .await?;
 
-    if results.rows_affected() == 0 {
+    if !deleted {
         Err((
             StatusCode::NOT_FOUND,
-            format!("item with id {id} not found", id = id),
+            components::ErrorPage::build(&format!("item with id {id} not found")),
         ))
     } else {
         Ok(Redirect::to(
@@ -580,60 +480,22 @@ async fn inventory_item_delete(
                 .get("referer")
                 .ok_or((
                     StatusCode::BAD_REQUEST,
-                    "no referer header found".to_string(),
+                    components::ErrorPage::build("no referer header found"),
                 ))?
                 .to_str()
-                .map_err(|e| {
+                .map_err(|error| {
                     (
                         StatusCode::BAD_REQUEST,
-                        format!("referer could not be converted: {}", e),
+                        components::ErrorPage::build(&format!(
+                            "referer could not be converted: {}",
+                            error
+                        )),
                     )
                 })?,
         ))
     }
 }
 
-// async fn htmx_inventory_category_items(
-//     Path(id): Path<String>,
-// ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-//     let pool = SqlitePoolOptions::new()
-//         .max_connections(5)
-//         .connect("sqlite:///home/hannes-private/sync/items/items.sqlite")
-//         .await
-//         .unwrap();
-
-//     let items = query!(&format!(
-//     //TODO bind this stuff!!!!!!! no sql injection pls
-//         "SELECT
-//             i.id, i.name, i.description, i.weight, i.category_id
-//         FROM inventory_items_categories AS c
-//         INNER JOIN inventoryitems AS i
-//         ON i.category_id = c.id WHERE c.id = '{id}';",
-//         id = id,
-//     ))
-//     .fetch(&pool)
-//     .map_ok(|row| row.try_into())
-//     .try_collect::<Vec<Result<Item, models::Error>>>()
-//     .await
-//     // we have two error handling lines here. these are distinct errors
-//     // this one is the SQL error that may arise during the query
-//     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
-//     .into_iter()
-//     .collect::<Result<Vec<Item>, models::Error>>()
-//     // and this one is the model mapping error that may arise e.g. during
-//     // reading of the rows
-//     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
-
-//     Ok((
-//         StatusCode::OK,
-//         Html::from(
-//             InventoryItemList::build(&items)
-//                 .await
-//                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
-//                 .to_string(),
-//         ),
-//     ))
-// }
 #[derive(Deserialize)]
 struct EditItem {
     #[serde(rename = "edit-item-name")]
@@ -711,113 +573,46 @@ struct NewTrip {
 async fn trip_create(
     State(state): State<AppState>,
     Form(new_trip): Form<NewTrip>,
-) -> Result<Redirect, (StatusCode, String)> {
+) -> Result<Redirect, (StatusCode, Markup)> {
     if new_trip.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            "name cannot be empty".to_string(),
+            components::ErrorPage::build("name cannot be empty"),
         ));
     }
 
-    let id = Uuid::new_v4();
-    let id_param = id.to_string();
-    let date_start = new_trip
-        .date_start
-        .format(models::DATE_FORMAT)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    let date_end = new_trip
-        .date_end
-        .format(models::DATE_FORMAT)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    let trip_state = models::TripState::new();
-    query!(
-        "INSERT INTO trips
-            (id, name, date_start, date_end, state)
-        VALUES
-            (?, ?, ?, ?, ?)",
-        id_param,
-        new_trip.name,
-        date_start,
-        date_end,
-        trip_state
+    let new_id = models::Trip::save(
+        &state.database_pool,
+        &new_trip.name,
+        new_trip.date_start,
+        new_trip.date_end,
     )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref error) => {
-            let sqlite_error = error.downcast_ref::<SqliteError>();
-            if let Some(code) = sqlite_error.code() {
-                match &*code {
-                    "2067" => {
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        (
-                            StatusCode::BAD_REQUEST,
-                            format!(
-                                "trip with name \"{name}\" already exists",
-                                name = new_trip.name,
-                            ),
-                        )
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("got error with unknown code: {}", sqlite_error.to_string()),
-                    ),
-                }
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("got error without code: {}", sqlite_error.to_string()),
-                )
-            }
-        }
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("got unknown error: {}", e.to_string()),
+    .map_err(|error| match error {
+        models::Error::TimeParse { description } => (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&description),
         ),
-    })?;
+        _ => (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&error.to_string()),
+        ),
+    })
+    .await?;
 
-    Ok(Redirect::to(&format!("/trips/{id}/", id = id)))
+    Ok(Redirect::to(&format!("/trips/{new_id}/")))
 }
 
 async fn trips(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    let trips: Vec<models::Trip> = query_as!(
-        models::DbTripRow,
-        "SELECT
-            id,
-            name,
-            CAST (date_start AS TEXT) date_start,
-            CAST (date_end AS TEXT) date_end,
-            state,
-            location,
-            temp_min,
-            temp_max,
-            comment
-        FROM trips",
-    )
-    .fetch(&state.database_pool)
-    .map_ok(|row| row.try_into())
-    .try_collect::<Vec<Result<models::Trip, models::Error>>>()
-    .await
-    // we have two error handling lines here. these are distinct errors
-    // this one is the SQL error that may arise during the query
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?
-    .into_iter()
-    .collect::<Result<Vec<models::Trip>, models::Error>>()
-    // and this one is the model mapping error that may arise e.g. during
-    // reading of the rows
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let trips = models::Trip::all(&state.database_pool)
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            )
+        })
+        .await?;
 
     Ok((
         StatusCode::OK,
@@ -842,42 +637,18 @@ async fn trip(
     state.client_state.trip_edit_attribute = trip_query.edit;
     state.client_state.active_category_id = trip_query.category;
 
-    let id_param = id.to_string();
-    let mut trip: models::Trip = query_as!(
-        models::DbTripRow,
-        "SELECT
-                id,
-                name,
-                CAST (date_start AS TEXT) AS date_start,
-                CAST (date_end AS TEXT) AS date_end,
-                state,
-                location,
-                temp_min,
-                temp_max,
-                comment
-            FROM trips
-            WHERE id = ?",
-        id_param,
-    )
-    .fetch_one(&state.database_pool)
-    .map_ok(|row| row.try_into())
-    .await
-    .map_err(|e: sqlx::Error| match e {
-        sqlx::Error::RowNotFound => (
+    let mut trip: models::Trip = models::Trip::find(&state.database_pool, id)
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            )
+        })
+        .await?
+        .ok_or((
             StatusCode::NOT_FOUND,
             components::ErrorPage::build(&format!("trip with id {} not found", id)),
-        ),
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        ),
-    })?
-    .map_err(|e: models::Error| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+        ))?;
 
     trip.load_trips_types(&state.database_pool)
         .await
@@ -1555,24 +1326,16 @@ async fn trip_state_set(
     headers: HeaderMap,
     Path((trip_id, new_state)): Path<(Uuid, models::TripState)>,
 ) -> Result<impl IntoResponse, (StatusCode, Markup)> {
-    let trip_id = trip_id.to_string();
-    let result = query!(
-        "UPDATE trips
-        SET state = ?
-        WHERE id = ?",
-        new_state,
-        trip_id,
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let exists = models::Trip::set_state(&state.database_pool, trip_id, &new_state)
+        .map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                components::ErrorPage::build(&e.to_string()),
+            )
+        })
+        .await?;
 
-    if result.rows_affected() == 0 {
+    if !exists {
         return Err((
             StatusCode::NOT_FOUND,
             components::ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
@@ -1608,35 +1371,14 @@ async fn trips_types(
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.trip_type_edit = trip_type_query.edit;
 
-    let trip_types: Vec<models::TripsType> = query_as!(
-        models::DbTripsTypesRow,
-        "SELECT
-            id,
-            name
-        FROM trips_types",
-    )
-    .fetch(&state.database_pool)
-    .map_ok(|row| row.try_into())
-    .try_collect::<Vec<Result<models::TripsType, models::Error>>>()
-    .await
-    // we have two error handling lines here. these are distinct errors
-    // this one is the SQL error that may arise during the query
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?
-    .into_iter()
-    .collect::<Result<Vec<models::TripsType>, models::Error>>()
-    // and this one is the model mapping error that may arise e.g. during
-    // reading of the rows
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let trip_types: Vec<models::TripsType> = models::TripsType::all(&state.database_pool)
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            )
+        })
+        .await?;
 
     Ok((
         StatusCode::OK,
@@ -1730,24 +1472,17 @@ async fn trips_types_edit_name(
         ));
     }
 
-    let id_param = trip_type_id.to_string();
-    let result = query!(
-        "UPDATE trips_types
-        SET name = ?
-        WHERE id = ?",
-        trip_update.new_value,
-        id_param,
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let exists =
+        models::TripsType::set_name(&state.database_pool, trip_type_id, &trip_update.new_value)
+            .map_err(|error| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    components::ErrorPage::build(&error.to_string()),
+                )
+            })
+            .await?;
 
-    if result.rows_affected() == 0 {
+    if !exists {
         Err((
             StatusCode::NOT_FOUND,
             components::ErrorPage::build(&format!(
@@ -1764,48 +1499,18 @@ async fn inventory_item(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    let id_param = id.to_string();
-    let item: models::InventoryItem = query_as!(
-        models::DbInventoryItemRow,
-        "SELECT
-                item.id AS id,
-                item.name AS name,
-                item.description AS description,
-                weight,
-                category.id AS category_id,
-                category.name AS category_name,
-                category.description AS category_description,
-                product.id AS product_id,
-                product.name AS product_name,
-                product.description AS product_description,
-                product.comment AS product_comment
-            FROM inventory_items AS item
-            INNER JOIN inventory_items_categories as category
-                ON item.category_id = category.id
-            LEFT JOIN inventory_products AS product
-                ON item.product_id = product.id
-            WHERE item.id = ?",
-        id_param,
-    )
-    .fetch_one(&state.database_pool)
-    .map_ok(|row| row.try_into())
-    .await
-    .map_err(|e: sqlx::Error| match e {
-        sqlx::Error::RowNotFound => (
+    let item = models::InventoryItem::find(&state.database_pool, id)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&e.to_string()),
+            )
+        })
+        .await?
+        .ok_or((
             StatusCode::NOT_FOUND,
-            components::ErrorPage::build(&format!("item with id {} not found", id)),
-        ),
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        ),
-    })?
-    .map_err(|e: models::Error| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+            components::ErrorPage::build(&format!("inventory item with id {id} not found")),
+        ))?;
 
     Ok((
         StatusCode::OK,
