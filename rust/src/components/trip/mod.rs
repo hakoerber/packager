@@ -1036,7 +1036,6 @@ impl TripItemListRow {
                         ."flex"
                         ."bg-green-200"[item.picked]
                         ."hover:bg-green-100"[!item.picked]
-                        ."hover:bg-red-100"[item.picked]
                     {
                         @if item.picked {
                             span
@@ -1078,7 +1077,6 @@ impl TripItemListRow {
                             ."flex"
                             ."bg-green-200"[item.packed]
                             ."hover:bg-green-100"[!item.packed]
-                            ."hover:bg-red-100"[item.packed]
                         {
                             @if item.packed {
                                 span

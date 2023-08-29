@@ -87,20 +87,17 @@ impl InventoryCategoryList {
                                 } {
                                 a
                                     id="select-category"
-                                    href=(
-                                        format!(
-                                            "/inventory/category/{id}/",
-                                            id=category.id
-                                        )
-                                    )
-                                    // hx-post=(
-                                    //     format!(
-                                    //         "/inventory/category/{id}/items",
-                                    //         id=category.id
-                                    //     )
-                                    // )
-                                    // hx-swap="outerHTML"
-                                    // hx-target="#items"
+                                    href={
+                                        "/inventory/category/"
+                                        (category.id)
+                                    }
+                                    hx-post={
+                                        "/inventory/categories/"
+                                        (category.id)
+                                        "/select"
+                                    }
+                                    hx-swap="outerHTML"
+                                    hx-target="#pkglist-item-manager"
                                     ."inline-block" ."p-2" ."m-0" ."w-full"
                                     {
                                         (category.name.clone())
@@ -531,6 +528,7 @@ impl InventoryNewCategoryForm {
                 name="new-category"
                 id="new-category"
                 action="/inventory/category/"
+                hx-boost="true"
                 target="_self"
                 method="post"
                 ."p-5" ."border-2" ."border-gray-200" {

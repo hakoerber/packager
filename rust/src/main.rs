@@ -104,12 +104,14 @@ impl HtmxEvents {
 
 enum HtmxResponseHeaders {
     Trigger,
+    PushUrl,
 }
 
 impl Into<HeaderName> for HtmxResponseHeaders {
     fn into(self) -> HeaderName {
         match self {
             Self::Trigger => HeaderName::from_static("hx-trigger"),
+            Self::PushUrl => HeaderName::from_static("hx-push-url"),
         }
     }
 }
@@ -199,6 +201,7 @@ async fn main() -> Result<(), sqlx::Error> {
                 .route("/", get(inventory_inactive))
                 .route("/category/", post(inventory_category_create))
                 .route("/item/:id/", get(inventory_item))
+                .route("/categories/:id/select", post(inventory_category_select))
                 .route("/item/", post(inventory_item_create))
                 .route("/item/name/validate", post(inventory_item_validate_name))
                 .route("/category/:id/", get(inventory_active))
@@ -479,20 +482,18 @@ async fn inventory_item_create(
 
         // it's impossible to NOT find the item here, as we literally just added
         // it. but good error handling never hurts
-        let active_category: Option<&Category> = state
-            .client_state
-            .active_category_id
-            .map(|id| {
-                inventory
-                    .categories
-                    .iter()
-                    .find(|category| category.id == id)
-                    .ok_or((
-                        StatusCode::NOT_FOUND,
-                        ErrorPage::build(&format!("a category with id {id} was inserted but does not exist, this is a bug")),
-                    ))
-            })
-            .transpose()?;
+        let active_category: Option<&Category> = Some(
+            inventory
+                .categories
+                .iter()
+                .find(|category| category.id == new_item.category_id)
+                .ok_or((
+                    StatusCode::NOT_FOUND,
+                    ErrorPage::build(&format!(
+                        "a category with id {id} was inserted but does not exist, this is a bug"
+                    )),
+                ))?,
+        );
 
         Ok((
             StatusCode::OK,
@@ -1704,7 +1705,7 @@ async fn inventory_item(
 async fn trip_category_select(
     State(state): State<AppState>,
     Path((trip_id, category_id)): Path<(Uuid, Uuid)>,
-) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+) -> Result<(StatusCode, HeaderMap, Markup), (StatusCode, Markup)> {
     let mut trip = models::Trip::find(&state.database_pool, trip_id)
         .await
         .map_err(|e| {
@@ -1736,8 +1737,58 @@ async fn trip_category_select(
             ErrorPage::build(&format!("category with id {category_id} not found")),
         ))?;
 
+    let mut headers = HeaderMap::new();
+    headers.insert::<HeaderName>(
+        HtmxResponseHeaders::PushUrl.into(),
+        format!("?={category_id}").parse().unwrap(),
+    );
+
     Ok((
         StatusCode::OK,
+        headers,
         components::trip::TripItems::build(Some(&active_category), &trip),
+    ))
+}
+
+async fn inventory_category_select(
+    State(state): State<AppState>,
+    Path(category_id): Path<Uuid>,
+) -> Result<(StatusCode, HeaderMap, Markup), (StatusCode, Markup)> {
+    let inventory = models::Inventory::load(&state.database_pool)
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&error.to_string()),
+            )
+        })?;
+
+    let active_category: Option<&Category> = Some(
+        inventory
+            .categories
+            .iter()
+            .find(|category| category.id == category_id)
+            .ok_or((
+                StatusCode::NOT_FOUND,
+                ErrorPage::build(&format!("a category with id {category_id} not found")),
+            ))?,
+    );
+
+    let mut headers = HeaderMap::new();
+    headers.insert::<HeaderName>(
+        HtmxResponseHeaders::PushUrl.into(),
+        format!("/inventory/category/{category_id}")
+            .parse()
+            .unwrap(),
+    );
+
+    Ok((
+        StatusCode::OK,
+        headers,
+        components::Inventory::build(
+            active_category,
+            &inventory.categories,
+            state.client_state.edit_item,
+        ),
     ))
 }
