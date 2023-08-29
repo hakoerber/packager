@@ -73,18 +73,52 @@ impl From<Error> for MainResult {
     }
 }
 
+fn init_tracing() {
+    use std::io::stdout;
+    use tracing::Level;
+    use tracing_subscriber::{
+        filter::Targets,
+        fmt::{format::Format, Layer},
+        prelude::*,
+        registry::Registry,
+    };
+    // default is the Full format, there is no way to specify this, but it can be
+    // overridden via builder methods
+    let console_format = Format::default()
+        .with_ansi(true)
+        .with_target(true)
+        .with_level(true)
+        .json();
+
+    let console_layer = Layer::default()
+        .event_format(console_format)
+        .with_writer(stdout);
+
+    let console_level = Level::DEBUG;
+
+    let console_filter = Targets::new().with_target(env!("CARGO_PKG_NAME"), console_level);
+
+    let console_layer = if true {
+        console_layer.boxed()
+    } else {
+        console_layer.with_filter(console_filter).boxed()
+    };
+
+    let registry = Registry::default()
+        // just an example, you can actuall pass Options here for layers that might be
+        // set/unset at runtime
+        .with(Some(console_layer))
+        .with(None::<Layer<_>>);
+
+    tracing::subscriber::set_global_default(registry).unwrap();
+}
+
 #[tokio::main]
 async fn main() -> MainResult {
+    init_tracing();
     let args = Args::parse();
     match args.command {
         Command::Serve(serve_args) => {
-            tracing_subscriber::fmt()
-                // .with_max_level(tracing::Level::DEBUG)
-                // .with_target(false)
-                // .with_env_filter("none,packager=debug,request=debug,sqlx=debug")
-                .compact()
-                .init();
-
             if let Err(e) = sqlite::migrate(&args.database_url).await {
                 return <_ as Into<Error>>::into(e).into();
             }

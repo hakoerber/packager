@@ -13,7 +13,7 @@ pub async fn init_database_pool(url: &str) -> Result<Pool<Sqlite>, StartError> {
         .max_connections(5)
         .connect_with(
             SqliteConnectOptions::from_str(url)?
-                .log_statements(log::LevelFilter::Off)
+                .log_statements(log::LevelFilter::Debug)
                 .log_slow_statements(log::LevelFilter::Warn, time::Duration::from_millis(100))
                 .pragma("foreign_keys", "1"),
         )
@@ -26,7 +26,7 @@ pub async fn migrate(url: &str) -> Result<(), StartError> {
         .connect_with(
             SqliteConnectOptions::from_str(url)?
                 .pragma("foreign_keys", "0")
-                .log_statements(log::LevelFilter::Off),
+                .log_statements(log::LevelFilter::Debug),
         )
         .await?;
 
