@@ -101,7 +101,7 @@ impl TripTableRow {
         html!(
             td ."border" ."p-0" ."m-0" {
                 a ."inline-block" ."p-2" ."m-0" ."w-full"
-                    href=(format!("/trip/{id}/", id=trip_id))
+                    href=(format!("/trips/{id}/", id=trip_id))
                 { (value) }
             }
         )
@@ -115,7 +115,7 @@ impl NewTrip {
         html!(
             form
                 name="new_trip"
-                action="/trip/"
+                action="/trips/"
                 target="_self"
                 method="post"
                 ."mt-8" ."p-5" ."border-2" ."border-gray-200"
@@ -951,11 +951,11 @@ impl TripItemListRow {
                 {
                     a
                         href={
-                            "/trip/" (trip_id)
+                            "/trips/" (trip_id)
                             "/items/" (item.item.id)
                             "/" (if item.picked { "unpick" } else { "pick" }) }
                         hx-post={
-                            "/trip/" (trip_id)
+                            "/trips/" (trip_id)
                             "/items/" (item.item.id)
                             "/" (if item.picked { "unpick" } else { "pick" }) }
                         hx-target="closest tr"
@@ -993,11 +993,11 @@ impl TripItemListRow {
                     @if item.picked {
                         a
                             href={
-                                "/trip/" (trip_id)
+                                "/trips/" (trip_id)
                                 "/items/" (item.item.id)
                                 "/" (if item.packed { "unpack" } else { "pack" }) }
                             hx-post={
-                                "/trip/" (trip_id)
+                                "/trips/" (trip_id)
                                 "/items/" (item.item.id)
                                 "/" (if item.packed { "unpack" } else { "pack" }) }
                             hx-target="closest tr"

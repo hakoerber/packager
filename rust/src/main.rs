@@ -120,30 +120,30 @@ async fn main() -> Result<(), sqlx::Error> {
             "/trips/types/:id/edit/name/submit",
             post(trips_types_edit_name),
         )
-        .route("/trip/", post(trip_create))
-        .route("/trip/:id/", get(trip))
-        .route("/trip/:id/comment/submit", post(trip_comment_set))
-        .route("/trip/:id/state/:id", post(trip_state_set))
-        .route("/trip/:id/type/:id/add", get(trip_type_add))
-        .route("/trip/:id/type/:id/remove", get(trip_type_remove))
+        .route("/trips/", post(trip_create))
+        .route("/trips/:id/", get(trip))
+        .route("/trips/:id/comment/submit", post(trip_comment_set))
+        .route("/trips/:id/state/:id", post(trip_state_set))
+        .route("/trips/:id/type/:id/add", get(trip_type_add))
+        .route("/trips/:id/type/:id/remove", get(trip_type_remove))
         .route(
-            "/trip/:id/edit/:attribute/submit",
+            "/trips/:id/edit/:attribute/submit",
             post(trip_edit_attribute),
         )
         .route(
-            "/trip/:id/items/:id/pick",
+            "/trips/:id/items/:id/pick",
             get(trip_item_set_pick).post(trip_item_set_pick_htmx),
         )
         .route(
-            "/trip/:id/items/:id/unpick",
+            "/trips/:id/items/:id/unpick",
             get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
         )
         .route(
-            "/trip/:id/items/:id/pack",
+            "/trips/:id/items/:id/pack",
             get(trip_item_set_pack).post(trip_item_set_pack_htmx),
         )
         .route(
-            "/trip/:id/items/:id/unpack",
+            "/trips/:id/items/:id/unpack",
             get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
         )
         .route("/inventory/", get(inventory_inactive))
@@ -652,7 +652,7 @@ async fn trip_create(
         ),
     })?;
 
-    Ok(Redirect::to(&format!("/trip/{id}/", id = id)))
+    Ok(Redirect::to(&format!("/trips/{id}/", id = id)))
 }
 
 async fn trips(
@@ -820,7 +820,7 @@ async fn trip_type_remove(
             ErrorPage::build(&format!("type {type_id} is not active for trip {trip_id}")),
         ))
     } else {
-        Ok(Redirect::to(&format!("/trip/{trip_id}/")))
+        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
     }
 }
 
@@ -886,7 +886,7 @@ async fn trip_type_add(
         ),
     })?;
 
-    Ok(Redirect::to(&format!("/trip/{trip_id}/")))
+    Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
 
 #[derive(Deserialize)]
@@ -918,7 +918,7 @@ async fn trip_comment_set(
             ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
         ))
     } else {
-        Ok(Redirect::to(&format!("/trip/{id}/", id = trip_id)))
+        Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)))
     }
 }
 
@@ -959,7 +959,7 @@ async fn trip_edit_attribute(
             ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
         ))
     } else {
-        Ok(Redirect::to(&format!("/trip/{trip_id}/")))
+        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
     }
 }
 
@@ -1262,7 +1262,7 @@ async fn trip_state_set(
             ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
         ))
     } else {
-        Ok(Redirect::to(&format!("/trip/{id}/", id = trip_id)))
+        Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)))
     }
 }
 
