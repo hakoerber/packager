@@ -210,6 +210,14 @@ async fn main() -> Result<(), StartError> {
                     "/:id/packagelist/item/:id/unpack",
                     post(trip_item_packagelist_set_unpack_htmx),
                 )
+                .route(
+                    "/:id/packagelist/item/:id/ready",
+                    post(trip_item_packagelist_set_ready_htmx),
+                )
+                .route(
+                    "/:id/packagelist/item/:id/unready",
+                    post(trip_item_packagelist_set_unready_htmx),
+                )
                 .route("/:id/state/:id", post(trip_state_set))
                 .route("/:id/total_weight", get(trip_total_weight_htmx))
                 .route("/:id/type/:id/add", get(trip_type_add))
@@ -1194,7 +1202,7 @@ async fn trip_item_packagelist_set_pack_htmx(
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
-    Ok(view::trip::packagelist::TripPackageListRow::build(
+    Ok(view::trip::packagelist::TripPackageListRowReady::build(
         trip_id, &item,
     ))
 }
@@ -1220,7 +1228,57 @@ async fn trip_item_packagelist_set_unpack_htmx(
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
-    Ok(view::trip::packagelist::TripPackageListRow::build(
+    Ok(view::trip::packagelist::TripPackageListRowReady::build(
+        trip_id, &item,
+    ))
+}
+
+async fn trip_item_packagelist_set_ready_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, Error> {
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::trips::TripItemStateKey::Ready,
+        true,
+    )
+    .await?;
+
+    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+        .await?
+        .ok_or(Error::Request(RequestError::NotFound {
+            message: format!("an item with id {item_id} does not exist"),
+        }))?;
+
+    Ok(view::trip::packagelist::TripPackageListRowUnready::build(
+        trip_id, &item,
+    ))
+}
+
+async fn trip_item_packagelist_set_unready_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, Error> {
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::trips::TripItemStateKey::Ready,
+        false,
+    )
+    .await?;
+
+    // note that this cannot fail due to a missing item, as trip_item_set_state would already
+    // return 404. but error handling cannot hurt ;)
+    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+        .await?
+        .ok_or(Error::Request(RequestError::NotFound {
+            message: format!("an item with id {item_id} does not exist"),
+        }))?;
+
+    Ok(view::trip::packagelist::TripPackageListRowUnready::build(
         trip_id, &item,
     ))
 }
