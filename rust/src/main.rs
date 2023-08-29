@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     headers,
     headers::Header,
-    http::{header::HeaderMap, StatusCode},
+    http::{header, header::HeaderMap, StatusCode},
     response::{Html, Redirect},
     routing::{get, post},
     Form, Router,
@@ -89,13 +89,23 @@ async fn main() -> Result<(), sqlx::Error> {
         client_state: ClientState::new(),
     };
 
+    let icon_handler = || async {
+        (
+            [(header::CONTENT_TYPE, "image/svg+xml")],
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/luggage.svg")),
+        )
+    };
+
     // build our application with a route
     let app = Router::new()
+        .route("/favicon.svg", get(icon_handler))
+        .route("/assets/luggage.svg", get(icon_handler))
         .route("/", get(root))
         .route("/trips/", get(trips))
         .route("/trip/", post(trip_create))
         .route("/trip/:id/", get(trip))
         .route("/trip/:id/comment/submit", post(trip_comment_set))
+        .route("/trip/:id/state/:id", post(trip_state_set))
         .route("/trip/:id/type/:id/add", get(trip_type_add))
         .route("/trip/:id/type/:id/remove", get(trip_type_remove))
         .route(
@@ -469,6 +479,7 @@ async fn trip_create(
         .date_end
         .format(DATE_FORMAT)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let trip_state = TripState::new();
     query!(
         "INSERT INTO trips
             (id, name, date_start, date_end, state)
@@ -478,7 +489,7 @@ async fn trip_create(
         new_trip.name,
         date_start,
         date_end,
-        TripState::Planning,
+        trip_state
     )
     .execute(&state.database_pool)
     .await
@@ -620,6 +631,15 @@ async fn trip(
     })?;
 
     trip.load_trips_types(&state.database_pool)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?;
+
+    trip.sync_trip_items_with_inventory(&state.database_pool)
         .await
         .map_err(|e| {
             (
@@ -1012,4 +1032,30 @@ async fn inventory_category_create(
     .await?;
 
     Ok(Redirect::to("/inventory/"))
+}
+
+async fn trip_state_set(
+    State(state): State<AppState>,
+    Path((trip_id, new_state)): Path<(Uuid, TripState)>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    let trip_id = trip_id.to_string();
+    let result = query!(
+        "UPDATE trips
+        SET state = ?
+        WHERE id = ?",
+        new_state,
+        trip_id,
+    )
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+
+    if result.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
+        ))
+    } else {
+        Ok(Redirect::to(&format!("/trip/{id}/", id = trip_id)))
+    }
 }

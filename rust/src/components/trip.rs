@@ -280,6 +280,7 @@ impl TripInfoRow {
         attribute_key: TripAttribute,
         edit_attribute: Option<&TripAttribute>,
         input_type: InputType,
+        has_two_columns: bool,
     ) -> Markup {
         let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
         html!(
@@ -357,6 +358,7 @@ impl TripInfoRow {
                     td ."border" ."p-2" { (name) }
                     td ."border" ."p-2" { (value.map_or("".to_string(), |v| v.to_string())) }
                     td
+                        colspan=(if has_two_columns {"2"} else {"1"})
                         ."border-none"
                         ."bg-blue-100"
                         ."hover:bg-blue-200"
@@ -387,6 +389,8 @@ pub struct TripInfo;
 
 impl TripInfo {
     pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
+        let has_two_columns =
+            state.trip_edit_attribute.is_some() || !(trip.state.is_first() || trip.state.is_last());
         html!(
             table
                 ."table"
@@ -397,97 +401,216 @@ impl TripInfo {
                 ."w-full"
             {
                 tbody {
-                    (TripInfoRow::build("Location", trip.location.as_ref(), TripAttribute::Location, state.trip_edit_attribute.as_ref(), InputType::Text))
-                    (TripInfoRow::build("Start date", Some(trip.date_start), TripAttribute::DateStart, state.trip_edit_attribute.as_ref(), InputType::Date))
-                    (TripInfoRow::build("End date", Some(trip.date_end), TripAttribute::DateEnd, state.trip_edit_attribute.as_ref(), InputType::Date))
-                    (TripInfoRow::build("Temp (min)", trip.temp_min, TripAttribute::TempMin, state.trip_edit_attribute.as_ref(), InputType::Number))
-                    (TripInfoRow::build("Temp (max)", trip.temp_max, TripAttribute::TempMax, state.trip_edit_attribute.as_ref(), InputType::Number))
+                    (TripInfoRow::build("Location",
+                        trip.location.as_ref(),
+                        TripAttribute::Location,
+                        state.trip_edit_attribute.as_ref(),
+                        InputType::Text,
+                        has_two_columns
+                    ))
+                    (TripInfoRow::build("Start date",
+                        Some(trip.date_start),
+                        TripAttribute::DateStart,
+                        state.trip_edit_attribute.as_ref(),
+                        InputType::Date,
+                        has_two_columns
+                    ))
+                    (TripInfoRow::build("End date",
+                        Some(trip.date_end),
+                        TripAttribute::DateEnd,
+                        state.trip_edit_attribute.as_ref(),
+                        InputType::Date,
+                        has_two_columns
+                    ))
+                    (TripInfoRow::build("Temp (min)",
+                        trip.temp_min,
+                        TripAttribute::TempMin,
+                        state.trip_edit_attribute.as_ref(),
+                        InputType::Number,
+                        has_two_columns
+                    ))
+                    (TripInfoRow::build("Temp (max)",
+                        trip.temp_max,
+                        TripAttribute::TempMax,
+                        state.trip_edit_attribute.as_ref(),
+                        InputType::Number,
+                        has_two_columns
+                    ))
                     tr .h-full {
-                        td ."border" ."p-2" { "Types" }
-                        td ."border" ."p-2" {
-                            ul
-                                ."flex"
-                                ."flex-row"
-                                ."flex-wrap"
-                                ."gap-2"
-                                ."justify-between"
-                            // as we have a gap between the elements, we have
-                            // to completely skip an element when there are no
-                            // active or inactive items, otherwise we get the gap
-                            // between the empty (invisible) item, throwing off
-                            // the margins
-                            {
-                                @let types = trip.types();
-                                @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&TripType>>();
-                                @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&TripType>>();
+                        td ."border" ."p-2" { "State" }
+                        td ."border" ."p-2" { (trip.state) }
+                        @let prev_state = trip.state.prev();
+                        @let next_state = trip.state.next();
 
-                                @if !active_triptypes.is_empty() {
-                                    div
-                                        ."flex"
-                                        ."flex-row"
-                                        ."flex-wrap"
-                                        ."gap-2"
-                                        ."justify-start"
+                        @if let Some(ref prev_state) = prev_state {
+                            td
+                                colspan=(if next_state.is_none() && has_two_columns { "2" } else { "1" })
+                                ."border-none"
+                                ."bg-yellow-100"
+                                ."hover:bg-yellow-200"
+                                ."p-0"
+                                ."w-8"
+                                ."h-full"
+                            {
+                                form
+                                    action={"./state/" (prev_state)}
+                                    method="post"
+                                    ."flex"
+                                    ."w-full"
+                                    ."h-full"
+
+                                {
+                                    button
+                                        type="submit"
+                                        ."w-full"
+                                        ."h-full"
                                     {
-                                        @for triptype in active_triptypes {
-                                            a href=(format!("type/{}/remove", triptype.id)) {
-                                                li
-                                                    ."border"
-                                                    ."rounded-2xl"
-                                                    ."py-0.5"
-                                                    ."px-2"
-                                                    ."bg-green-100"
-                                                    ."cursor-pointer"
-                                                    ."flex"
-                                                    ."flex-column"
-                                                    ."items-center"
-                                                    ."hover:bg-red-200"
-                                                    ."gap-1"
-                                                {
-                                                    span { (triptype.name) }
-                                                    span ."mdi" ."mdi-delete" ."text-sm" {}
-                                                }
-                                            }
-                                        }
+                                        span
+                                            ."m-auto"
+                                            ."mdi"
+                                            ."mdi-step-backward"
+                                            ."text-xl";
                                     }
                                 }
-                                @if !inactive_triptypes.is_empty() {
-                                    div
-                                        ."flex"
-                                        ."flex-row"
-                                        ."flex-wrap"
-                                        ."gap-2"
-                                        ."justify-start"
+                            }
+                        }
+                        @if let Some(ref next_state) = trip.state.next() {
+                            td
+                                colspan=(if prev_state.is_none() && has_two_columns { "2" } else { "1" })
+                                ."border-none"
+                                ."bg-green-100"
+                                ."hover:bg-green-200"
+                                ."p-0"
+                                ."w-8"
+                                ."h-full"
+                            {
+                                form
+                                    action={"./state/" (next_state)}
+                                    method="post"
+                                    ."flex"
+                                    ."w-full"
+                                    ."h-full"
+
+                                {
+                                    button
+                                        type="submit"
+                                        ."w-full"
+                                        ."h-full"
                                     {
-                                        @for triptype in inactive_triptypes {
-                                            a href=(format!("type/{}/add", triptype.id)) {
-                                                li
-                                                    ."border"
-                                                    ."rounded-2xl"
-                                                    ."py-0.5"
-                                                    ."px-2"
-                                                    ."bg-gray-100"
-                                                    ."cursor-pointer"
-                                                    ."flex"
-                                                    ."flex-column"
-                                                    ."items-center"
-                                                    ."hover:bg-green-200"
-                                                    ."gap-1"
-                                                    ."opacity-60"
-                                                {
-                                                    span { (triptype.name) }
-                                                    span ."mdi" ."mdi-plus" ."text-sm" {}
-                                                }
-                                            }
-                                        }
+                                        span
+                                            ."m-auto"
+                                            ."mdi"
+                                            ."mdi-step-forward"
+                                            ."text-xl";
                                     }
                                 }
                             }
                         }
                     }
                     tr .h-full {
+                        td ."border" ."p-2" { "Types" }
+                        td ."border" {
+                            div
+                                ."flex"
+                                ."flex-row"
+                                ."items-center"
+                                ."justify-between"
+                            {
+                                ul
+                                    ."flex"
+                                    ."flex-row"
+                                    ."flex-wrap"
+                                    ."gap-2"
+                                    ."justify-between"
+                                    ."p-2"
+                                // as we have a gap between the elements, we have
+                                // to completely skip an element when there are no
+                                // active or inactive items, otherwise we get the gap
+                                // between the empty (invisible) item, throwing off
+                                // the margins
+                                {
+                                    @let types = trip.types();
+                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&TripType>>();
+                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&TripType>>();
+
+                                    @if !active_triptypes.is_empty() {
+                                        div
+                                            ."flex"
+                                            ."flex-row"
+                                            ."flex-wrap"
+                                            ."gap-2"
+                                            ."justify-start"
+                                        {
+                                            @for triptype in active_triptypes {
+                                                a href=(format!("type/{}/remove", triptype.id)) {
+                                                    li
+                                                        ."border"
+                                                        ."rounded-2xl"
+                                                        ."py-0.5"
+                                                        ."px-2"
+                                                        ."bg-green-100"
+                                                        ."cursor-pointer"
+                                                        ."flex"
+                                                        ."flex-column"
+                                                        ."items-center"
+                                                        ."hover:bg-red-200"
+                                                        ."gap-1"
+                                                    {
+                                                        span { (triptype.name) }
+                                                        span ."mdi" ."mdi-delete" ."text-sm" {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    @if !inactive_triptypes.is_empty() {
+                                        div
+                                            ."flex"
+                                            ."flex-row"
+                                            ."flex-wrap"
+                                            ."gap-2"
+                                            ."justify-start"
+                                        {
+                                            @for triptype in inactive_triptypes {
+                                                a href=(format!("type/{}/add", triptype.id)) {
+                                                    li
+                                                        ."border"
+                                                        ."rounded-2xl"
+                                                        ."py-0.5"
+                                                        ."px-2"
+                                                        ."bg-gray-100"
+                                                        ."cursor-pointer"
+                                                        ."flex"
+                                                        ."flex-column"
+                                                        ."items-center"
+                                                        ."hover:bg-green-200"
+                                                        ."gap-1"
+                                                        ."opacity-60"
+                                                    {
+                                                        span { (triptype.name) }
+                                                        span ."mdi" ."mdi-plus" ."text-sm" {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                a href="/trips/types/"
+                                    ."text-sm"
+                                    ."text-gray-500"
+                                    ."mr-2"
+                                {
+                                    "Manage" br; "types"
+                                }
+                            }
+                        }
+                    }
+                    tr .h-full {
                         td ."border" ."p-2" { "Carried weight" }
-                        td ."border" ."p-2" { "TODO" }
+                        td ."border" ."p-2"
+                        {
+                            (trip.total_picked_weight())
+                        }
                     }
                 }
             }
@@ -615,6 +738,7 @@ impl TripCategoryList {
                 }
                 tbody {
                     @for category in trip.categories() {
+                        @let has_new_items = category.items.as_ref().unwrap().iter().any(|item| item.new);
                         @let active = state.active_category_id.map_or(false, |id| category.category.id == id);
                         tr
                             ."h-10"
@@ -624,29 +748,66 @@ impl TripCategoryList {
                             ."outline"[active]
                             ."outline-2"[active]
                             ."outline-indigo-300"[active]
-                            ."pointer-events-none"[active]
                         {
 
                             td
-                                class=@if state.active_category_id.map_or(false, |id| category.category.id == id) {
-                                    "border p-0 m-0 font-bold"
-                                } @else {
-                                    "border p-0 m-0"
-                                } {
-                                a
-                                    id="select-category"
-                                    href=(
-                                        format!(
-                                            "?category={id}",
-                                            id=category.category.id
+
+                                ."border"
+                                ."m-0"
+
+                            {
+                                div
+                                    ."p-0"
+                                    ."flex"
+                                    ."flex-row"
+                                    ."items-center"
+                                    ."group"
+                                {
+                                    a
+                                        id="select-category"
+                                        href=(
+                                            format!(
+                                                "?category={id}",
+                                                id=category.category.id
+                                            )
                                         )
-                                    )
-                                    ."inline-block" ."p-2" ."m-0" ."w-full"
+                                        ."inline-block"
+                                        ."p-2"
+                                        ."m-0"
+                                        ."w-full"
+                                        ."grow"
+                                        ."font-bold"[active]
                                     {
                                         (category.category.name.clone())
                                     }
+                                    @if has_new_items {
+                                        div
+                                            ."mr-2"
+                                            ."flex"
+                                            ."flex-row"
+                                            ."items-center"
+                                        {
+                                            p
+                                                ."hidden"
+                                                ."group-hover:inline"
+                                                ."text-sm"
+                                                ."text-gray-500"
+                                                ."grow"
+                                            {
+                                                "new items"
+                                            }
+                                            span
+                                                ."mdi"
+                                                ."mdi-exclamation-thick"
+                                                ."text-xl"
+                                                ."text-yellow-400"
+                                                ."grow-0"
+                                            ;
+                                        }
+                                    }
+                                }
                             }
-                            td ."border" ."p-2" ."m-0" style="position:relative;" {
+                            td ."border" ."m-0" ."p-2" style="position:relative;" {
                                 p {
                                     (category.total_picked_weight().to_string())
                                 }
@@ -762,14 +923,31 @@ impl TripItemList {
                                     }
                                 }
                                 td ."border" ."p-0" {
-                                    a
-                                        ."p-2" ."w-full" ."inline-block"
-                                        href=(
-                                            format!("/inventory/item/{id}/", id=item.item.id)
-                                        ) {
-
+                                    div
+                                        ."flex"
+                                        ."flex-row"
+                                        ."items-center"
+                                    {
+                                        a
+                                            ."p-2" ."w-full" ."inline-block"
+                                            href=(
+                                                format!("/inventory/item/{id}/", id=item.item.id)
+                                            )
+                                        {
                                             (item.item.name.clone())
                                         }
+                                        @if item.new {
+                                            div ."mr-2" {
+                                                span
+                                                    ."mdi"
+                                                    ."mdi-exclamation-thick"
+                                                    ."text-xl"
+                                                    ."text-yellow-400"
+                                                    ."grow-0"
+                                                ;
+                                            }
+                                        }
+                                    }
                                 }
                                 td ."border" ."p-2" style="position:relative;" {
                                     p { (item.item.weight.to_string()) }

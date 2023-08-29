@@ -10,13 +10,14 @@ impl Inventory {
     pub async fn build(state: ClientState, categories: Vec<Category>) -> Result<Markup, Error> {
         let doc = html!(
             div id="pkglist-item-manager" {
-                div ."p-8" ."grid" ."grid-cols-4" ."gap-3" {
-                    div ."col-span-2" {
+                div ."p-8" ."grid" ."grid-cols-4" ."gap-5" {
+                    div ."col-span-2" ."flex" ."flex-col" ."gap-8" {
+                        h1 ."text-2xl" ."text-center" { "Categories" }
                         (InventoryCategoryList::build(&state, &categories))
                         (InventoryNewCategoryForm::build())
                     }
-                    div ."col-span-2" {
-                        h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
+                    div ."col-span-2" ."flex" ."flex-col" ."gap-8" {
+                        h1 ."text-2xl" ."text-center" { "Items" }
                         @if let Some(active_category_id) = state.active_category_id {
                             (InventoryItemList::build(&state, categories.iter().find(|category| category.id == active_category_id)
                                                       .ok_or(Error::NotFoundError { description: format!("no category with id {}", active_category_id) })?
@@ -44,94 +45,91 @@ impl InventoryCategoryList {
             .unwrap_or(1);
 
         html!(
-            div {
-                h1 ."text-2xl" ."mb-5" ."text-center" { "Categories" }
-                table
-                    ."table"
-                    ."table-auto"
-                    ."border-collapse"
-                    ."border-spacing-0"
-                    ."border"
-                    ."w-full"
-                {
+            table
+                ."table"
+                ."table-auto"
+                ."border-collapse"
+                ."border-spacing-0"
+                ."border"
+                ."w-full"
+            {
 
-                    colgroup {
-                        col style="width:50%" {}
-                        col style="width:50%" {}
+                colgroup {
+                    col style="width:50%" {}
+                    col style="width:50%" {}
+                }
+                thead ."bg-gray-200" {
+                    tr ."h-10" {
+                        th ."border" ."p-2" ."w-3/5" { "Name" }
+                        th ."border" ."p-2" { "Weight" }
                     }
-                    thead ."bg-gray-200" {
-                        tr ."h-10" {
-                            th ."border" ."p-2" ."w-3/5" { "Name" }
-                            th ."border" ."p-2" { "Weight" }
-                        }
-                    }
-                    tbody {
-                        @for category in categories {
-                            @let active = state.active_category_id.map_or(false, |id| category.id == id);
-                            tr
-                                ."h-10"
-                                ."hover:bg-purple-100"
-                                ."m-3"
-                                ."h-full"
-                                ."outline"[active]
-                                ."outline-2"[active]
-                                ."outline-indigo-300"[active]
-                                ."pointer-events-none"[active]
-                            {
+                }
+                tbody {
+                    @for category in categories {
+                        @let active = state.active_category_id.map_or(false, |id| category.id == id);
+                        tr
+                            ."h-10"
+                            ."hover:bg-purple-100"
+                            ."m-3"
+                            ."h-full"
+                            ."outline"[active]
+                            ."outline-2"[active]
+                            ."outline-indigo-300"[active]
+                            ."pointer-events-none"[active]
+                        {
 
-                                td
-                                    class=@if state.active_category_id.map_or(false, |id| category.id == id) {
-                                       "border p-0 m-0 font-bold"
-                                    } @else {
-                                       "border p-0 m-0"
-                                    } {
-                                    a
-                                        id="select-category"
-                                        href=(
-                                            format!(
-                                                "/inventory/category/{id}/",
-                                                id=category.id
+                            td
+                                class=@if state.active_category_id.map_or(false, |id| category.id == id) {
+                                    "border p-0 m-0 font-bold"
+                                } @else {
+                                    "border p-0 m-0"
+                                } {
+                                a
+                                    id="select-category"
+                                    href=(
+                                        format!(
+                                            "/inventory/category/{id}/",
+                                            id=category.id
+                                        )
+                                    )
+                                    // hx-post=(
+                                    //     format!(
+                                    //         "/inventory/category/{id}/items",
+                                    //         id=category.id
+                                    //     )
+                                    // )
+                                    // hx-swap="outerHTML"
+                                    // hx-target="#items"
+                                    ."inline-block" ."p-2" ."m-0" ."w-full"
+                                    {
+                                        (category.name.clone())
+                                    }
+                            }
+                            td ."border" ."p-2" ."m-0" style="position:relative;" {
+                                p {
+                                    (category.total_weight().to_string())
+                                }
+                                div ."bg-blue-600" ."h-1.5"
+                                    style=(
+                                        format!(
+                                            "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
+                                            width=(
+                                                (category.total_weight() as f64)
+                                                / (biggest_category_weight as f64)
+                                                * 100.0
                                             )
                                         )
-                                        // hx-post=(
-                                        //     format!(
-                                        //         "/inventory/category/{id}/items",
-                                        //         id=category.id
-                                        //     )
-                                        // )
-                                        // hx-swap="outerHTML"
-                                        // hx-target="#items"
-                                        ."inline-block" ."p-2" ."m-0" ."w-full"
-                                        {
-                                            (category.name.clone())
-                                        }
-                                }
-                                td ."border" ."p-2" ."m-0" style="position:relative;" {
-                                    p {
-                                        (category.total_weight().to_string())
-                                    }
-                                    div ."bg-blue-600" ."h-1.5"
-                                        style=(
-                                            format!(
-                                                "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
-                                                width=(
-                                                    (category.total_weight() as f64)
-                                                    / (biggest_category_weight as f64)
-                                                    * 100.0
-                                                )
-                                            )
-                                        ) {}
-                                }
+                                    ) {}
                             }
                         }
-                        tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
-                            td ."border" ."p-0" ."m-0" {
-                                p ."p-2" ."m-2" { "Sum" }
-                            }
-                            td ."border" ."p-0" ."m-0" {
-                                p ."p-2" ."m-2" {
-                                    (categories.iter().map(Category::total_weight).sum::<i64>().to_string())
-                                }
+                    }
+                    tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
+                        td ."border" ."p-0" ."m-0" {
+                            p ."p-2" ."m-2" { "Sum" }
+                        }
+                        td ."border" ."p-0" ."m-0" {
+                            p ."p-2" ."m-2" {
+                                (categories.iter().map(Category::total_weight).sum::<i64>().to_string())
                             }
                         }
                     }
@@ -325,7 +323,7 @@ impl InventoryNewItemForm {
                 action="/inventory/item/"
                 target="_self"
                 method="post"
-                ."mt-8" ."p-5" ."border-2" ."border-gray-200" {
+                ."p-5" ."border-2" ."border-gray-200" {
                 div ."mb-5" ."flex" ."flex-row" ."items-center" {
                     span ."mdi" ."mdi-playlist-plus" ."text-2xl" ."mr-4" {}
                     p ."inline" ."text-xl" { "Add new item" }
@@ -422,7 +420,7 @@ impl InventoryNewCategoryForm {
                 action="/inventory/category/"
                 target="_self"
                 method="post"
-                ."mt-8" ."p-5" ."border-2" ."border-gray-200" {
+                ."p-5" ."border-2" ."border-gray-200" {
                 div ."mb-5" ."flex" ."flex-row" ."items-center" {
                     span ."mdi" ."mdi-playlist-plus" ."text-2xl" ."mr-4" {}
                     p ."inline" ."text-xl" { "Add new category" }

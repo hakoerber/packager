@@ -98,13 +98,50 @@ impl convert::From<TimeParseError> for Error {
 
 impl error::Error for Error {}
 
-#[derive(sqlx::Type)]
+#[derive(sqlx::Type, PartialEq, PartialOrd, Deserialize)]
 pub enum TripState {
+    Init,
     Planning,
     Planned,
     Active,
     Review,
     Done,
+}
+
+impl TripState {
+    pub fn new() -> Self {
+        TripState::Init
+    }
+
+    pub fn next(&self) -> Option<Self> {
+        match self {
+            Self::Init => Some(Self::Planning),
+            Self::Planning => Some(Self::Planned),
+            Self::Planned => Some(Self::Active),
+            Self::Active => Some(Self::Review),
+            Self::Review => Some(Self::Done),
+            Self::Done => None,
+        }
+    }
+
+    pub fn prev(&self) -> Option<Self> {
+        match self {
+            Self::Init => None,
+            Self::Planning => Some(Self::Init),
+            Self::Planned => Some(Self::Planning),
+            Self::Active => Some(Self::Planned),
+            Self::Review => Some(Self::Active),
+            Self::Done => Some(Self::Review),
+        }
+    }
+
+    pub fn is_first(&self) -> bool {
+        self == &TripState::new()
+    }
+
+    pub fn is_last(&self) -> bool {
+        self == &TripState::Done
+    }
 }
 
 impl fmt::Display for TripState {
@@ -113,6 +150,7 @@ impl fmt::Display for TripState {
             f,
             "{}",
             match self {
+                Self::Init => "Init",
                 Self::Planning => "Planning",
                 Self::Planned => "Planned",
                 Self::Active => "Active",
@@ -128,6 +166,7 @@ impl std::convert::TryFrom<&str> for TripState {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Ok(match value {
+            "Init" => Self::Init,
             "Planning" => Self::Planning,
             "Planned" => Self::Planned,
             "Active" => Self::Active,
@@ -184,6 +223,7 @@ pub struct TripItem {
     pub item: Item,
     pub picked: bool,
     pub packed: bool,
+    pub new: bool,
 }
 
 pub struct DbTripRow {
@@ -326,6 +366,21 @@ impl<'a> Trip {
 }
 
 impl<'a> Trip {
+    pub fn total_picked_weight(&self) -> i64 {
+        self.categories()
+            .iter()
+            .map(|category| -> i64 {
+                category
+                    .items
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|item| Some(item.item.weight).filter(|_| item.picked))
+                    .sum::<i64>()
+            })
+            .sum::<i64>()
+    }
+
     pub async fn load_trips_types(
         &'a mut self,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -372,6 +427,79 @@ impl<'a> Trip {
         Ok(())
     }
 
+    pub async fn sync_trip_items_with_inventory(
+        &'a mut self,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
+        // we need to get all items that are part of the inventory but not
+        // part of the trip items
+        //
+        // then, we know which items we need to sync. there are different
+        // states for them:
+        //
+        // * if the trip is new (it's state is INITIAL), we can just forward
+        //   as-is
+        // * if the trip is new, we have to make these new items prominently
+        //   visible so the user knows that there might be new items to
+        //   consider
+        let trip_id = self.id.to_string();
+        let unsynced_items: Vec<Uuid> = sqlx::query!(
+            "
+            SELECT
+                i_item.id AS item_id
+            FROM inventory_items AS i_item
+                LEFT JOIN (
+                    SELECT t_item.item_id as item_id
+                    FROM trips_items AS t_item
+                    WHERE t_item.trip_id = ?
+                ) AS t_item
+                ON t_item.item_id = i_item.id
+            WHERE t_item.item_id IS NULL
+        ",
+            trip_id
+        )
+        .fetch(pool)
+        .map_ok(|row| -> Result<Uuid, Error> { Ok(Uuid::try_parse(&row.item_id)?) })
+        .try_collect::<Vec<Result<Uuid, Error>>>()
+        .await?
+        .into_iter()
+        .collect::<Result<Vec<Uuid>, Error>>()?;
+
+        // looks like there is currently no nice way to do multiple inserts
+        // with sqlx. whatever, this won't matter
+
+        // only mark as new when the trip is already underway
+        let mark_as_new = self.state != TripState::new();
+
+        for unsynced_item in &unsynced_items {
+            let item_id = unsynced_item.to_string();
+            sqlx::query!(
+                "
+                INSERT INTO trips_items
+                    (
+                        item_id,
+                        trip_id,
+                        pick,
+                        pack,
+                        new
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                ",
+                item_id,
+                trip_id,
+                false,
+                false,
+                mark_as_new,
+            )
+            .execute(pool)
+            .await?;
+        }
+
+        tracing::info!("unsynced items: {:?}", &unsynced_items);
+
+        Ok(())
+    }
+
     pub async fn load_categories(
         &'a mut self,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -392,7 +520,8 @@ impl<'a> Trip {
                     inner.item_description AS item_description,
                     inner.item_weight AS item_weight,
                     inner.item_is_picked AS item_is_picked,
-                    inner.item_is_packed AS item_is_packed
+                    inner.item_is_packed AS item_is_packed,
+                    inner.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
                     LEFT JOIN (
                         SELECT
@@ -405,7 +534,8 @@ impl<'a> Trip {
                             item.description as item_description,
                             item.weight as item_weight,
                             trip.pick as item_is_picked,
-                            trip.pack as item_is_packed
+                            trip.pack as item_is_packed,
+                            trip.new as item_is_new
                         FROM trips_items as trip
                         INNER JOIN inventory_items as item
                             ON item.id = trip.item_id
@@ -423,8 +553,6 @@ impl<'a> Trip {
                 category: Category {
                     id: Uuid::try_parse(&row.category_id)?,
                     name: row.category_name,
-                    // TODO align optionality between code and database
-                    // idea: make description nullable
                     description: row.category_description,
 
                     items: None,
@@ -450,6 +578,7 @@ impl<'a> Trip {
                         },
                         picked: row.item_is_picked.unwrap(),
                         packed: row.item_is_packed.unwrap(),
+                        new: row.item_is_new.unwrap(),
                     };
 
                     if let Some(&mut ref mut c) = categories

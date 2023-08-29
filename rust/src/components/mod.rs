@@ -27,12 +27,14 @@ impl Root {
                     script src="https://cdn.tailwindcss.com" {}
                     script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js" defer {}
                     link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css";
+                    link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg";
                     script { (include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js"))) }
                 }
                 body
                     hx-boost="true"
                 {
                     header
+                        ."h-full"
                         ."bg-gray-200"
                         ."p-5"
                         ."flex"
@@ -41,18 +43,37 @@ impl Root {
                         ."justify-between"
                         ."items-center"
                     {
-                        span ."text-xl" ."font-semibold" {
+                        span
+                            ."text-xl"
+                            ."font-semibold"
+                            ."flex"
+                            ."flex-row"
+                            ."items-center"
+                            ."gap-3"
+                        {
+                            img ."h-12" src="/assets/luggage.svg";
                             a href="/" { "Packager" }
                         }
-                        nav ."grow" ."flex" ."flex-row" ."justify-center" ."gap-x-6" {
-                            a href="/inventory/" class={@match active_page {
-                                TopLevelPage::Inventory => "text-lg font-bold underline",
-                                _ => "text-lg",
-                            }} { "Inventory" }
-                            a href="/trips/" class={@match active_page {
-                                TopLevelPage::Trips => "text-lg font-bold underline",
-                                _ => "text-lg",
-                            }} { "Trips" }
+                        nav
+                            ."grow"
+                            ."flex"
+                            ."flex-row"
+                            ."justify-center"
+                            ."gap-x-10"
+                            ."content-stretch"
+                        {
+                            a href="/inventory/"
+                                ."h-full"
+                                ."text-lg"
+                                ."font-bold"[matches!(active_page, TopLevelPage::Inventory)]
+                                ."underline"[matches!(active_page, TopLevelPage::Inventory)]
+                            { "Inventory" }
+                            a href="/trips/"
+                                ."h-full"
+                                ."text-lg"
+                                ."font-bold"[matches!(active_page, TopLevelPage::Trips)]
+                                ."underline"[matches!(active_page, TopLevelPage::Trips)]
+                            { "Trips" }
                         }
                     }
                     (body)

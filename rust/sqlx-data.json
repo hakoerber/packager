@@ -18,77 +18,15 @@
     },
     "query": "UPDATE inventory_items AS item\n            SET\n                name = ?,\n                weight = ?\n            WHERE item.id = ?\n            RETURNING inventory_items.category_id AS id\n            "
   },
-  "10886f1ddebc2a11bd2f2cbd41bd5220cde17405e1210c792dda29ca100c01cb": {
+  "1320943d04e921a8e5f409737e466838b4ecf7e73ad0ade59ccd7664459a9c80": {
     "describe": {
-      "columns": [
-        {
-          "name": "category_id",
-          "ordinal": 0,
-          "type_info": "Text"
-        },
-        {
-          "name": "category_name",
-          "ordinal": 1,
-          "type_info": "Text"
-        },
-        {
-          "name": "category_description",
-          "ordinal": 2,
-          "type_info": "Text"
-        },
-        {
-          "name": "trip_id",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "item_id",
-          "ordinal": 4,
-          "type_info": "Text"
-        },
-        {
-          "name": "item_name",
-          "ordinal": 5,
-          "type_info": "Text"
-        },
-        {
-          "name": "item_description",
-          "ordinal": 6,
-          "type_info": "Text"
-        },
-        {
-          "name": "item_weight",
-          "ordinal": 7,
-          "type_info": "Int64"
-        },
-        {
-          "name": "item_is_picked",
-          "ordinal": 8,
-          "type_info": "Bool"
-        },
-        {
-          "name": "item_is_packed",
-          "ordinal": 9,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true
-      ],
+      "columns": [],
+      "nullable": [],
       "parameters": {
-        "Right": 1
+        "Right": 5
       }
     },
-    "query": "\n                SELECT\n                    category.id as category_id,\n                    category.name as category_name,\n                    category.description AS category_description,\n                    inner.trip_id AS trip_id,\n                    inner.item_id AS item_id,\n                    inner.item_name AS item_name,\n                    inner.item_description AS item_description,\n                    inner.item_weight AS item_weight,\n                    inner.item_is_picked AS item_is_picked,\n                    inner.item_is_packed AS item_is_packed\n                FROM inventory_items_categories AS category\n                    LEFT JOIN (\n                        SELECT\n                            trip.trip_id AS trip_id,\n                            category.id as category_id,\n                            category.name as category_name,\n                            category.description as category_description,\n                            item.id as item_id,\n                            item.name as item_name,\n                            item.description as item_description,\n                            item.weight as item_weight,\n                            trip.pick as item_is_picked,\n                            trip.pack as item_is_packed\n                        FROM trips_items as trip\n                        INNER JOIN inventory_items as item\n                            ON item.id = trip.item_id\n                        INNER JOIN inventory_items_categories as category\n                            ON category.id = item.category_id\n                        WHERE trip.trip_id = ?\n                    ) AS inner\n                    ON inner.category_id = category.id\n            "
+    "query": "\n                INSERT INTO trips_items\n                    (\n                        item_id,\n                        trip_id,\n                        pick,\n                        pack,\n                        new\n                    )\n                    VALUES (?, ?, ?, ?, ?)\n                "
   },
   "18cbb2893df033f5f81f42097fcae7ee036405749a5d93f2ea1d79ba280dfd20": {
     "describe": {
@@ -99,6 +37,24 @@
       }
     },
     "query": "DELETE FROM trips_to_trips_types AS ttt\n        WHERE ttt.trip_id = ?\n            AND ttt.trip_type_id = ?\n        "
+  },
+  "1994305e1521fe1f5f927ad28e21c9cab8a25598b19e1c9038dae9092fe18f1f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "item_id",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n            SELECT\n                i_item.id AS item_id\n            FROM inventory_items AS i_item\n                LEFT JOIN (\n                    SELECT t_item.item_id as item_id\n                    FROM trips_items AS t_item\n                    WHERE t_item.trip_id = ?\n                ) AS t_item\n                ON t_item.item_id = i_item.id\n            WHERE t_item.item_id IS NULL\n        "
   },
   "1f08e9bebf51aab9cabff2a5c79211233a686e9ef9f96ea5c036fbba8f6b06d5": {
     "describe": {
@@ -435,5 +391,93 @@
       }
     },
     "query": "SELECT * FROM inventory_items AS item\n            WHERE item.id = ?"
+  },
+  "f2038d75ff5ff10d4baeb30b9dc4cc1c991da1facdb1f05e16f271372eee0c7a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "UPDATE trips\n        SET state = ?\n        WHERE id = ?"
+  },
+  "f24056f8d6e2d483185d71b036ae8a0a1943b8718e8255d826df76ac77ad6326": {
+    "describe": {
+      "columns": [
+        {
+          "name": "category_id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "category_name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "category_description",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "trip_id",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "item_id",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "item_name",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "item_description",
+          "ordinal": 6,
+          "type_info": "Text"
+        },
+        {
+          "name": "item_weight",
+          "ordinal": 7,
+          "type_info": "Int64"
+        },
+        {
+          "name": "item_is_picked",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "item_is_packed",
+          "ordinal": 9,
+          "type_info": "Bool"
+        },
+        {
+          "name": "item_is_new",
+          "ordinal": 10,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT\n                    category.id as category_id,\n                    category.name as category_name,\n                    category.description AS category_description,\n                    inner.trip_id AS trip_id,\n                    inner.item_id AS item_id,\n                    inner.item_name AS item_name,\n                    inner.item_description AS item_description,\n                    inner.item_weight AS item_weight,\n                    inner.item_is_picked AS item_is_picked,\n                    inner.item_is_packed AS item_is_packed,\n                    inner.item_is_new AS item_is_new\n                FROM inventory_items_categories AS category\n                    LEFT JOIN (\n                        SELECT\n                            trip.trip_id AS trip_id,\n                            category.id as category_id,\n                            category.name as category_name,\n                            category.description as category_description,\n                            item.id as item_id,\n                            item.name as item_name,\n                            item.description as item_description,\n                            item.weight as item_weight,\n                            trip.pick as item_is_picked,\n                            trip.pack as item_is_packed,\n                            trip.new as item_is_new\n                        FROM trips_items as trip\n                        INNER JOIN inventory_items as item\n                            ON item.id = trip.item_id\n                        INNER JOIN inventory_items_categories as category\n                            ON category.id = item.category_id\n                        WHERE trip.trip_id = ?\n                    ) AS inner\n                    ON inner.category_id = category.id\n            "
   }
 }
