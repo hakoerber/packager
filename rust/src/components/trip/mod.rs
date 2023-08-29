@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 use serde_variant::to_variant_name;
 
-use crate::ClientState;
 pub struct TripManager;
 
 pub mod packagelist;

@@ -1,15 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_variant::to_variant_name;
-use sqlx::{
-    database::Database,
-    database::HasValueRef,
-    sqlite::{Sqlite, SqliteRow},
-    Decode, Row,
-};
-use std::convert;
 use std::fmt;
-use std::num::TryFromIntError;
-use std::str::FromStr;
 use uuid::Uuid;
 
 use futures::TryFutureExt;
@@ -288,7 +279,7 @@ impl TripItem {
     ) -> Result<Option<Self>, Error> {
         let item_id_param = item_id.to_string();
         let trip_id_param = trip_id.to_string();
-        let item: Result<Result<TripItem, Error>, Error> = sqlx::query_as!(
+        sqlx::query_as!(
             DbTripsItemsRow,
             "
                 SELECT
@@ -309,18 +300,10 @@ impl TripItem {
             item_id_param,
             trip_id_param,
         )
-        .fetch_one(pool)
-        .map_ok(|row| row.try_into())
-        .await
-        .map_err(|error| error.into());
-
-        match item {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error),
-            },
-            Ok(v) => Ok(Some(v?)),
-        }
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.try_into())
+        .transpose()
     }
 
     pub async fn set_state(
@@ -446,7 +429,7 @@ impl Trip {
         trip_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         let trip_id_param = trip_id.to_string();
-        let trip = sqlx::query_as!(
+        sqlx::query_as!(
             DbTripRow,
             "SELECT
                 id,
@@ -462,18 +445,10 @@ impl Trip {
             WHERE id = ?",
             trip_id_param
         )
-        .fetch_one(pool)
-        .map_ok(|row| row.try_into())
-        .map_err(|error| error.into())
-        .await;
-
-        match trip {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error),
-            },
-            Ok(v) => Ok(Some(v?)),
-        }
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.try_into())
+        .transpose()
     }
 
     pub async fn trip_type_remove(
@@ -615,7 +590,7 @@ impl Trip {
     pub async fn find_total_picked_weight(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         trip_id: Uuid,
-    ) -> Result<Option<i64>, Error> {
+    ) -> Result<i64, Error> {
         let trip_id_param = trip_id.to_string();
         let weight = sqlx::query_as!(
             DbTripWeightRow,
@@ -634,17 +609,10 @@ impl Trip {
             trip_id_param
         )
         .fetch_one(pool)
-        .map_ok(|row| row.total_weight.map(|weight| weight as i64))
-        .map_err(|error| error.into())
-        .await;
+        .map_ok(|row| row.total_weight.unwrap() as i64)
+        .await?;
 
-        match weight {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error.into()),
-            },
-            Ok(v) => Ok(v),
-        }
+        Ok(weight)
     }
 
     pub fn types(&self) -> &Vec<TripType> {
@@ -997,7 +965,7 @@ impl Category {
         id: Uuid,
     ) -> Result<Option<Category>, Error> {
         let id_param = id.to_string();
-        let item = sqlx::query_as!(
+        sqlx::query_as!(
             DbCategoryRow,
             "SELECT
                 id,
@@ -1007,18 +975,10 @@ impl Category {
             WHERE category.id = ?",
             id_param,
         )
-        .fetch_one(pool)
-        .map_ok(|row| row.try_into())
-        .map_err(|error| error.into())
-        .await;
-
-        match item {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error),
-            },
-            Ok(v) => Ok(Some(v?)),
-        }
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.try_into())
+        .transpose()
     }
 
     pub async fn save(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<Uuid, Error> {
@@ -1100,7 +1060,7 @@ impl TryFrom<DbInventoryItemsRow> for Item {
 impl Item {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
         let id_param = id.to_string();
-        let item = sqlx::query_as!(
+        sqlx::query_as!(
             DbInventoryItemsRow,
             "SELECT
                 id,
@@ -1112,28 +1072,22 @@ impl Item {
             WHERE item.id = ?",
             id_param,
         )
-        .fetch_one(pool)
-        .map_err(|error| error.into())
-        .map_ok(|row| row.try_into())
-        .await;
-
-        match item {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error),
-            },
-            Ok(v) => Ok(Some(v?)),
-        }
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.try_into())
+        .transpose()
     }
 
     pub async fn update(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         name: &str,
-        weight: i64,
-    ) -> Result<Option<Uuid>, Error> {
+        weight: u32,
+    ) -> Result<Uuid, Error> {
+        let weight = i64::try_from(weight).unwrap();
+
         let id_param = id.to_string();
-        let id = sqlx::query!(
+        Ok(sqlx::query!(
             "UPDATE inventory_items AS item
             SET
                 name = ?,
@@ -1146,22 +1100,8 @@ impl Item {
             id_param,
         )
         .fetch_one(pool)
-        .map_ok(|row| {
-            let id: &str = &row.id.unwrap(); // TODO
-            let uuid: Result<Uuid, uuid::Error> = Uuid::try_parse(id);
-            let uuid: Result<Uuid, Error> = uuid.map_err(|error| error.into());
-            uuid
-        })
-        .map_err(|error| error.into())
-        .await;
-
-        match id {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error.into()),
-            },
-            Ok(v) => Ok(Some(v?)),
-        }
+        .map_ok(|row| Uuid::try_parse(&row.id.unwrap()))
+        .await??)
     }
 
     pub async fn get_category_max_weight(
@@ -1197,7 +1137,7 @@ impl Item {
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let category_id_param = category_id.to_string();
-        let weight: Result<i64, Error> = sqlx::query!(
+        Ok(sqlx::query!(
             "
                 SELECT COALESCE(SUM(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
@@ -1218,10 +1158,7 @@ impl Item {
             // We can be certain that the row exists, as we COALESCE it
             row.weight.unwrap() as i64
         })
-        .map_err(|error| error.into())
-        .await;
-
-        Ok(weight?)
+        .await?)
     }
 }
 
@@ -1316,7 +1253,7 @@ impl InventoryItem {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Self>, Error> {
         let id_param = id.to_string();
 
-        let item = sqlx::query_as!(
+        sqlx::query_as!(
             DbInventoryItemRow,
             "SELECT
                     item.id AS id,
@@ -1338,39 +1275,23 @@ impl InventoryItem {
                 WHERE item.id = ?",
             id_param,
         )
-        .fetch_one(pool)
-        .map_ok(|row| row.try_into())
-        .map_err(|error| error.into())
-        .await;
-
-        match item {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
-                _ => Err(error.into()),
-            },
-            Ok(v) => Ok(Some(v?)),
-        }
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.try_into())
+        .transpose()
     }
 
     pub async fn name_exists(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<bool, Error> {
-        let item = sqlx::query!(
+        Ok(sqlx::query!(
             "SELECT id
             FROM inventory_items
             WHERE name = ?",
             name,
         )
-        .fetch_one(pool)
-        .map_ok(|_row| ())
-        .map_err(|error| error.into())
-        .await;
-
-        match item {
-            Err(error) => match error {
-                Error::Query(QueryError::NotFound { description: _ }) => Ok(false),
-                _ => Err(error.into()),
-            },
-            Ok(_) => Ok(true),
-        }
+        .fetch_optional(pool)
+        .await?
+        .map(|_row| ())
+        .is_some())
     }
 
     pub async fn delete(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<bool, Error> {
@@ -1427,23 +1348,9 @@ impl Inventory {
         .fetch(pool)
         .map_ok(|row: DbCategoryRow| row.try_into())
         .try_collect::<Vec<Result<Category, Error>>>()
-        .await
-        // we have two error handling lines here. these are distinct errors
-        // this one is the SQL error that may arise during the query
-        .map_err(|error| {
-            Error::Database(DatabaseError::Sql {
-                description: error.to_string(),
-            })
-        })?
+        .await?
         .into_iter()
-        .collect::<Result<Vec<Category>, Error>>()
-        // and this one is the model mapping error that may arise e.g. during
-        // reading of the rows
-        .map_err(|error| {
-            Error::Database(DatabaseError::Sql {
-                description: error.to_string(),
-            })
-        })?;
+        .collect::<Result<Vec<Category>, Error>>()?;
 
         for category in &mut categories {
             category.populate_items(pool).await?;

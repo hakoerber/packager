@@ -1,8 +1,8 @@
-use maud::{html, Markup, PreEscaped};
+use maud::{html, Markup};
 
 use crate::models;
 use crate::ClientState;
-use uuid::{uuid, Uuid};
+use uuid::Uuid;
 
 pub struct Inventory;
 
