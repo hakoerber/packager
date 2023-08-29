@@ -12,7 +12,12 @@ pub async fn init_database_pool(url: &str) -> Result<Pool<Sqlite>, StartError> {
         .await?)
 }
 
-pub async fn migrate(pool: &Pool<Sqlite>) -> Result<(), StartError> {
-    sqlx::migrate!().run(pool).await?;
+pub async fn migrate(url: &str) -> Result<(), StartError> {
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect_with(SqliteConnectOptions::from_str(url)?.pragma("foreign_keys", "0"))
+        .await?;
+
+    sqlx::migrate!().run(&pool).await?;
     Ok(())
 }

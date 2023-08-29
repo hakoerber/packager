@@ -82,14 +82,14 @@ async fn main() -> MainResult {
                 .with_max_level(tracing::Level::DEBUG)
                 .init();
 
+            if let Err(e) = sqlite::migrate(&args.database_url).await {
+                return <_ as Into<Error>>::into(e).into();
+            }
+
             let database_pool = match sqlite::init_database_pool(&args.database_url).await {
                 Ok(pool) => pool,
                 Err(e) => return <_ as Into<Error>>::into(e).into(),
             };
-
-            if let Err(e) = sqlite::migrate(&database_pool).await {
-                return <_ as Into<Error>>::into(e).into();
-            }
 
             let state = AppState {
                 database_pool,
@@ -159,12 +159,7 @@ async fn main() -> MainResult {
             },
         },
         Command::Migrate => {
-            let database_pool = match sqlite::init_database_pool(&args.database_url).await {
-                Ok(pool) => pool,
-                Err(e) => return <_ as Into<Error>>::into(e).into(),
-            };
-
-            if let Err(e) = sqlite::migrate(&database_pool).await {
+            if let Err(e) = sqlite::migrate(&args.database_url).await {
                 return <_ as Into<Error>>::into(e).into();
             }
 
