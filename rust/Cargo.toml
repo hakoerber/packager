@@ -83,7 +83,8 @@ features = [
 ]
 
 [dependencies.sqlx]
-version = "0.7"
+# version = "0.7"
+path = "./vendor/sqlx"
 features = [
   "runtime-tokio-rustls",
   # "offline",
