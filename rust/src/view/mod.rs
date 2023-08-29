@@ -41,11 +41,10 @@ impl Root {
             html {
                 head {
                     title { "Packager" }
-                    script src="https://unpkg.com/htmx.org@1.9.2" {}
-                    script src="https://unpkg.com/alpinejs@3.12.1" defer {}
-                    script src="https://cdn.tailwindcss.com" {}
-                    script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js" defer {}
-                    link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css" {}
+                    script src="https://unpkg.com/htmx.org@1.9.4" {}
+                    script src="https://unpkg.com/alpinejs@3.12.3" defer {}
+                    script src="https://cdn.tailwindcss.com/3.3.3" {}
+                    link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" {}
                     link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg" {}
                     script { (PreEscaped(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js")))) }
                     meta name="htmx-config" content=r#"{"useTemplateFragments":true}"# {}
