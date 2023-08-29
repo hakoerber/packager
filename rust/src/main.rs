@@ -40,16 +40,16 @@ async fn main() -> MainResult {
         Err(e) => return e.into(),
     };
 
-    telemetry::init_tracing(
+    telemetry::tracing::init_tracing(
         if args.enable_opentelemetry.into() {
-            telemetry::OpenTelemetryConfig::Enabled
+            telemetry::tracing::OpenTelemetryConfig::Enabled
         } else {
-            telemetry::OpenTelemetryConfig::Disabled
+            telemetry::tracing::OpenTelemetryConfig::Disabled
         },
         if args.enable_tokio_console.into() {
-            telemetry::TokioConsoleConfig::Enabled
+            telemetry::tracing::TokioConsoleConfig::Enabled
         } else {
-            telemetry::TokioConsoleConfig::Disabled
+            telemetry::tracing::TokioConsoleConfig::Disabled
         },
         args,
         |args| -> Pin<Box<dyn std::future::Future<Output = MainResult>>> {
@@ -80,7 +80,7 @@ async fn main() -> MainResult {
 
                         // build our application with a route
                         let app = routing::router(state);
-                        let app = telemetry::init_request_tracing(app);
+                        let app = telemetry::tracing::init_request_tracing(app);
 
                         let mut join_set = tokio::task::JoinSet::new();
 
@@ -98,7 +98,7 @@ async fn main() -> MainResult {
                                 Ok(ip) => SocketAddr::from((ip, port)),
                             };
 
-                            let (app, task) = telemetry::prometheus_server(app, addr);
+                            let (app, task) = telemetry::metrics::prometheus_server(app, addr);
                             join_set.spawn(task);
                             app
                         } else {
