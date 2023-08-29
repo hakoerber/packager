@@ -270,7 +270,7 @@ impl InventoryItem {
             id_param,
         )
         .fetch_one(pool)
-        .map_ok(|row| Uuid::try_parse(&row.id.unwrap()))
+        .map_ok(|row| Uuid::try_parse(&row.id))
         .await??)
     }
 
@@ -320,9 +320,7 @@ impl InventoryItem {
         .map_ok(|row| {
             // convert to i64 because that the default integer type, but looks
             // like COALESCE return i32?
-            //
-            // We can be certain that the row exists, as we COALESCE it
-            row.weight.unwrap() as i64
+            row.weight as i64
         })
         .await?;
 
@@ -384,9 +382,7 @@ impl Item {
         .map_ok(|row| {
             // convert to i64 because that the default integer type, but looks
             // like COALESCE return i32?
-            //
-            // We can be certain that the row exists, as we COALESCE it
-            row.weight.unwrap() as i64
+            row.weight as i64
         })
         .await?)
     }

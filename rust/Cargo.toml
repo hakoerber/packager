@@ -17,7 +17,7 @@ features = ["headers"]
 
 [dependencies.tokio]
 version = "1"
-features = ["macros"]
+features = ["macros", "rt-multi-thread"]
 
 [dependencies.hyper]
 version = "0.14"
@@ -49,6 +49,7 @@ features = [
 version = "0.7"
 features = [
   "runtime-tokio-rustls",
+  # "offline",
   "sqlite",
   "macros",
   "time",
