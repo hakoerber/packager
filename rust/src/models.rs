@@ -7,107 +7,20 @@ use sqlx::{
     Decode, Row,
 };
 use std::convert;
-use std::error;
 use std::fmt;
 use std::num::TryFromIntError;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use sqlx::{error::DatabaseError, sqlite::SqlitePoolOptions};
-
 use futures::TryFutureExt;
 use futures::TryStreamExt;
 
-use time::{error::Parse as TimeParse, format_description::FormatItem, macros::format_description};
+use time::{format_description::FormatItem, macros::format_description};
+
+mod error;
+pub use error::{DatabaseError, Error, QueryError};
 
 pub const DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
-
-pub enum Error {
-    Sql { description: String },
-    Uuid { description: String },
-    Enum { description: String },
-    Int { description: String },
-    Constraint { description: String },
-    TimeParse { description: String },
-    Duplicate { description: String },
-    NotFound { description: String },
-    ReferenceNotFound { description: String },
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Sql { description } => {
-                write!(f, "SQL error: {description}")
-            }
-            Self::Uuid { description } => {
-                write!(f, "UUID error: {description}")
-            }
-            Self::Int { description } => {
-                write!(f, "Integer error: {description}")
-            }
-            Self::Enum { description } => {
-                write!(f, "Enum error: {description}")
-            }
-            Self::TimeParse { description } => {
-                write!(f, "Date parse error: {description}")
-            }
-            Self::Constraint { description } => {
-                write!(f, "SQL constraint error: {description}")
-            }
-            Self::Duplicate { description } => {
-                write!(f, "Duplicate data entry: {description}")
-            }
-            Self::NotFound { description } => {
-                write!(f, "not found: {description}")
-            }
-            Self::ReferenceNotFound { description } => {
-                write!(f, "SQL foreign key reference was not found: {description}")
-            }
-        }
-    }
-}
-
-impl fmt::Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // defer to Display
-        write!(f, "SQL error: {self}")
-    }
-}
-
-impl convert::From<uuid::Error> for Error {
-    fn from(value: uuid::Error) -> Self {
-        Error::Uuid {
-            description: value.to_string(),
-        }
-    }
-}
-
-impl convert::From<sqlx::Error> for Error {
-    fn from(value: sqlx::Error) -> Self {
-        Error::Sql {
-            description: value.to_string(),
-        }
-    }
-}
-
-impl convert::From<TryFromIntError> for Error {
-    fn from(value: TryFromIntError) -> Self {
-        Error::Int {
-            description: value.to_string(),
-        }
-    }
-}
-
-impl convert::From<TimeParse> for Error {
-    fn from(value: TimeParse) -> Self {
-        Error::TimeParse {
-            description: value.to_string(),
-        }
-    }
-}
-
-impl error::Error for Error {}
 
 #[derive(sqlx::Type, PartialEq, PartialOrd, Deserialize)]
 pub enum TripState {
@@ -176,9 +89,9 @@ impl std::convert::TryFrom<&str> for TripState {
             "Review" => Self::Review,
             "Done" => Self::Done,
             _ => {
-                return Err(Error::Enum {
+                return Err(Error::Database(DatabaseError::Enum {
                     description: format!("{value} is not a valid value for TripState"),
-                })
+                }))
             }
         })
     }
@@ -375,7 +288,7 @@ impl TripItem {
     ) -> Result<Option<Self>, Error> {
         let item_id_param = item_id.to_string();
         let trip_id_param = trip_id.to_string();
-        let item: Result<Result<TripItem, Error>, sqlx::Error> = sqlx::query_as!(
+        let item: Result<Result<TripItem, Error>, Error> = sqlx::query_as!(
             DbTripsItemsRow,
             "
                 SELECT
@@ -398,12 +311,13 @@ impl TripItem {
         )
         .fetch_one(pool)
         .map_ok(|row| row.try_into())
-        .await;
+        .await
+        .map_err(|error| error.into());
 
         match item {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error),
             },
             Ok(v) => Ok(Some(v?)),
         }
@@ -427,16 +341,13 @@ impl TripItem {
         .bind(trip_id.to_string())
         .bind(item_id.to_string())
         .execute(pool)
-        .map_err(|error| Error::Sql {
-            description: error.to_string(),
-        })
         .await?;
 
-        (result.rows_affected() != 0)
-            .then_some(())
-            .ok_or_else(|| Error::NotFound {
+        (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
+            Error::Query(QueryError::NotFound {
                 description: format!("item {item_id} not found for trip {trip_id}"),
             })
+        })
     }
 }
 
@@ -553,12 +464,13 @@ impl Trip {
         )
         .fetch_one(pool)
         .map_ok(|row| row.try_into())
+        .map_err(|error| error.into())
         .await;
 
         match trip {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error),
             },
             Ok(v) => Ok(Some(v?)),
         }
@@ -603,45 +515,6 @@ impl Trip {
             type_id_param,
         )
         .execute(pool)
-        .map_err(|error| match error {
-            sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        "787" => {
-                            // SQLITE_CONSTRAINT_FOREIGNKEY
-                            Error::ReferenceNotFound {
-                                description: format!("invalid id: {}", code.to_string()),
-                            }
-                        }
-                        "2067" => {
-                            // SQLITE_CONSTRAINT_UNIQUE
-                            Error::Duplicate {
-                                description: format!(
-                                    "type {type_id} is already active for trip {id}"
-                                ),
-                            }
-                        }
-                        _ => Error::Sql {
-                            description: format!(
-                                "got error with unknown code: {}",
-                                sqlite_error.to_string()
-                            ),
-                        },
-                    }
-                } else {
-                    Error::Sql {
-                        description: format!(
-                            "got error without code: {}",
-                            sqlite_error.to_string()
-                        ),
-                    }
-                }
-            }
-            _ => Error::Sql {
-                description: format!("got unknown error: {}", error.to_string()),
-            },
-        })
         .await?;
 
         Ok(())
@@ -700,16 +573,13 @@ impl Trip {
         .bind(value)
         .bind(trip_id.to_string())
         .execute(pool)
-        .map_err(|error| Error::Sql {
-            description: error.to_string(),
-        })
         .await?;
 
-        (result.rows_affected() != 0)
-            .then_some(())
-            .ok_or_else(|| Error::NotFound {
+        (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
+            Error::Query(QueryError::NotFound {
                 description: format!("trip {trip_id} not found"),
             })
+        })
     }
 
     pub async fn save(
@@ -720,14 +590,8 @@ impl Trip {
     ) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
-        let date_start = date_start
-            .format(DATE_FORMAT)
-            .map_err(|e| Error::TimeParse {
-                description: e.to_string(),
-            })?;
-        let date_end = date_end.format(DATE_FORMAT).map_err(|e| Error::TimeParse {
-            description: e.to_string(),
-        })?;
+        let date_start = date_start.format(DATE_FORMAT)?;
+        let date_end = date_end.format(DATE_FORMAT)?;
 
         let trip_state = TripState::new();
 
@@ -743,42 +607,7 @@ impl Trip {
             trip_state,
         )
         .execute(pool)
-        .await
-        .map_err(|e| match e {
-            sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        // SQLITE_CONSTRAINT_FOREIGNKEY
-                        "787" => Error::Constraint {
-                            description: format!(
-                                "SQLITE_CONSTRAINT_FOREIGNKEY on table without foreignkey?",
-                            ),
-                        },
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        "2067" => Error::Constraint {
-                            description: format!("trip with name \"{name}\" already exists",),
-                        },
-                        _ => Error::Sql {
-                            description: format!(
-                                "got error with unknown code: {}",
-                                sqlite_error.to_string()
-                            ),
-                        },
-                    }
-                } else {
-                    Error::Sql {
-                        description: format!(
-                            "got error without code: {}",
-                            sqlite_error.to_string()
-                        ),
-                    }
-                }
-            }
-            _ => Error::Sql {
-                description: format!("got unknown error: {}", e.to_string()),
-            },
-        })?;
+        .await?;
 
         Ok(id)
     }
@@ -806,12 +635,13 @@ impl Trip {
         )
         .fetch_one(pool)
         .map_ok(|row| row.total_weight.map(|weight| weight as i64))
+        .map_err(|error| error.into())
         .await;
 
         match weight {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error.into()),
             },
             Ok(v) => Ok(v),
         }
@@ -1100,39 +930,6 @@ impl TripsType {
             name,
         )
         .execute(pool)
-        .map_err(|error| match error {
-            sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        "2067" => {
-                            // SQLITE_CONSTRAINT_UNIQUE
-                            Error::Duplicate {
-                                description: format!(
-                                    "trip type with name \"{name}\" already exists"
-                                ),
-                            }
-                        }
-                        _ => Error::Sql {
-                            description: format!(
-                                "got error with unknown code: {}",
-                                sqlite_error.to_string()
-                            ),
-                        },
-                    }
-                } else {
-                    Error::Sql {
-                        description: format!(
-                            "got error without code: {}",
-                            sqlite_error.to_string()
-                        ),
-                    }
-                }
-            }
-            _ => Error::Sql {
-                description: format!("got unknown error: {}", error.to_string()),
-            },
-        })
         .await?;
 
         Ok(id)
@@ -1200,7 +997,7 @@ impl Category {
         id: Uuid,
     ) -> Result<Option<Category>, Error> {
         let id_param = id.to_string();
-        let item: Result<Result<Category, Error>, sqlx::Error> = sqlx::query_as!(
+        let item = sqlx::query_as!(
             DbCategoryRow,
             "SELECT
                 id,
@@ -1212,12 +1009,13 @@ impl Category {
         )
         .fetch_one(pool)
         .map_ok(|row| row.try_into())
+        .map_err(|error| error.into())
         .await;
 
         match item {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error),
             },
             Ok(v) => Ok(Some(v?)),
         }
@@ -1235,39 +1033,6 @@ impl Category {
             name,
         )
         .execute(pool)
-        .map_err(|error| match error {
-            sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        "2067" => {
-                            // SQLITE_CONSTRAINT_UNIQUE
-                            Error::Duplicate {
-                                description: format!(
-                                    "inventory item category with name \"{name}\" already exists"
-                                ),
-                            }
-                        }
-                        _ => Error::Sql {
-                            description: format!(
-                                "got error with unknown code: {}",
-                                sqlite_error.to_string()
-                            ),
-                        },
-                    }
-                } else {
-                    Error::Sql {
-                        description: format!(
-                            "got error without code: {}",
-                            sqlite_error.to_string()
-                        ),
-                    }
-                }
-            }
-            _ => Error::Sql {
-                description: format!("got unknown error: {}", error.to_string()),
-            },
-        })
         .await?;
 
         Ok(id)
@@ -1335,7 +1100,7 @@ impl TryFrom<DbInventoryItemsRow> for Item {
 impl Item {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
         let id_param = id.to_string();
-        let item: Result<Result<Item, Error>, sqlx::Error> = sqlx::query_as!(
+        let item = sqlx::query_as!(
             DbInventoryItemsRow,
             "SELECT
                 id,
@@ -1348,13 +1113,14 @@ impl Item {
             id_param,
         )
         .fetch_one(pool)
+        .map_err(|error| error.into())
         .map_ok(|row| row.try_into())
         .await;
 
         match item {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error),
             },
             Ok(v) => Ok(Some(v?)),
         }
@@ -1367,7 +1133,7 @@ impl Item {
         weight: i64,
     ) -> Result<Option<Uuid>, Error> {
         let id_param = id.to_string();
-        let id: Result<Result<Uuid, Error>, sqlx::Error> = sqlx::query!(
+        let id = sqlx::query!(
             "UPDATE inventory_items AS item
             SET
                 name = ?,
@@ -1383,15 +1149,16 @@ impl Item {
         .map_ok(|row| {
             let id: &str = &row.id.unwrap(); // TODO
             let uuid: Result<Uuid, uuid::Error> = Uuid::try_parse(id);
-            let uuid: Result<Uuid, Error> = uuid.map_err(|e| e.into());
+            let uuid: Result<Uuid, Error> = uuid.map_err(|error| error.into());
             uuid
         })
+        .map_err(|error| error.into())
         .await;
 
         match id {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error.into()),
             },
             Ok(v) => Ok(Some(v?)),
         }
@@ -1402,7 +1169,7 @@ impl Item {
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let category_id_param = category_id.to_string();
-        let weight: Result<i64, sqlx::Error> = sqlx::query!(
+        let weight = sqlx::query!(
             "
                 SELECT COALESCE(MAX(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
@@ -1420,9 +1187,9 @@ impl Item {
             // We can be certain that the row exists, as we COALESCE it
             row.weight.unwrap() as i64
         })
-        .await;
+        .await?;
 
-        Ok(weight?)
+        Ok(weight)
     }
 
     pub async fn _get_category_total_picked_weight(
@@ -1430,7 +1197,7 @@ impl Item {
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let category_id_param = category_id.to_string();
-        let weight: Result<i64, sqlx::Error> = sqlx::query!(
+        let weight: Result<i64, Error> = sqlx::query!(
             "
                 SELECT COALESCE(SUM(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
@@ -1451,6 +1218,7 @@ impl Item {
             // We can be certain that the row exists, as we COALESCE it
             row.weight.unwrap() as i64
         })
+        .map_err(|error| error.into())
         .await;
 
         Ok(weight?)
@@ -1548,7 +1316,7 @@ impl InventoryItem {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Self>, Error> {
         let id_param = id.to_string();
 
-        let item: Result<Result<InventoryItem, Error>, sqlx::Error> = sqlx::query_as!(
+        let item = sqlx::query_as!(
             DbInventoryItemRow,
             "SELECT
                     item.id AS id,
@@ -1572,19 +1340,20 @@ impl InventoryItem {
         )
         .fetch_one(pool)
         .map_ok(|row| row.try_into())
+        .map_err(|error| error.into())
         .await;
 
         match item {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(None),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(None),
+                _ => Err(error.into()),
             },
             Ok(v) => Ok(Some(v?)),
         }
     }
 
     pub async fn name_exists(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<bool, Error> {
-        let item: Result<(), sqlx::Error> = sqlx::query!(
+        let item = sqlx::query!(
             "SELECT id
             FROM inventory_items
             WHERE name = ?",
@@ -1592,12 +1361,13 @@ impl InventoryItem {
         )
         .fetch_one(pool)
         .map_ok(|_row| ())
+        .map_err(|error| error.into())
         .await;
 
         match item {
-            Err(e) => match e {
-                sqlx::Error::RowNotFound => Ok(false),
-                _ => Err(e.into()),
+            Err(error) => match error {
+                Error::Query(QueryError::NotFound { description: _ }) => Ok(false),
+                _ => Err(error.into()),
             },
             Ok(_) => Ok(true),
         }
@@ -1611,24 +1381,7 @@ impl InventoryItem {
             id_param
         )
         .execute(pool)
-        .map_err(|error| match error {
-            sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        "787" => {
-                            // SQLITE_CONSTRAINT_FOREIGNKEY
-                            Error::Constraint { description: format!("item {} cannot be deleted because it's on use in trips. instead, archive it", code.to_string()) }
-                        }
-                        _ =>
-                            Error::Sql { description: format!("got error with unknown code: {}", sqlite_error.to_string()) }
-                    }
-                } else {
-                    Error::Constraint { description: format!("got error without code: {}", sqlite_error.to_string()) }
-                }
-            }
-            _ => Error::Constraint { description: format!("got unknown error: {}", error.to_string()) }
-        }).await?;
+        .await?;
 
         Ok(results.rows_affected() != 0)
     }
@@ -1655,44 +1408,7 @@ impl InventoryItem {
             category_id_param
         )
         .execute(pool)
-        .await
-        .map_err(|e| match e {
-            sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        // SQLITE_CONSTRAINT_FOREIGNKEY
-                        "787" => Error::Constraint {
-                            description: format!(
-                                "category {category_id} not found",
-                            ),
-                        },
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        "2067" => Error::Constraint {
-                            description: format!(
-                                "item with name \"{name}\" already exists in category {category_id}",
-                            ),
-                        },
-                        _ => Error::Sql {
-                            description: format!(
-                                "got error with unknown code: {}",
-                                sqlite_error.to_string()
-                            ),
-                        },
-                    }
-                } else {
-                    Error::Sql {
-                        description: format!(
-                            "got error without code: {}",
-                            sqlite_error.to_string()
-                        ),
-                    }
-                }
-            }
-            _ => Error::Sql {
-                description: format!("got unknown error: {}", e.to_string()),
-            },
-        })?;
+        .await?;
 
         Ok(id)
     }
@@ -1714,15 +1430,19 @@ impl Inventory {
         .await
         // we have two error handling lines here. these are distinct errors
         // this one is the SQL error that may arise during the query
-        .map_err(|e| Error::Sql {
-            description: e.to_string(),
+        .map_err(|error| {
+            Error::Database(DatabaseError::Sql {
+                description: error.to_string(),
+            })
         })?
         .into_iter()
         .collect::<Result<Vec<Category>, Error>>()
         // and this one is the model mapping error that may arise e.g. during
         // reading of the rows
-        .map_err(|e| Error::Sql {
-            description: e.to_string(),
+        .map_err(|error| {
+            Error::Database(DatabaseError::Sql {
+                description: error.to_string(),
+            })
         })?;
 
         for category in &mut categories {
