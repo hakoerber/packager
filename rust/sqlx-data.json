@@ -140,48 +140,6 @@
     },
     "query": "DELETE FROM inventory_items\n            WHERE id = ?"
   },
-  "53c45b9447118c8b448df6836e68a38ff78d0b7f4d5344a1e5064d31e70396b3": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Text"
-        },
-        {
-          "name": "name",
-          "ordinal": 1,
-          "type_info": "Text"
-        },
-        {
-          "name": "weight",
-          "ordinal": 2,
-          "type_info": "Int64"
-        },
-        {
-          "name": "description",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "category_id",
-          "ordinal": 4,
-          "type_info": "Text"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        true,
-        false
-      ],
-      "parameters": {
-        "Right": 1
-      }
-    },
-    "query": "SELECT\n                id,\n                name,\n                weight,\n                description,\n                category_id\n            FROM inventory_items AS item\n            WHERE item.id = ?"
-  },
   "5fd2b986fcaafe93e816f9ed665b6319d120a3987dc5adca1e3c8634203f7533": {
     "describe": {
       "columns": [

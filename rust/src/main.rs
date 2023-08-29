@@ -674,7 +674,7 @@ async fn trip_row(
     let item_row = view::trip::TripItemListRow::build(
         trip_id,
         &item,
-        models::inventory::Item::get_category_max_weight(
+        models::inventory::InventoryItem::get_category_max_weight(
             &state.database_pool,
             item.item.category_id,
         )

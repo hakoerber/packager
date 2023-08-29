@@ -1,0 +1,138 @@
+pub struct InventoryItem {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub weight: i64,
+    pub category: Category,
+    pub product: Option<Product>,
+}
+
+struct DbInventoryItemRow {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub weight: i64,
+    pub category_id: String,
+    pub category_name: String,
+    pub category_description: Option<String>,
+    pub product_id: Option<String>,
+    pub product_name: Option<String>,
+    pub product_description: Option<String>,
+    pub product_comment: Option<String>,
+}
+
+impl TryFrom<DbInventoryItemRow> for InventoryItem {
+    type Error = Error;
+
+    fn try_from(row: DbInventoryItemRow) -> Result<Self, Self::Error> {
+        Ok(InventoryItem {
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            description: row.description,
+            weight: row.weight,
+            category: Category {
+                id: Uuid::try_parse(&row.category_id)?,
+                name: row.category_name,
+                description: row.category_description,
+                items: None,
+            },
+            product: row
+                .product_id
+                .map(|id| -> Result<Product, Error> {
+                    Ok(Product {
+                        id: Uuid::try_parse(&id)?,
+                        name: row.product_name.unwrap(),
+                        description: row.product_description,
+                        comment: row.product_comment,
+                    })
+                })
+                .transpose()?,
+        })
+    }
+}
+
+impl InventoryItem {
+    pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Self>, Error> {
+        let id_param = id.to_string();
+
+        sqlx::query_as!(
+            DbInventoryItemRow,
+            "SELECT
+                    item.id AS id,
+                    item.name AS name,
+                    item.description AS description,
+                    weight,
+                    category.id AS category_id,
+                    category.name AS category_name,
+                    category.description AS category_description,
+                    product.id AS product_id,
+                    product.name AS product_name,
+                    product.description AS product_description,
+                    product.comment AS product_comment
+                FROM inventory_items AS item
+                INNER JOIN inventory_items_categories as category
+                    ON item.category_id = category.id
+                LEFT JOIN inventory_products AS product
+                    ON item.product_id = product.id
+                WHERE item.id = ?",
+            id_param,
+        )
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.try_into())
+        .transpose()
+    }
+
+    pub async fn name_exists(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<bool, Error> {
+        Ok(sqlx::query!(
+            "SELECT id
+            FROM inventory_items
+            WHERE name = ?",
+            name,
+        )
+        .fetch_optional(pool)
+        .await?
+        .map(|_row| ())
+        .is_some())
+    }
+
+    pub async fn delete(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<bool, Error> {
+        let id_param = id.to_string();
+        let results = sqlx::query!(
+            "DELETE FROM inventory_items
+            WHERE id = ?",
+            id_param
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(results.rows_affected() != 0)
+    }
+
+    pub async fn save(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        name: &str,
+        category_id: Uuid,
+        weight: u32,
+    ) -> Result<Uuid, Error> {
+        let id = Uuid::new_v4();
+        let id_param = id.to_string();
+        let category_id_param = category_id.to_string();
+
+        sqlx::query!(
+            "INSERT INTO inventory_items
+                (id, name, description, weight, category_id)
+            VALUES
+                (?, ?, ?, ?, ?)",
+            id_param,
+            name,
+            "",
+            weight,
+            category_id_param
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(id)
+    }
+}

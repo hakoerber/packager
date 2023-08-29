@@ -137,7 +137,7 @@ pub struct Product {
     pub comment: Option<String>,
 }
 
-pub struct inventoryItem {
+pub struct InventoryItem {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
@@ -300,6 +300,7 @@ impl InventoryItem {
 
         Ok(id)
     }
+
     pub async fn get_category_max_weight(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         category_id: Uuid,
@@ -329,84 +330,64 @@ impl InventoryItem {
     }
 }
 
-// #[derive(Debug)]
-// pub struct Item {
-//     pub id: Uuid,
-//     pub name: String,
-//     pub description: Option<String>,
-//     pub weight: i64,
-//     pub category_id: Uuid,
-// }
+#[derive(Debug)]
+pub struct Item {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub weight: i64,
+    pub category_id: Uuid,
+}
 
-// pub struct DbInventoryItemsRow {
-//     pub id: String,
-//     pub name: String,
-//     pub weight: i64,
-//     pub description: Option<String>,
-//     pub category_id: String,
-// }
+pub struct DbInventoryItemsRow {
+    pub id: String,
+    pub name: String,
+    pub weight: i64,
+    pub description: Option<String>,
+    pub category_id: String,
+}
 
-// impl TryFrom<DbInventoryItemsRow> for Item {
-//     type Error = Error;
+impl TryFrom<DbInventoryItemsRow> for Item {
+    type Error = Error;
 
-//     fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
-//         Ok(Item {
-//             id: Uuid::try_parse(&row.id)?,
-//             name: row.name,
-//             description: row.description, // TODO
-//             weight: row.weight,
-//             category_id: Uuid::try_parse(&row.category_id)?,
-//         })
-//     }
-// }
+    fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
+        Ok(Item {
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            description: row.description, // TODO
+            weight: row.weight,
+            category_id: Uuid::try_parse(&row.category_id)?,
+        })
+    }
+}
 
-// impl Item {
-//     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
-//         let id_param = id.to_string();
-//         sqlx::query_as!(
-//             DbInventoryItemsRow,
-//             "SELECT
-//                 id,
-//                 name,
-//                 weight,
-//                 description,
-//                 category_id
-//             FROM inventory_items AS item
-//             WHERE item.id = ?",
-//             id_param,
-//         )
-//         .fetch_optional(pool)
-//         .await?
-//         .map(|row| row.try_into())
-//         .transpose()
-//     }
-
-//     pub async fn _get_category_total_picked_weight(
-//         pool: &sqlx::Pool<sqlx::Sqlite>,
-//         category_id: Uuid,
-//     ) -> Result<i64, Error> {
-//         let category_id_param = category_id.to_string();
-//         Ok(sqlx::query!(
-//             "
-//                 SELECT COALESCE(SUM(i_item.weight), 0) as weight
-//                 FROM inventory_items_categories as category
-//                 INNER JOIN inventory_items as i_item
-//                     ON i_item.category_id = category.id
-//                 INNER JOIN trips_items as t_item
-//                     ON i_item.id = t_item.item_id
-//                 WHERE category_id = ?
-//                 AND t_item.pick = 1
-//             ",
-//             category_id_param
-//         )
-//         .fetch_one(pool)
-//         .map_ok(|row| {
-//             // convert to i64 because that the default integer type, but looks
-//             // like COALESCE return i32?
-//             //
-//             // We can be certain that the row exists, as we COALESCE it
-//             row.weight.unwrap() as i64
-//         })
-//         .await?)
-//     }
-// }
+impl Item {
+    pub async fn _get_category_total_picked_weight(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        category_id: Uuid,
+    ) -> Result<i64, Error> {
+        let category_id_param = category_id.to_string();
+        Ok(sqlx::query!(
+            "
+                SELECT COALESCE(SUM(i_item.weight), 0) as weight
+                FROM inventory_items_categories as category
+                INNER JOIN inventory_items as i_item
+                    ON i_item.category_id = category.id
+                INNER JOIN trips_items as t_item
+                    ON i_item.id = t_item.item_id
+                WHERE category_id = ?
+                AND t_item.pick = 1
+            ",
+            category_id_param
+        )
+        .fetch_one(pool)
+        .map_ok(|row| {
+            // convert to i64 because that the default integer type, but looks
+            // like COALESCE return i32?
+            //
+            // We can be certain that the row exists, as we COALESCE it
+            row.weight.unwrap() as i64
+        })
+        .await?)
+    }
+}
