@@ -62,9 +62,6 @@ version = "0.1"
 [dependencies.tracing-attributes]
 version = "0.1"
 
-[patch.crates-io]
-tracing-attributes = { path = "./tracing/tracing-attributes" }
-
 [dependencies.tracing-subscriber]
 version = "0.3"
 features = ["json", "env-filter"]

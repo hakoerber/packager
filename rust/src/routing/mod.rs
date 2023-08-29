@@ -43,13 +43,14 @@ async fn simple_handler(State(state): State<AppState>) -> &'static str {
         SqlitePoolOptions::new()
             .max_connections(5)
             .connect_with(
-                SqliteConnectOptions::from_str("/tmp/tmp.SmE1WKBVMf")
+                SqliteConnectOptions::from_str("/tmp/tmp.JKl26kmKW5")
                     .unwrap()
                     .log_statements(log::LevelFilter::Warn)
                     .log_slow_statements(
                         log::LevelFilter::Warn,
                         std::time::Duration::from_millis(100),
                     )
+                    .tracing_span(tracing::warn_span!("packager::sqlx"))
                     .pragma("foreign_keys", "1"),
             )
             .await
@@ -66,7 +67,7 @@ async fn simple_handler(State(state): State<AppState>) -> &'static str {
             .await
             .unwrap()
     }
-    // .instrument(tracing::warn_span!("test_span"))
+    .instrument(tracing::warn_span!("packager::sqlx"))
     .await;
     "ok"
 }

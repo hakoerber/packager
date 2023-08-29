@@ -9,7 +9,7 @@ use http::Request;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{Span, Subscriber};
 
-use tracing_log::LogTracer;
+use tracing::Instrument;
 use tracing_subscriber::{
     filter::{LevelFilter, Targets},
     fmt::{
@@ -52,14 +52,14 @@ where
 
         write!(
             &mut writer,
-            "{}\t{}:\t",
+            "\n{}\t{}:\t",
             metadata.level(),
             metadata.target()
         )?;
 
         if let Some(scope) = ctx.event_scope() {
             for span in scope.from_root() {
-                write!(writer, "span: {}\t", span.metadata().name())?;
+                write!(writer, "span: {:?} {:?}\t", span.metadata(), span.id())?;
             }
         } else {
             write!(writer, "NO SPAN\t")?;
@@ -103,10 +103,15 @@ where
         .with_default(LevelFilter::WARN)
         .with_targets(vec![
             (env!("CARGO_PKG_NAME"), LevelFilter::DEBUG),
-            ("request", LevelFilter::DEBUG),
             ("runtime", LevelFilter::OFF),
             ("sqlx", LevelFilter::TRACE),
         ]);
+
+    let stdout_filter = Targets::new()
+        .with_default(LevelFilter::TRACE)
+        .with_targets(vec![("runtime", LevelFilter::OFF)])
+        .with_targets(vec![("tokio", LevelFilter::OFF)])
+        .with_targets(vec![("hyper", LevelFilter::OFF)]);
 
     let stdout_layer = stdout_layer.with_filter(stdout_filter);
 
@@ -125,8 +130,7 @@ where
                 .with_service_name(env!("CARGO_PKG_NAME"))
                 .with_max_packet_size(20_000)
                 .with_auto_split_batch(true)
-                // .install_batch(Tokio)
-                .install_simple()
+                .install_batch(Tokio)
                 .unwrap();
 
             let opentelemetry_filter = {
@@ -134,9 +138,9 @@ where
                     .with_default(LevelFilter::DEBUG)
                     .with_targets(vec![
                         (env!("CARGO_PKG_NAME"), LevelFilter::DEBUG),
-                        ("request", LevelFilter::DEBUG),
                         ("runtime", LevelFilter::OFF),
-                        ("sqlx", LevelFilter::DEBUG),
+                        ("tokio", LevelFilter::OFF),
+                        ("sqlx", LevelFilter::TRACE),
                     ])
             };
 
@@ -171,7 +175,9 @@ where
 
     tracing_log::log_tracer::Builder::new().init().unwrap();
 
-    let result = f(args).await;
+    let result = f(args)
+        .instrument(tracing::debug_span!(target: env!("CARGO_PKG_NAME"), env!("CARGO_PKG_NAME")))
+        .await;
 
     for shutdown_func in shutdown_functions {
         shutdown_func().unwrap();
@@ -188,13 +194,12 @@ impl fmt::Display for Latency {
 }
 
 pub fn init_request_tracing(router: Router) -> Router {
-    return router;
     router.layer(
         TraceLayer::new_for_http()
             .make_span_with(|_request: &Request<_>| {
                 let request_id = Uuid::new_v4();
                 tracing::debug_span!(
-                    target: "request",
+                    target: "packager::request",
                     "request",
                     %request_id,
                 )
@@ -203,7 +208,7 @@ pub fn init_request_tracing(router: Router) -> Router {
                 let request_headers = request.headers();
                 let http_version = request.version();
                 tracing::debug!(
-                    target: "request",
+                    target: "packager::request",
                     method = request.method().as_str(),
                     path = request.uri().path(),
                     ?http_version,
@@ -216,7 +221,7 @@ pub fn init_request_tracing(router: Router) -> Router {
                     let response_headers = response.headers();
                     let latency = Latency(latency);
                     tracing::debug!(
-                        target: "request",
+                        target: "packager::request",
                         %latency,
                         status = response.status().as_str(),
                         ?response_headers,
@@ -230,7 +235,7 @@ pub fn init_request_tracing(router: Router) -> Router {
                     match error {
                         ServerErrorsFailureClass::StatusCode(code) => {
                             tracing::error!(
-                                target: "request",
+                                target: "packager::request",
                                 %latency,
                                 "request failed with error response {}",
                                 code,
@@ -238,7 +243,7 @@ pub fn init_request_tracing(router: Router) -> Router {
                         }
                         ServerErrorsFailureClass::Error(message) => {
                             tracing::error!(
-                                target: "request",
+                                target: "packager::request",
                                 %latency,
                                 "request failed: {}",
                                 message,
