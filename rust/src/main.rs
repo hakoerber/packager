@@ -710,26 +710,16 @@ async fn trip_type_remove(
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    let trip_id = trip_id.to_string();
-    let type_id = type_id.to_string();
-    let results = query!(
-        "DELETE FROM trips_to_trips_types AS ttt
-        WHERE ttt.trip_id = ?
-            AND ttt.trip_type_id = ?
-        ",
-        trip_id,
-        type_id
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let found = models::Trip::trip_type_remove(&state.database_pool, trip_id, type_id)
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            )
+        })
+        .await?;
 
-    if results.rows_affected() == 0 {
+    if !found {
         Err((
             StatusCode::NOT_FOUND,
             components::ErrorPage::build(&format!(
@@ -745,66 +735,22 @@ async fn trip_type_add(
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    let trip_id = trip_id.to_string();
-    let type_id = type_id.to_string();
-    query!(
-        "INSERT INTO trips_to_trips_types
-        (trip_id, trip_type_id) VALUES (?, ?)",
-        trip_id,
-        type_id
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref error) => {
-            let sqlite_error = error.downcast_ref::<SqliteError>();
-            if let Some(code) = sqlite_error.code() {
-                match &*code {
-                    "787" => {
-                        // SQLITE_CONSTRAINT_FOREIGNKEY
-                        (
-                            StatusCode::BAD_REQUEST,
-                            // TODO: this is not perfect, as both foreign keys
-                            // may be responsible for the error. how can we tell
-                            // which one?
-                            components::ErrorPage::build(&format!(
-                                "invalid id: {}",
-                                code.to_string()
-                            )),
-                        )
-                    }
-                    "2067" => {
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        (
-                            StatusCode::BAD_REQUEST,
-                            components::ErrorPage::build(&format!(
-                                "type {type_id} is already active for trip {trip_id}"
-                            )),
-                        )
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        components::ErrorPage::build(&format!(
-                            "got error with unknown code: {}",
-                            sqlite_error.to_string()
-                        )),
-                    ),
-                }
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    components::ErrorPage::build(&format!(
-                        "got error without code: {}",
-                        sqlite_error.to_string()
-                    )),
-                )
-            }
-        }
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
-        ),
-    })?;
+    models::Trip::trip_type_add(&state.database_pool, trip_id, type_id)
+        .map_err(|error| match error {
+            models::Error::ReferenceNotFound { description } => (
+                StatusCode::BAD_REQUEST,
+                components::ErrorPage::build(&description),
+            ),
+            models::Error::Duplicate { description } => (
+                StatusCode::BAD_REQUEST,
+                components::ErrorPage::build(&description),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            ),
+        })
+        .await?;
 
     Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
@@ -820,24 +766,17 @@ async fn trip_comment_set(
     Path(trip_id): Path<Uuid>,
     Form(comment_update): Form<CommentUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    let trip_id = trip_id.to_string();
-    let result = query!(
-        "UPDATE trips
-        SET comment = ?
-        WHERE id = ?",
-        comment_update.new_comment,
-        trip_id,
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    let found =
+        models::Trip::set_comment(&state.database_pool, trip_id, &comment_update.new_comment)
+            .map_err(|error| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    components::ErrorPage::build(&error.to_string()),
+                )
+            })
+            .await?;
 
-    if result.rows_affected() == 0 {
+    if !found {
         Err((
             StatusCode::NOT_FOUND,
             components::ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
@@ -866,31 +805,25 @@ async fn trip_edit_attribute(
             ));
         }
     }
-    let result = query(&format!(
-        "UPDATE trips
-        SET {attribute} = ?
-        WHERE id = ?",
-        attribute = to_variant_name(&attribute).unwrap()
-    ))
-    .bind(trip_update.new_value)
-    .bind(trip_id.to_string())
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
-
-    if result.rows_affected() == 0 {
-        Err((
+    models::Trip::set_attribute(
+        &state.database_pool,
+        trip_id,
+        attribute,
+        &trip_update.new_value,
+    )
+    .map_err(|error| match error {
+        models::Error::NotFound { description } => (
             StatusCode::NOT_FOUND,
-            components::ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
-        ))
-    } else {
-        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
-    }
+            components::ErrorPage::build(&description),
+        ),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&error.to_string()),
+        ),
+    })
+    .await?;
+
+    Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
 
 async fn trip_item_set_state(
@@ -900,35 +833,20 @@ async fn trip_item_set_state(
     key: models::TripItemStateKey,
     value: bool,
 ) -> Result<(), (StatusCode, Markup)> {
-    let result = query(&format!(
-        "UPDATE trips_items
-        SET {key} = ?
-        WHERE trip_id = ?
-        AND item_id = ?",
-        key = to_variant_name(&key).unwrap()
-    ))
-    .bind(value)
-    .bind(trip_id.to_string())
-    .bind(item_id.to_string())
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            components::ErrorPage::build(&e.to_string()),
-        )
-    })?;
+    models::TripItem::set_state(&state.database_pool, trip_id, item_id, key, value)
+        .map_err(|error| match error {
+            models::Error::NotFound { description } => (
+                StatusCode::NOT_FOUND,
+                components::ErrorPage::build(&description),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            ),
+        })
+        .await?;
 
-    if result.rows_affected() == 0 {
-        Err((
-            StatusCode::NOT_FOUND,
-            components::ErrorPage::build(&format!(
-                "trip with id {trip_id} or item with id {item_id} not found"
-            )),
-        ))
-    } else {
-        Ok(())
-    }
+    Ok(())
 }
 
 async fn trip_row(
@@ -1267,56 +1185,18 @@ async fn inventory_category_create(
         ));
     }
 
-    let id = Uuid::new_v4();
-    let id_param = id.to_string();
-    query!(
-        "INSERT INTO inventory_items_categories
-            (id, name)
-        VALUES
-            (?, ?)",
-        id_param,
-        new_category.name
-    )
-    .execute(&state.database_pool)
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref error) => {
-            let sqlite_error = error.downcast_ref::<SqliteError>();
-            if let Some(code) = sqlite_error.code() {
-                match &*code {
-                    "2067" => {
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        (
-                            StatusCode::BAD_REQUEST,
-                            components::ErrorPage::build(&format!(
-                                "category with name \"{name}\" already exists",
-                                name = new_category.name
-                            )),
-                        )
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        components::ErrorPage::build(&format!(
-                            "got error with unknown code: {}",
-                            sqlite_error.to_string()
-                        )),
-                    ),
-                }
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    components::ErrorPage::build(&format!(
-                        "got error without code: {}",
-                        sqlite_error.to_string()
-                    )),
-                )
-            }
-        }
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            components::ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
-        ),
-    })
-    .await?;
+    let _new_id = models::Category::save(&state.database_pool, &new_category.name)
+        .map_err(|error| match error {
+            models::Error::Duplicate { description } => (
+                StatusCode::BAD_REQUEST,
+                components::ErrorPage::build(&description),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            ),
+        })
+        .await?;
 
     Ok(Redirect::to("/inventory/"))
 }
@@ -1398,58 +1278,26 @@ struct NewTripType {
 async fn trip_type_create(
     State(state): State<AppState>,
     Form(new_trip_type): Form<NewTripType>,
-) -> Result<Redirect, (StatusCode, String)> {
+) -> Result<Redirect, (StatusCode, Markup)> {
     if new_trip_type.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            "name cannot be empty".to_string(),
+            components::ErrorPage::build("name cannot be empty"),
         ));
     }
 
-    let id = Uuid::new_v4();
-    let id_param = id.to_string();
-    query!(
-        "INSERT INTO trips_types
-            (id, name)
-        VALUES
-            (?, ?)",
-        id_param,
-        new_trip_type.name,
-    )
-    .execute(&state.database_pool)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref error) => {
-            let sqlite_error = error.downcast_ref::<SqliteError>();
-            if let Some(code) = sqlite_error.code() {
-                match &*code {
-                    "2067" => {
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        (
-                            StatusCode::BAD_REQUEST,
-                            format!(
-                                "trip type with name \"{name}\" already exists",
-                                name = new_trip_type.name,
-                            ),
-                        )
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("got error with unknown code: {}", sqlite_error.to_string()),
-                    ),
-                }
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("got error without code: {}", sqlite_error.to_string()),
-                )
-            }
-        }
-        _ => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("got unknown error: {}", e.to_string()),
-        ),
-    })?;
+    let _new_id = models::TripsType::save(&state.database_pool, &new_trip_type.name)
+        .map_err(|error| match error {
+            models::Error::Duplicate { description } => (
+                StatusCode::BAD_REQUEST,
+                components::ErrorPage::build(&description),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                components::ErrorPage::build(&error.to_string()),
+            ),
+        })
+        .await?;
 
     Ok(Redirect::to("/trips/types/"))
 }
@@ -1644,7 +1492,7 @@ async fn trip_packagelist(
         StatusCode::OK,
         components::Root::build(
             &components::trip::packagelist::TripPackageList::build(&trip),
-            &components::TopLevelPage::None,
+            &components::TopLevelPage::Trips,
         ),
     ))
 }

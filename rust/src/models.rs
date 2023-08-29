@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_variant::to_variant_name;
 use sqlx::{
     database::Database,
     database::HasValueRef,
@@ -28,6 +29,9 @@ pub enum Error {
     Int { description: String },
     Constraint { description: String },
     TimeParse { description: String },
+    Duplicate { description: String },
+    NotFound { description: String },
+    ReferenceNotFound { description: String },
 }
 
 impl fmt::Display for Error {
@@ -50,6 +54,15 @@ impl fmt::Display for Error {
             }
             Self::Constraint { description } => {
                 write!(f, "SQL constraint error: {description}")
+            }
+            Self::Duplicate { description } => {
+                write!(f, "Duplicate data entry: {description}")
+            }
+            Self::NotFound { description } => {
+                write!(f, "not found: {description}")
+            }
+            Self::ReferenceNotFound { description } => {
+                write!(f, "SQL foreign key reference was not found: {description}")
             }
         }
     }
@@ -395,6 +408,36 @@ impl TripItem {
             Ok(v) => Ok(Some(v?)),
         }
     }
+
+    pub async fn set_state(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+        item_id: Uuid,
+        key: TripItemStateKey,
+        value: bool,
+    ) -> Result<(), Error> {
+        let result = sqlx::query(&format!(
+            "UPDATE trips_items
+            SET {key} = ?
+            WHERE trip_id = ?
+            AND item_id = ?",
+            key = to_variant_name(&key).unwrap()
+        ))
+        .bind(value)
+        .bind(trip_id.to_string())
+        .bind(item_id.to_string())
+        .execute(pool)
+        .map_err(|error| Error::Sql {
+            description: error.to_string(),
+        })
+        .await?;
+
+        (result.rows_affected() != 0)
+            .then_some(())
+            .ok_or_else(|| Error::NotFound {
+                description: format!("item {item_id} not found for trip {trip_id}"),
+            })
+    }
 }
 
 struct DbTripRow {
@@ -463,7 +506,7 @@ struct DbTripWeightRow {
     pub total_weight: Option<i32>,
 }
 
-impl<'a> Trip {
+impl Trip {
     pub async fn all(pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Trip>, Error> {
         sqlx::query_as!(
             DbTripRow,
@@ -521,6 +564,89 @@ impl<'a> Trip {
         }
     }
 
+    pub async fn trip_type_remove(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+        type_id: Uuid,
+    ) -> Result<bool, Error> {
+        let id_param = id.to_string();
+        let type_id_param = type_id.to_string();
+
+        let results = sqlx::query!(
+            "DELETE FROM trips_to_trips_types AS ttt
+            WHERE ttt.trip_id = ?
+                AND ttt.trip_type_id = ?
+            ",
+            id_param,
+            type_id_param,
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(results.rows_affected() != 0)
+    }
+
+    pub async fn trip_type_add(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+        type_id: Uuid,
+    ) -> Result<(), Error> {
+        let trip_id_param = id.to_string();
+        let type_id_param = type_id.to_string();
+        sqlx::query!(
+            "INSERT INTO trips_to_trips_types
+                (trip_id, trip_type_id)
+            VALUES
+                (?, ?)
+            ",
+            trip_id_param,
+            type_id_param,
+        )
+        .execute(pool)
+        .map_err(|error| match error {
+            sqlx::Error::Database(ref error) => {
+                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
+                if let Some(code) = sqlite_error.code() {
+                    match &*code {
+                        "787" => {
+                            // SQLITE_CONSTRAINT_FOREIGNKEY
+                            Error::ReferenceNotFound {
+                                description: format!("invalid id: {}", code.to_string()),
+                            }
+                        }
+                        "2067" => {
+                            // SQLITE_CONSTRAINT_UNIQUE
+                            Error::Duplicate {
+                                description: format!(
+                                    "type {type_id} is already active for trip {id}"
+                                ),
+                            }
+                        }
+                        _ => Error::Sql {
+                            description: format!(
+                                "got error with unknown code: {}",
+                                sqlite_error.to_string()
+                            ),
+                        },
+                    }
+                } else {
+                    Error::Sql {
+                        description: format!(
+                            "got error without code: {}",
+                            sqlite_error.to_string()
+                        ),
+                    }
+                }
+            }
+            _ => Error::Sql {
+                description: format!("got unknown error: {}", error.to_string()),
+            },
+        })
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn set_state(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
@@ -538,6 +664,52 @@ impl<'a> Trip {
         .await?;
 
         Ok(result.rows_affected() != 0)
+    }
+
+    pub async fn set_comment(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+        new_comment: &str,
+    ) -> Result<bool, Error> {
+        let trip_id_param = id.to_string();
+        let result = sqlx::query!(
+            "UPDATE trips
+            SET comment = ?
+            WHERE id = ?",
+            new_comment,
+            trip_id_param,
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(result.rows_affected() != 0)
+    }
+
+    pub async fn set_attribute(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+        attribute: TripAttribute,
+        value: &str,
+    ) -> Result<(), Error> {
+        let result = sqlx::query(&format!(
+            "UPDATE trips
+            SET {attribute} = ?
+            WHERE id = ?",
+            attribute = to_variant_name(&attribute).unwrap()
+        ))
+        .bind(value)
+        .bind(trip_id.to_string())
+        .execute(pool)
+        .map_err(|error| Error::Sql {
+            description: error.to_string(),
+        })
+        .await?;
+
+        (result.rows_affected() != 0)
+            .then_some(())
+            .ok_or_else(|| Error::NotFound {
+                description: format!("trip {trip_id} not found"),
+            })
     }
 
     pub async fn save(
@@ -645,13 +817,13 @@ impl<'a> Trip {
         }
     }
 
-    pub fn types(&'a self) -> &Vec<TripType> {
+    pub fn types(&self) -> &Vec<TripType> {
         self.types
             .as_ref()
             .expect("you need to call load_trips_types()")
     }
 
-    pub fn categories(&'a self) -> &Vec<TripCategory> {
+    pub fn categories(&self) -> &Vec<TripCategory> {
         self.categories
             .as_ref()
             .expect("you need to call load_trips_types()")
@@ -672,10 +844,7 @@ impl<'a> Trip {
             .sum::<i64>()
     }
 
-    pub async fn load_trips_types(
-        &'a mut self,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-    ) -> Result<(), Error> {
+    pub async fn load_trips_types(&mut self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), Error> {
         let id = self.id.to_string();
         let types = sqlx::query!(
             "
@@ -719,7 +888,7 @@ impl<'a> Trip {
     }
 
     pub async fn sync_trip_items_with_inventory(
-        &'a mut self,
+        &mut self,
         pool: &sqlx::Pool<sqlx::Sqlite>,
     ) -> Result<(), Error> {
         // we need to get all items that are part of the inventory but not
@@ -791,10 +960,7 @@ impl<'a> Trip {
         Ok(())
     }
 
-    pub async fn load_categories(
-        &'a mut self,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-    ) -> Result<(), Error> {
+    pub async fn load_categories(&mut self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), Error> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
@@ -922,6 +1088,56 @@ impl TripsType {
         .collect::<Result<Vec<Self>, Error>>()
     }
 
+    pub async fn save(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<Uuid, Error> {
+        let id = Uuid::new_v4();
+        let id_param = id.to_string();
+        sqlx::query!(
+            "INSERT INTO trips_types
+            (id, name)
+        VALUES
+            (?, ?)",
+            id_param,
+            name,
+        )
+        .execute(pool)
+        .map_err(|error| match error {
+            sqlx::Error::Database(ref error) => {
+                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
+                if let Some(code) = sqlite_error.code() {
+                    match &*code {
+                        "2067" => {
+                            // SQLITE_CONSTRAINT_UNIQUE
+                            Error::Duplicate {
+                                description: format!(
+                                    "trip type with name \"{name}\" already exists"
+                                ),
+                            }
+                        }
+                        _ => Error::Sql {
+                            description: format!(
+                                "got error with unknown code: {}",
+                                sqlite_error.to_string()
+                            ),
+                        },
+                    }
+                } else {
+                    Error::Sql {
+                        description: format!(
+                            "got error without code: {}",
+                            sqlite_error.to_string()
+                        ),
+                    }
+                }
+            }
+            _ => Error::Sql {
+                description: format!("got unknown error: {}", error.to_string()),
+            },
+        })
+        .await?;
+
+        Ok(id)
+    }
+
     pub async fn set_name(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
@@ -978,7 +1194,7 @@ struct DbInventoryItemsRow {
     category_id: String,
 }
 
-impl<'a> Category {
+impl Category {
     pub async fn _find(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
@@ -1007,7 +1223,57 @@ impl<'a> Category {
         }
     }
 
-    pub fn items(&'a self) -> &'a Vec<Item> {
+    pub async fn save(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<Uuid, Error> {
+        let id = Uuid::new_v4();
+        let id_param = id.to_string();
+        sqlx::query!(
+            "INSERT INTO inventory_items_categories
+                (id, name)
+            VALUES
+                (?, ?)",
+            id_param,
+            name,
+        )
+        .execute(pool)
+        .map_err(|error| match error {
+            sqlx::Error::Database(ref error) => {
+                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
+                if let Some(code) = sqlite_error.code() {
+                    match &*code {
+                        "2067" => {
+                            // SQLITE_CONSTRAINT_UNIQUE
+                            Error::Duplicate {
+                                description: format!(
+                                    "inventory item category with name \"{name}\" already exists"
+                                ),
+                            }
+                        }
+                        _ => Error::Sql {
+                            description: format!(
+                                "got error with unknown code: {}",
+                                sqlite_error.to_string()
+                            ),
+                        },
+                    }
+                } else {
+                    Error::Sql {
+                        description: format!(
+                            "got error without code: {}",
+                            sqlite_error.to_string()
+                        ),
+                    }
+                }
+            }
+            _ => Error::Sql {
+                description: format!("got unknown error: {}", error.to_string()),
+            },
+        })
+        .await?;
+
+        Ok(id)
+    }
+
+    pub fn items(&self) -> &Vec<Item> {
         self.items
             .as_ref()
             .expect("you need to call populate_items()")
@@ -1017,10 +1283,7 @@ impl<'a> Category {
         self.items().iter().map(|item| item.weight).sum()
     }
 
-    pub async fn populate_items(
-        &'a mut self,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-    ) -> Result<(), Error> {
+    pub async fn populate_items(&mut self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), Error> {
         let id = self.id.to_string();
         let items = sqlx::query_as!(
             DbInventoryItemsRow,

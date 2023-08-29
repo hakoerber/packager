@@ -18,6 +18,16 @@
     },
     "query": "UPDATE inventory_items AS item\n            SET\n                name = ?,\n                weight = ?\n            WHERE item.id = ?\n            RETURNING inventory_items.category_id AS id\n            "
   },
+  "0e8a12e168d8ff41005b2b5a1356ef5dc39339291572005e2a9278fb28113a2b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "INSERT INTO trips_to_trips_types\n                (trip_id, trip_type_id)\n            VALUES\n                (?, ?)\n            "
+  },
   "1320943d04e921a8e5f409737e466838b4ecf7e73ad0ade59ccd7664459a9c80": {
     "describe": {
       "columns": [],
@@ -27,16 +37,6 @@
       }
     },
     "query": "\n                INSERT INTO trips_items\n                    (\n                        item_id,\n                        trip_id,\n                        pick,\n                        pack,\n                        new\n                    )\n                    VALUES (?, ?, ?, ?, ?)\n                "
-  },
-  "18cbb2893df033f5f81f42097fcae7ee036405749a5d93f2ea1d79ba280dfd20": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 2
-      }
-    },
-    "query": "DELETE FROM trips_to_trips_types AS ttt\n        WHERE ttt.trip_id = ?\n            AND ttt.trip_type_id = ?\n        "
   },
   "1994305e1521fe1f5f927ad28e21c9cab8a25598b19e1c9038dae9092fe18f1f": {
     "describe": {
@@ -139,16 +139,6 @@
       }
     },
     "query": "DELETE FROM inventory_items\n            WHERE id = ?"
-  },
-  "4d377bb01af6bbbca637d8c61326c84e8b05b1e570199c464b593bdc81b3dba6": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 2
-      }
-    },
-    "query": "INSERT INTO trips_to_trips_types\n        (trip_id, trip_type_id) VALUES (?, ?)"
   },
   "53c45b9447118c8b448df6836e68a38ff78d0b7f4d5344a1e5064d31e70396b3": {
     "describe": {
@@ -288,6 +278,16 @@
     },
     "query": "SELECT\n                    item.id AS id,\n                    item.name AS name,\n                    item.description AS description,\n                    weight,\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    category.description AS category_description,\n                    product.id AS product_id,\n                    product.name AS product_name,\n                    product.description AS product_description,\n                    product.comment AS product_comment\n                FROM inventory_items AS item\n                INNER JOIN inventory_items_categories as category\n                    ON item.category_id = category.id\n                LEFT JOIN inventory_products AS product\n                    ON item.product_id = product.id\n                WHERE item.id = ?"
   },
+  "68f936e138283635c5e7bde3313f036aae4167143200ea20fb89e1e99ada9ad1": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "INSERT INTO inventory_items_categories\n                (id, name)\n            VALUES\n                (?, ?)"
+  },
   "6973cceeb5499216475136b320b25e1355974e1213829d931abdd6b7a1448a87": {
     "describe": {
       "columns": [
@@ -396,7 +396,7 @@
     },
     "query": "SELECT\n                id,\n                name,\n                CAST (date_start AS TEXT) date_start,\n                CAST (date_end AS TEXT) date_end,\n                state,\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips"
   },
-  "6e2928c8c2e66b15fc3f6f0ae4e8e0d4616b714fccbf273306d5135df31f4c19": {
+  "82395724cd85d8b57ce50a64f49386435fbebc83f18db53ab8650b29414e40fb": {
     "describe": {
       "columns": [],
       "nullable": [],
@@ -404,17 +404,7 @@
         "Right": 2
       }
     },
-    "query": "INSERT INTO inventory_items_categories\n            (id, name)\n        VALUES\n            (?, ?)"
-  },
-  "88293d85c61e1eeaf9e46ada4154736b127c3bf305e92130de87b89ce7c6edab": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 2
-      }
-    },
-    "query": "UPDATE trips\n        SET comment = ?\n        WHERE id = ?"
+    "query": "DELETE FROM trips_to_trips_types AS ttt\n            WHERE ttt.trip_id = ?\n                AND ttt.trip_type_id = ?\n            "
   },
   "918fc9cf50097d4210b212255ef49335ebedbe81002ce9a418b4dab4fbb29aa3": {
     "describe": {
@@ -509,6 +499,16 @@
       }
     },
     "query": "SELECT\n                id,\n                name,\n                CAST (date_start AS TEXT) date_start,\n                CAST (date_end AS TEXT) date_end,\n                state,\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE id = ?"
+  },
+  "a5cdb8a6d5850326815efd460c0b42dda02a4ea32713ec89beceb38cd24321d5": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "UPDATE trips\n            SET comment = ?\n            WHERE id = ?"
   },
   "a81bcbeb11260e3b4363e19c26b71b489e326b08bfacb6e11b4c4fc068dc7806": {
     "describe": {
