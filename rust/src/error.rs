@@ -15,9 +15,7 @@ pub enum RequestError {
     RefererNotFound,
     RefererInvalid { message: String },
     NotFound { message: String },
-    AuthenticationUserNotFound { username: String },
-    AuthenticationHeaderMissing,
-    AuthenticationHeaderInvalid { message: String },
+    Auth { inner: AuthError },
     Transport { inner: hyper::Error },
 }
 
@@ -30,12 +28,8 @@ impl fmt::Display for RequestError {
             Self::RefererNotFound => write!(f, "Referer header not found"),
             Self::RefererInvalid { message } => write!(f, "Referer header invalid: {message}"),
             Self::NotFound { message } => write!(f, "Not found: {message}"),
-            Self::AuthenticationUserNotFound { username } => {
-                write!(f, "User \"{username}\" not found")
-            }
-            Self::AuthenticationHeaderMissing => write!(f, "Authentication header not found"),
-            Self::AuthenticationHeaderInvalid { message } => {
-                write!(f, "Authentication header invalid: {message}")
+            Self::Auth { inner } => {
+                write!(f, "Authentication failed: {inner}")
             }
             Self::Transport { inner } => {
                 write!(f, "HTTP error: {inner}")
@@ -43,6 +37,67 @@ impl fmt::Display for RequestError {
         }
     }
 }
+
+#[derive(Debug)]
+pub enum AuthError {
+    AuthenticationUserNotFound { username: String },
+    AuthenticationHeaderMissing,
+    AuthenticationHeaderInvalid { message: String },
+}
+
+impl AuthError {
+    pub fn to_prom_metric_name(&self) -> &'static str {
+        match self {
+            Self::AuthenticationUserNotFound { username: _ } => "user_not_found",
+            Self::AuthenticationHeaderMissing => "header_missing",
+            Self::AuthenticationHeaderInvalid { message: _ } => "header_invalid",
+        }
+    }
+
+    pub fn trace(&self) {
+        match self {
+            Self::AuthenticationUserNotFound { username } => {
+                tracing::info!(username, "auth failed, user not found")
+            }
+            Self::AuthenticationHeaderMissing => tracing::info!("auth failed, auth header missing"),
+            Self::AuthenticationHeaderInvalid { message } => {
+                tracing::info!(message, "auth failed, auth header invalid")
+            }
+        }
+    }
+}
+
+impl<'a> AuthError {
+    pub fn to_prom_labels(&'a self) -> Vec<(&'static str, String)> {
+        match self {
+            Self::AuthenticationUserNotFound { username } => vec![("username", username.clone())],
+            Self::AuthenticationHeaderMissing => vec![],
+            Self::AuthenticationHeaderInvalid { message: _ } => vec![],
+        }
+    }
+}
+
+impl fmt::Display for AuthError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::AuthenticationUserNotFound { username } => {
+                write!(f, "User \"{username}\" not found")
+            }
+            Self::AuthenticationHeaderMissing => write!(f, "Authentication header not found"),
+            Self::AuthenticationHeaderInvalid { message } => {
+                write!(f, "Authentication header invalid: {message}")
+            }
+        }
+    }
+}
+
+impl From<AuthError> for Error {
+    fn from(e: AuthError) -> Self {
+        Self::Request(RequestError::Auth { inner: e })
+    }
+}
+
+impl std::error::Error for AuthError {}
 
 #[derive(Debug)]
 pub enum Error {
@@ -136,14 +191,9 @@ impl IntoResponse for Error {
                     StatusCode::NOT_FOUND,
                     view::ErrorPage::build(&format!("not found: {message}")),
                 ),
-                RequestError::AuthenticationUserNotFound { username: _ } => (
-                    StatusCode::BAD_REQUEST,
-                    view::ErrorPage::build(&request_error.to_string()),
-                ),
-                RequestError::AuthenticationHeaderMissing
-                | RequestError::AuthenticationHeaderInvalid { message: _ } => (
+                RequestError::Auth { inner: e } => (
                     StatusCode::UNAUTHORIZED,
-                    view::ErrorPage::build(&request_error.to_string()),
+                    view::ErrorPage::build(&format!("authentication failed: {e}")),
                 ),
                 RequestError::Transport { inner } => (
                     StatusCode::INTERNAL_SERVER_ERROR,

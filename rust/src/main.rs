@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use packager::{
-    auth, cmd, models, routing, sqlite, telemetry, AppState, ClientState, Error, StartError,
+    auth, cli, models, routing, sqlite, telemetry, AppState, ClientState, Error, StartError,
 };
 
 struct MainResult(Result<(), Error>);
@@ -35,17 +35,19 @@ impl From<tokio::task::JoinError> for MainResult {
 
 #[tokio::main]
 async fn main() -> MainResult {
-    let args = match cmd::Args::get() {
+    let args = match cli::Args::get() {
         Ok(args) => args,
         Err(e) => return e.into(),
     };
 
-    telemetry::tracing::init_tracing(
+    telemetry::tracing::init(
+        #[cfg(feature = "jaeger")]
         if args.enable_opentelemetry.into() {
             telemetry::tracing::OpenTelemetryConfig::Enabled
         } else {
             telemetry::tracing::OpenTelemetryConfig::Disabled
         },
+        #[cfg(feature = "tokio-console")]
         if args.enable_tokio_console.into() {
             telemetry::tracing::TokioConsoleConfig::Enabled
         } else {
@@ -55,7 +57,7 @@ async fn main() -> MainResult {
         |args| -> Pin<Box<dyn std::future::Future<Output = MainResult>>> {
             Box::pin(async move {
                 match args.command {
-                    cmd::Command::Serve(serve_args) => {
+                    cli::Command::Serve(serve_args) => {
                         if let Err(e) = sqlite::migrate(&args.database_url).await {
                             return <_ as Into<Error>>::into(e).into();
                         }
@@ -84,6 +86,7 @@ async fn main() -> MainResult {
 
                         let mut join_set = tokio::task::JoinSet::new();
 
+                        #[cfg(feature = "prometheus")]
                         let app = if args.enable_prometheus.into() {
                             // we `require_if()` prometheus port & bind when `enable_prometheus` is set, so
                             // this cannot fail
@@ -145,9 +148,9 @@ async fn main() -> MainResult {
 
                         return result.into();
                     }
-                    cmd::Command::Admin(admin_command) => match admin_command {
-                        cmd::Admin::User(cmd) => match cmd {
-                            cmd::UserCommand::Create(user) => {
+                    cli::Command::Admin(admin_command) => match admin_command {
+                        cli::Admin::User(cmd) => match cmd {
+                            cli::UserCommand::Create(user) => {
                                 let database_pool =
                                     match sqlite::init_database_pool(&args.database_url).await {
                                         Ok(pool) => pool,
@@ -183,7 +186,7 @@ async fn main() -> MainResult {
                             }
                         },
                     },
-                    cmd::Command::Migrate => {
+                    cli::Command::Migrate => {
                         if let Err(e) = sqlite::migrate(&args.database_url).await {
                             return <_ as Into<Error>>::into(e).into();
                         }

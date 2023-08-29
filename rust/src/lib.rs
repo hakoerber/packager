@@ -3,7 +3,7 @@ use uuid::Uuid;
 use std::fmt;
 
 pub mod auth;
-pub mod cmd;
+pub mod cli;
 pub mod error;
 pub mod htmx;
 pub mod models;
@@ -13,7 +13,7 @@ pub mod telemetry;
 
 mod view;
 
-pub use error::{CommandError, Error, RequestError, StartError};
+pub use error::{AuthError, CommandError, Error, RequestError, StartError};
 
 #[derive(Clone, Debug)]
 pub struct AppState {

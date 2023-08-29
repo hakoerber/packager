@@ -1,10 +1,13 @@
 use axum::{extract::State, middleware::Next, response::IntoResponse};
+use futures::FutureExt;
 use tracing::Instrument;
 
 use hyper::Request;
 
+use crate::models::user::User;
+
 use super::models;
-use super::{AppState, Error, RequestError};
+use super::{AppState, AuthError, Error};
 
 #[derive(Clone, Debug)]
 pub enum Config {
@@ -18,56 +21,73 @@ pub async fn authorize<B>(
     mut request: Request<B>,
     next: Next<B>,
 ) -> Result<impl IntoResponse, Error> {
-    let current_user = async {
-        let user = match state.auth_config {
+    let user = async {
+        let auth: Result<Result<User, AuthError>, Error> = match state.auth_config {
             Config::Disabled { assume_user } => {
                 let user =
                     match models::user::User::find_by_name(&state.database_pool, &assume_user)
                         .await?
                     {
-                        Some(user) => user,
-                        None => {
-                            return Err(Error::Request(RequestError::AuthenticationUserNotFound {
-                                username: assume_user,
-                            }))
-                        }
+                        Some(user) => Ok(user),
+                        None => Err(AuthError::AuthenticationUserNotFound {
+                            username: assume_user,
+                        }),
                     };
-                tracing::info!(?user, "auth disabled, requested user exists");
-                user
+                Ok(user)
             }
-            Config::Enabled => {
-                let Some(username) = request.headers().get("x-auth-username") else {
-                return Err(Error::Request(RequestError::AuthenticationHeaderMissing));
-            };
-                let username = username
-                    .to_str()
-                    .map_err(|error| {
-                        Error::Request(RequestError::AuthenticationHeaderInvalid {
-                            message: error.to_string(),
-                        })
-                    })?
-                    .to_string();
-
-                let user = match models::user::User::find_by_name(&state.database_pool, &username)
-                    .await?
-                {
-                    Some(user) => user,
-                    None => {
-                        tracing::warn!(username, "auth rejected, user not found");
-                        return Err(Error::Request(RequestError::AuthenticationUserNotFound {
-                            username,
-                        }));
+            Config::Enabled => match request.headers().get("x-auth-username") {
+                None => Ok(Err(AuthError::AuthenticationHeaderMissing)),
+                Some(username) => match username.to_str() {
+                    Err(e) => Ok(Err(AuthError::AuthenticationHeaderInvalid {
+                        message: e.to_string(),
+                    })),
+                    Ok(username) => {
+                        match models::user::User::find_by_name(&state.database_pool, &username)
+                            .await?
+                        {
+                            Some(user) => Ok(Ok(user)),
+                            None => Ok(Err(AuthError::AuthenticationUserNotFound {
+                                username: username.to_string(),
+                            })),
+                        }
                     }
-                };
-                tracing::info!(?user, "auth successful");
-                user
-            }
+                },
+            },
         };
-        Ok(user)
+
+        auth
     }
     .instrument(tracing::debug_span!("authorize"))
-    .await?;
+    .inspect(|r| {
+        if let Ok(auth) = r {
+            match auth {
+                Ok(user) => tracing::debug!(?user, "auth successful"),
+                Err(e) => e.trace(),
+            }
+        }
+    })
+    .map(|r| {
+        r.map(|auth| {
+            metrics::counter!(
+                format!("packager_auth_{}_total", {
+                    match auth {
+                        Ok(_) => "success".to_string(),
+                        Err(ref e) => format!("failure_{}", e.to_prom_metric_name()),
+                    }
+                }),
+                1,
+                &match &auth {
+                    Ok(user) => vec![("username", user.username.clone())],
+                    Err(e) => e.to_prom_labels(),
+                }
+            );
+            auth
+        })
+    })
+    // outer result: failure of the process, e.g. database connection failed
+    // inner result: auth rejected, with AuthError
+    .await??;
 
-    request.extensions_mut().insert(current_user);
+    request.extensions_mut().insert(user);
     Ok(next.run(request).await)
 }

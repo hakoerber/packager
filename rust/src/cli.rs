@@ -1,4 +1,8 @@
-use crate::{Error, StartError};
+use crate::Error;
+
+#[cfg(feature = "prometheus")]
+use crate::StartError;
+
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(ValueEnum, Clone, Copy, Debug)]
@@ -39,18 +43,23 @@ pub struct Args {
     #[arg(long)]
     pub database_url: String,
 
+    #[cfg(feature = "jaeger")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_opentelemetry: BoolArg,
 
+    #[cfg(feature = "tokio-console")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_tokio_console: BoolArg,
 
+    #[cfg(feature = "prometheus")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_prometheus: BoolArg,
 
+    #[cfg(feature = "prometheus")]
     #[arg(long, value_enum, required_if_eq("enable_prometheus", BoolArg::True))]
     pub prometheus_port: Option<u16>,
 
+    #[cfg(feature = "prometheus")]
     #[arg(long, value_enum, required_if_eq("enable_prometheus", BoolArg::True))]
     pub prometheus_bind: Option<String>,
 
@@ -99,14 +108,15 @@ impl Args {
     pub fn get() -> Result<Args, Error> {
         let args = Args::parse();
 
+        #[cfg(feature = "prometheus")]
         if !args.enable_prometheus.bool()
             && (args.prometheus_port.is_some() || args.prometheus_bind.is_some())
         {
-            Err(Error::Start(StartError::CallError {
+            return Err(Error::Start(StartError::CallError {
                 message: "do not set prometheus options when prometheus is not enabled".to_string(),
-            }))
-        } else {
-            Ok(args)
+            }));
         }
+
+        Ok(args)
     }
 }

@@ -22,6 +22,7 @@ use tracing::Instrument;
 
 use uuid::Uuid;
 
+#[cfg(feature = "jaeger")]
 use opentelemetry::{global, runtime::Tokio};
 
 pub enum OpenTelemetryConfig {
@@ -72,6 +73,7 @@ trait Forwarder {
     ) -> Option<Box<dyn tracing_subscriber::Layer<dyn tracing::Subscriber>>>;
 }
 
+#[cfg(feature = "jaeger")]
 fn get_jaeger_layer<
     T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
 >(
@@ -118,34 +120,49 @@ fn get_jaeger_layer<
     opentelemetry_layer
 }
 
-pub async fn init_tracing<Func, T>(
-    opentelemetry_config: OpenTelemetryConfig,
-    tokio_console_config: TokioConsoleConfig,
-    args: crate::cmd::Args,
+pub async fn init<Func, T>(
+    #[cfg(feature = "jaeger")] opentelemetry_config: OpenTelemetryConfig,
+    #[cfg(feature = "tokio-console")] tokio_console_config: TokioConsoleConfig,
+    args: crate::cli::Args,
     f: Func,
 ) -> T
 where
-    Func: FnOnce(crate::cmd::Args) -> Pin<Box<dyn Future<Output = T>>>,
+    Func: FnOnce(crate::cli::Args) -> Pin<Box<dyn Future<Output = T>>>,
     T: std::process::Termination,
 {
-    let mut shutdown_functions: Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>> =
+    // mut is dependent on features (it's only required when jaeger is set), so
+    // let's just disable the lint
+    #[cfg(feature = "jaeger")]
+    let mut shutdown_functions: Vec<
+        Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>,
+    > = vec![];
+
+    #[cfg(not(feature = "jaeger"))]
+    let shutdown_functions: Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>> =
         vec![];
 
+    #[cfg(feature = "tokio-console")]
     let console_layer = match tokio_console_config {
         TokioConsoleConfig::Enabled => Some(console_subscriber::Builder::default().spawn()),
         TokioConsoleConfig::Disabled => None,
     };
 
     let stdout_layer = get_stdout_layer();
+
+    #[cfg(feature = "jaeger")]
     let jaeger_layer = get_jaeger_layer(opentelemetry_config, &mut shutdown_functions);
 
-    let registry = Registry::default()
-        .with(console_layer)
-        .with(jaeger_layer)
-        // just an example, you can actuall pass Options here for layers that might be
-        // set/unset at runtime
-        .with(stdout_layer)
-        .with(None::<Layer<_>>);
+    let registry = Registry::default();
+
+    #[cfg(feature = "tokio-console")]
+    let registry = registry.with(console_layer);
+
+    #[cfg(feature = "jaeger")]
+    let registry = registry.with(jaeger_layer);
+    // just an example, you can actuall pass Options here for layers that might be
+    // set/unset at runtime
+
+    let registry = registry.with(stdout_layer).with(None::<Layer<_>>);
 
     tracing::subscriber::set_global_default(registry).unwrap();
 

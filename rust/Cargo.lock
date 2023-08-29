@@ -1436,6 +1436,7 @@ dependencies = [
  "hyper",
  "log",
  "maud",
+ "metrics",
  "opentelemetry",
  "opentelemetry-jaeger",
  "serde",
