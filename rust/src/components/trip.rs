@@ -276,7 +276,7 @@ pub struct TripInfoRow;
 impl TripInfoRow {
     pub fn build(
         name: &str,
-        value: impl std::fmt::Display,
+        value: Option<impl std::fmt::Display>,
         attribute_key: TripAttribute,
         edit_attribute: Option<&TripAttribute>,
         input_type: InputType,
@@ -303,7 +303,7 @@ impl TripInfoRow {
                                 id="new-value"
                                 name="new-value"
                                 form="edit-trip"
-                                value=(value)
+                                value=(value.map_or("".to_string(), |v| v.to_string()))
                             ;
                         }
                     }
@@ -355,7 +355,7 @@ impl TripInfoRow {
                     }
                 } @else {
                     td ."border" ."p-2" { (name) }
-                    td ."border" ."p-2" { (value) }
+                    td ."border" ."p-2" { (value.map_or("".to_string(), |v| v.to_string())) }
                     td
                         ."border-none"
                         ."bg-blue-100"
@@ -397,9 +397,9 @@ impl TripInfo {
                 ."w-full"
             {
                 tbody {
-                    (TripInfoRow::build("Location", &trip.location, TripAttribute::Location, state.trip_edit_attribute.as_ref(), InputType::Text))
-                    (TripInfoRow::build("Start date", trip.date_start, TripAttribute::DateStart, state.trip_edit_attribute.as_ref(), InputType::Date))
-                    (TripInfoRow::build("End date", trip.date_end, TripAttribute::DateEnd, state.trip_edit_attribute.as_ref(), InputType::Date))
+                    (TripInfoRow::build("Location", trip.location.as_ref(), TripAttribute::Location, state.trip_edit_attribute.as_ref(), InputType::Text))
+                    (TripInfoRow::build("Start date", Some(trip.date_start), TripAttribute::DateStart, state.trip_edit_attribute.as_ref(), InputType::Date))
+                    (TripInfoRow::build("End date", Some(trip.date_end), TripAttribute::DateEnd, state.trip_edit_attribute.as_ref(), InputType::Date))
                     (TripInfoRow::build("Temp (min)", trip.temp_min, TripAttribute::TempMin, state.trip_edit_attribute.as_ref(), InputType::Number))
                     (TripInfoRow::build("Temp (max)", trip.temp_max, TripAttribute::TempMax, state.trip_edit_attribute.as_ref(), InputType::Number))
                     tr .h-full {
@@ -587,7 +587,7 @@ impl TripCategoryList {
     pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
         let categories = trip.categories();
 
-        let biggest_category_weight: u32 = categories
+        let biggest_category_weight: i64 = categories
             .iter()
             .map(TripCategory::total_picked_weight)
             .max()
@@ -655,8 +655,8 @@ impl TripCategoryList {
                                         format!(
                                             "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
                                             width=(
-                                                f64::from(category.total_picked_weight())
-                                                / f64::from(biggest_category_weight)
+                                                (category.total_picked_weight() as f64)
+                                                / (biggest_category_weight as f64)
                                                 * 100.0
                                             )
                                         )
@@ -670,7 +670,7 @@ impl TripCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(TripCategory::total_picked_weight).sum::<u32>().to_string())
+                                (categories.iter().map(TripCategory::total_picked_weight).sum::<i64>().to_string())
                             }
                         }
                     }
@@ -684,7 +684,7 @@ pub struct TripItemList;
 
 impl TripItemList {
     pub fn build(state: &ClientState, trip: &models::Trip, items: &Vec<TripItem>) -> Markup {
-        let biggest_item_weight: u32 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
+        let biggest_item_weight: i64 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
         html!(
             @if items.is_empty() {
@@ -778,7 +778,7 @@ impl TripItemList {
                                     position:absolute;
                                     left:0;
                                     bottom:0;
-                                    right:0;", width=(f64::from(item.item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
+                                    right:0;", width=((item.item.weight as f64) / (biggest_item_weight as f64) * 100.0))) {}
                                 }
                             }
                         }

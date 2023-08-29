@@ -37,7 +37,7 @@ pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
     pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
-        let biggest_category_weight: u32 = categories
+        let biggest_category_weight: i64 = categories
             .iter()
             .map(Category::total_weight)
             .max()
@@ -115,8 +115,8 @@ impl InventoryCategoryList {
                                             format!(
                                                 "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
                                                 width=(
-                                                    f64::from(category.total_weight())
-                                                    / f64::from(biggest_category_weight)
+                                                    (category.total_weight() as f64)
+                                                    / (biggest_category_weight as f64)
                                                     * 100.0
                                                 )
                                             )
@@ -130,7 +130,7 @@ impl InventoryCategoryList {
                             }
                             td ."border" ."p-0" ."m-0" {
                                 p ."p-2" ."m-2" {
-                                    (categories.iter().map(Category::total_weight).sum::<u32>().to_string())
+                                    (categories.iter().map(Category::total_weight).sum::<i64>().to_string())
                                 }
                             }
                         }
@@ -145,7 +145,7 @@ pub struct InventoryItemList;
 
 impl InventoryItemList {
     pub fn build(state: &ClientState, items: &Vec<Item>) -> Markup {
-        let biggest_item_weight: u32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
+        let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         html!(
             div #items {
                 @if items.is_empty() {
@@ -267,7 +267,7 @@ impl InventoryItemList {
                                             position:absolute;
                                             left:0;
                                             bottom:0;
-                                            right:0;", width=(f64::from(item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
+                                            right:0;", width=((item.weight as f64) / (biggest_item_weight as f64) * 100.0))) {}
                                         }
                                         td
                                             ."border-none"

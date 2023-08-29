@@ -39,7 +39,14 @@ features = [
 
 [dependencies.sqlx]
 version = "0.6.3"
-features = ["runtime-tokio-rustls", "sqlite", "macros", "time"]
+features = [
+  "runtime-tokio-rustls",
+  "sqlite",
+  "macros",
+  "time",
+  "offline",
+  "migrate",
+]
 
 [dependencies.futures]
 version = "0.3.28"

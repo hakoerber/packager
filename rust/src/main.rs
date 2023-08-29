@@ -15,8 +15,8 @@ use serde_variant::to_variant_name;
 
 use sqlx::{
     error::DatabaseError,
-    query,
-    sqlite::{SqliteConnectOptions, SqliteError, SqlitePoolOptions},
+    query, query_as,
+    sqlite::{SqliteConnectOptions, SqliteError, SqlitePoolOptions, SqliteRow},
     Pool, Row, Sqlite,
 };
 
@@ -170,29 +170,32 @@ async fn inventory(
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.active_category_id = active_id;
 
-    let mut categories = query("SELECT id,name,description FROM inventory_items_categories")
-        .fetch(&state.database_pool)
-        .map_ok(std::convert::TryInto::try_into)
-        .try_collect::<Vec<Result<Category, models::Error>>>()
-        .await
-        // we have two error handling lines here. these are distinct errors
-        // this one is the SQL error that may arise during the query
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
-            )
-        })?
-        .into_iter()
-        .collect::<Result<Vec<Category>, models::Error>>()
-        // and this one is the model mapping error that may arise e.g. during
-        // reading of the rows
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
-            )
-        })?;
+    let mut categories = query_as!(
+        DbCategoryRow,
+        "SELECT id,name,description FROM inventory_items_categories"
+    )
+    .fetch(&state.database_pool)
+    .map_ok(|row: DbCategoryRow| row.try_into())
+    .try_collect::<Vec<Result<Category, models::Error>>>()
+    .await
+    // we have two error handling lines here. these are distinct errors
+    // this one is the SQL error that may arise during the query
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?
+    .into_iter()
+    .collect::<Result<Vec<Category>, models::Error>>()
+    // and this one is the model mapping error that may arise e.g. during
+    // reading of the rows
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     for category in &mut categories {
         category
@@ -241,17 +244,21 @@ async fn inventory_item_create(
     State(state): State<AppState>,
     Form(new_item): Form<NewItem>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    query(
+    let id = Uuid::new_v4();
+    let id_param = id.to_string();
+    let name = &new_item.name;
+    let category_id = new_item.category_id.to_string();
+    query!(
         "INSERT INTO inventory_items
             (id, name, description, weight, category_id)
         VALUES
             (?, ?, ?, ?, ?)",
+        id_param,
+        name,
+        "",
+        new_item.weight,
+        category_id,
     )
-    .bind(Uuid::new_v4().to_string())
-    .bind(&new_item.name)
-    .bind("")
-    .bind(new_item.weight)
-    .bind(new_item.category_id.to_string())
     .execute(&state.database_pool)
     .await
     .map_err(|e| match e {
@@ -306,11 +313,12 @@ async fn inventory_item_delete(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    let results = query(
+    let id_param = id.to_string();
+    let results = query!(
         "DELETE FROM inventory_items
         WHERE id = ?",
+        id_param,
     )
-    .bind(id.to_string())
     .execute(&state.database_pool)
     .await
     .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
@@ -348,7 +356,7 @@ async fn inventory_item_delete(
 //         .await
 //         .unwrap();
 
-//     let items = query(&format!(
+//     let items = query!(&format!(
 //     //TODO bind this stuff!!!!!!! no sql injection pls
 //         "SELECT
 //             i.id, i.name, i.description, i.weight, i.category_id
@@ -392,14 +400,29 @@ async fn inventory_item_edit(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Form(edit_item): Form<EditItem>,
-) -> Result<Redirect, (StatusCode, String)> {
-    let id = Item::update(&state.database_pool, id, &edit_item.name, edit_item.weight)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            format!("item with id {id} not found", id = id),
-        ))?;
+) -> Result<Redirect, (StatusCode, Markup)> {
+    let id = Item::update(
+        &state.database_pool,
+        id,
+        &edit_item.name,
+        i64::try_from(edit_item.weight).map_err(|e| {
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?,
+    )
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?
+    .ok_or((
+        StatusCode::NOT_FOUND,
+        ErrorPage::build(&format!("item with id {id} not found", id = id)),
+    ))?;
 
     Ok(Redirect::to(&format!("/inventory/category/{id}/", id = id)))
 }
@@ -437,16 +460,26 @@ async fn trip_create(
     Form(new_trip): Form<NewTrip>,
 ) -> Result<Redirect, (StatusCode, String)> {
     let id = Uuid::new_v4();
-    query(
+    let id_param = id.to_string();
+    let date_start = new_trip
+        .date_start
+        .format(DATE_FORMAT)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let date_end = new_trip
+        .date_end
+        .format(DATE_FORMAT)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    query!(
         "INSERT INTO trips
-            (id, name, date_start, date_end)
+            (id, name, date_start, date_end, state)
         VALUES
-            (?, ?, ?, ?)",
+            (?, ?, ?, ?, ?)",
+        id_param,
+        new_trip.name,
+        date_start,
+        date_end,
+        TripState::Planning,
     )
-    .bind(id.to_string())
-    .bind(&new_trip.name)
-    .bind(new_trip.date_start)
-    .bind(new_trip.date_end)
     .execute(&state.database_pool)
     .await
     .map_err(|e| match e {
@@ -482,35 +515,52 @@ async fn trip_create(
         ),
     })?;
 
-    Ok(Redirect::to(&format!("/trip/{id}/", id = id.to_string())))
+    Ok(Redirect::to(&format!("/trip/{id}/", id = id)))
 }
 
 async fn trips(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    let trips: Vec<models::Trip> = query("SELECT * FROM trips")
-        .fetch(&state.database_pool)
-        .map_ok(std::convert::TryInto::try_into)
-        .try_collect::<Vec<Result<models::Trip, models::Error>>>()
-        .await
-        // we have two error handling lines here. these are distinct errors
-        // this one is the SQL error that may arise during the query
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
-            )
-        })?
-        .into_iter()
-        .collect::<Result<Vec<models::Trip>, models::Error>>()
-        // and this one is the model mapping error that may arise e.g. during
-        // reading of the rows
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
-            )
-        })?;
+    tracing::info!("receiving trips");
+
+    let trips: Vec<models::Trip> = query_as!(
+        DbTripRow,
+        "SELECT
+            id,
+            name,
+            CAST (date_start AS TEXT) date_start,
+            CAST (date_end AS TEXT) date_end,
+            state,
+            location,
+            temp_min,
+            temp_max,
+            comment
+        FROM trips",
+    )
+    .fetch(&state.database_pool)
+    .map_ok(|row| row.try_into())
+    .try_collect::<Vec<Result<models::Trip, models::Error>>>()
+    .await
+    // we have two error handling lines here. these are distinct errors
+    // this one is the SQL error that may arise during the query
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?
+    .into_iter()
+    .collect::<Result<Vec<models::Trip>, models::Error>>()
+    // and this one is the model mapping error that may arise e.g. during
+    // reading of the rows
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?;
+
+    tracing::info!("received trips");
 
     Ok((
         StatusCode::OK,
@@ -532,20 +582,42 @@ async fn trip(
     state.client_state.trip_edit_attribute = trip_query.edit;
     state.client_state.active_category_id = trip_query.category;
 
-    let mut trip: models::Trip =
-        query("SELECT id,name,date_start,date_end,state,location,temp_min,temp_max,comment FROM trips WHERE id = ?")
-            .bind(id.to_string())
-            .fetch_one(&state.database_pool)
-            .map_ok(std::convert::TryInto::try_into)
-            .await
-            .map_err(|e: sqlx::Error| match e {
-                sqlx::Error::RowNotFound => (
-                    StatusCode::NOT_FOUND,
-                    ErrorPage::build(&format!("trip with id {} not found", id)),
-                ),
-                _ => (StatusCode::INTERNAL_SERVER_ERROR, ErrorPage::build(&e.to_string())),
-            })?
-            .map_err(|e: Error| (StatusCode::INTERNAL_SERVER_ERROR, ErrorPage::build(&e.to_string())))?;
+    let id_param = id.to_string();
+    let mut trip: models::Trip = query_as!(
+        DbTripRow,
+        "SELECT
+                id,
+                name,
+                CAST (date_start AS TEXT) AS date_start,
+                CAST (date_end AS TEXT) AS date_end,
+                state,
+                location,
+                temp_min,
+                temp_max,
+                comment
+            FROM trips
+            WHERE id = ?",
+        id_param,
+    )
+    .fetch_one(&state.database_pool)
+    .map_ok(|row| row.try_into())
+    .await
+    .map_err(|e: sqlx::Error| match e {
+        sqlx::Error::RowNotFound => (
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("trip with id {} not found", id)),
+        ),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        ),
+    })?
+    .map_err(|e: Error| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     trip.load_trips_types(&state.database_pool)
         .await
@@ -586,14 +658,16 @@ async fn trip_type_remove(
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    let results = query(
+    let trip_id = trip_id.to_string();
+    let type_id = type_id.to_string();
+    let results = query!(
         "DELETE FROM trips_to_trips_types AS ttt
         WHERE ttt.trip_id = ?
             AND ttt.trip_type_id = ?
         ",
+        trip_id,
+        type_id
     )
-    .bind(trip_id.to_string())
-    .bind(type_id.to_string())
     .execute(&state.database_pool)
     .await
     .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
@@ -612,12 +686,14 @@ async fn trip_type_add(
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    query(
+    let trip_id = trip_id.to_string();
+    let type_id = type_id.to_string();
+    query!(
         "INSERT INTO trips_to_trips_types
         (trip_id, trip_type_id) VALUES (?, ?)",
+        trip_id,
+        type_id
     )
-    .bind(trip_id.to_string())
-    .bind(type_id.to_string())
     .execute(&state.database_pool)
     .await
     .map_err(|e| match e {
@@ -682,13 +758,14 @@ async fn trip_comment_set(
     Path(trip_id): Path<Uuid>,
     Form(comment_update): Form<CommentUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    let result = query(
+    let trip_id = trip_id.to_string();
+    let result = query!(
         "UPDATE trips
         SET comment = ?
         WHERE id = ?",
+        comment_update.new_comment,
+        trip_id,
     )
-    .bind(comment_update.new_comment)
-    .bind(trip_id.to_string())
     .execute(&state.database_pool)
     .await
     .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
@@ -884,14 +961,15 @@ async fn inventory_category_create(
     Form(new_category): Form<NewCategory>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     let id = Uuid::new_v4();
-    query(
+    let id_param = id.to_string();
+    query!(
         "INSERT INTO inventory_items_categories
             (id, name)
         VALUES
             (?, ?)",
+        id_param,
+        new_category.name
     )
-    .bind(id.to_string())
-    .bind(&new_category.name)
     .execute(&state.database_pool)
     .map_err(|e| match e {
         sqlx::Error::Database(ref error) => {

@@ -8,6 +8,7 @@ use sqlx::{
 use std::convert;
 use std::error;
 use std::fmt;
+use std::num::TryFromIntError;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -16,10 +17,19 @@ use sqlx::sqlite::SqlitePoolOptions;
 use futures::TryFutureExt;
 use futures::TryStreamExt;
 
+use time::{
+    error::Parse as TimeParseError, format_description::FormatItem, macros::format_description,
+};
+
+pub const DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
+
 pub enum Error {
     SqlError { description: String },
     UuidError { description: String },
+    EnumError { description: String },
     NotFoundError { description: String },
+    IntError { description: String },
+    TimeParseError { description: String },
 }
 
 impl fmt::Display for Error {
@@ -33,6 +43,15 @@ impl fmt::Display for Error {
             }
             Self::NotFoundError { description } => {
                 write!(f, "Not found: {description}")
+            }
+            Self::IntError { description } => {
+                write!(f, "Integer error: {description}")
+            }
+            Self::EnumError { description } => {
+                write!(f, "Enum error: {description}")
+            }
+            Self::TimeParseError { description } => {
+                write!(f, "Date parse error: {description}")
             }
         }
     }
@@ -56,6 +75,22 @@ impl convert::From<uuid::Error> for Error {
 impl convert::From<sqlx::Error> for Error {
     fn from(value: sqlx::Error) -> Self {
         Error::SqlError {
+            description: value.to_string(),
+        }
+    }
+}
+
+impl convert::From<TryFromIntError> for Error {
+    fn from(value: TryFromIntError) -> Self {
+        Error::IntError {
+            description: value.to_string(),
+        }
+    }
+}
+
+impl convert::From<TimeParseError> for Error {
+    fn from(value: TimeParseError) -> Self {
+        Error::TimeParseError {
             description: value.to_string(),
         }
     }
@@ -88,6 +123,25 @@ impl fmt::Display for TripState {
     }
 }
 
+impl std::convert::TryFrom<&str> for TripState {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(match value {
+            "Planning" => Self::Planning,
+            "Planned" => Self::Planned,
+            "Active" => Self::Active,
+            "Review" => Self::Review,
+            "Done" => Self::Done,
+            _ => {
+                return Err(Error::EnumError {
+                    description: format!("{} is not a valid value for TripState", value),
+                })
+            }
+        })
+    }
+}
+
 #[derive(Serialize, Debug)]
 pub enum TripItemStateKey {
     Pick,
@@ -114,7 +168,7 @@ pub struct TripCategory {
 }
 
 impl TripCategory {
-    pub fn total_picked_weight(&self) -> u32 {
+    pub fn total_picked_weight(&self) -> i64 {
         self.items
             .as_ref()
             .unwrap()
@@ -132,15 +186,47 @@ pub struct TripItem {
     pub packed: bool,
 }
 
+pub struct DbTripRow {
+    pub id: String,
+    pub name: String,
+    pub date_start: String,
+    pub date_end: String,
+    pub state: String,
+    pub location: Option<String>,
+    pub temp_min: Option<i64>,
+    pub temp_max: Option<i64>,
+    pub comment: Option<String>,
+}
+
+impl TryFrom<DbTripRow> for Trip {
+    type Error = Error;
+
+    fn try_from(row: DbTripRow) -> Result<Self, Self::Error> {
+        Ok(Trip {
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            date_start: time::Date::parse(&row.date_start, DATE_FORMAT)?,
+            date_end: time::Date::parse(&row.date_end, DATE_FORMAT)?,
+            state: row.state.as_str().try_into()?,
+            location: row.location,
+            temp_min: row.temp_min,
+            temp_max: row.temp_max,
+            comment: row.comment,
+            types: None,
+            categories: None,
+        })
+    }
+}
+
 pub struct Trip {
     pub id: Uuid,
     pub name: String,
     pub date_start: time::Date,
     pub date_end: time::Date,
     pub state: TripState,
-    pub location: String,
-    pub temp_min: i32,
-    pub temp_max: i32,
+    pub location: Option<String>,
+    pub temp_min: Option<i64>,
+    pub temp_max: Option<i64>,
     pub comment: Option<String>,
     types: Option<Vec<TripType>>,
     categories: Option<Vec<TripCategory>>,
@@ -193,37 +279,37 @@ pub enum TripAttribute {
 //     }
 // }
 
-impl TryFrom<SqliteRow> for Trip {
-    type Error = Error;
+// impl TryFrom<SqliteRow> for Trip {
+//     type Error = Error;
 
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        let name: &str = row.try_get("name")?;
-        let id: &str = row.try_get("id")?;
-        let date_start: time::Date = row.try_get("date_start")?;
-        let date_end: time::Date = row.try_get("date_end")?;
-        let state: TripState = row.try_get("state")?;
-        let location = row.try_get("location")?;
-        let temp_min = row.try_get("temp_min")?;
-        let temp_max = row.try_get("temp_max")?;
-        let comment = row.try_get("comment")?;
+//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+//         let name: &str = row.try_get("name")?;
+//         let id: &str = row.try_get("id")?;
+//         let date_start: time::Date = row.try_get("date_start")?;
+//         let date_end: time::Date = row.try_get("date_end")?;
+//         let state: TripState = row.try_get("state")?;
+//         let location = row.try_get("location")?;
+//         let temp_min = row.try_get("temp_min")?;
+//         let temp_max = row.try_get("temp_max")?;
+//         let comment = row.try_get("comment")?;
 
-        let id: Uuid = Uuid::try_parse(id)?;
+//         let id: Uuid = Uuid::try_parse(id)?;
 
-        Ok(Trip {
-            id,
-            name: name.to_string(),
-            date_start,
-            date_end,
-            state,
-            location,
-            temp_min,
-            temp_max,
-            comment,
-            types: None,
-            categories: None,
-        })
-    }
-}
+//         Ok(Trip {
+//             id,
+//             name: name.to_string(),
+//             date_start,
+//             date_end,
+//             state,
+//             location,
+//             temp_min,
+//             temp_max,
+//             comment,
+//             types: None,
+//             categories: None,
+//         })
+//     }
+// }
 
 impl<'a> Trip {
     pub fn types(&'a self) -> &Vec<TripType> {
@@ -244,12 +330,13 @@ impl<'a> Trip {
         &'a mut self,
         pool: &sqlx::Pool<sqlx::Sqlite>,
     ) -> Result<(), Error> {
-        let types = sqlx::query(
+        let id = self.id.to_string();
+        let types = sqlx::query!(
             "
             SELECT
                 type.id as id,
                 type.name as name,
-                CASE WHEN inner.id IS NOT NULL THEN true ELSE false END AS active
+                inner.id IS NOT NULL AS active
             FROM trips_types AS type
                 LEFT JOIN (
                     SELECT type.id as id, type.name as name
@@ -262,10 +349,20 @@ impl<'a> Trip {
                 ) AS inner
                 ON inner.id = type.id
             ",
+            id
         )
-        .bind(self.id.to_string())
         .fetch(pool)
-        .map_ok(std::convert::TryInto::try_into)
+        .map_ok(|row| -> Result<TripType, Error> {
+            Ok(TripType {
+                id: Uuid::try_parse(&row.id)?,
+                name: row.name,
+                active: match row.active {
+                    0 => false,
+                    1 => true,
+                    _ => unreachable!(),
+                },
+            })
+        })
         .try_collect::<Vec<Result<TripType, Error>>>()
         .await?
         .into_iter()
@@ -282,14 +379,14 @@ impl<'a> Trip {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
-        sqlx::query(
+        let id = self.id.to_string();
+        sqlx::query!(
             "
                 SELECT
                     category.id as category_id,
                     category.name as category_name,
                     category.description AS category_description,
                     inner.trip_id AS trip_id,
-                    inner.category_description AS category_description,
                     inner.item_id AS item_id,
                     inner.item_name AS item_name,
                     inner.item_description AS item_description,
@@ -314,25 +411,28 @@ impl<'a> Trip {
                             ON item.id = trip.item_id
                         INNER JOIN inventory_items_categories as category
                             ON category.id = item.category_id
-                        WHERE trip.trip_id = 'a8b181d6-3b16-4a41-99fa-0713b94a34d9'
+                        WHERE trip.trip_id = ?
                     ) AS inner
                     ON inner.category_id = category.id
             ",
+            id
         )
-        .bind(self.id.to_string())
         .fetch(pool)
         .map_ok(|row| -> Result<(), Error> {
             let mut category = TripCategory {
                 category: Category {
-                    id: Uuid::try_parse(row.try_get("category_id")?)?,
-                    name: row.try_get("category_name")?,
-                    description: row.try_get("category_description")?,
+                    id: Uuid::try_parse(&row.category_id)?,
+                    name: row.category_name,
+                    // TODO align optionality between code and database
+                    // idea: make description nullable
+                    description: row.category_description,
+
                     items: None,
                 },
                 items: None,
             };
 
-            match row.try_get("item_id")? {
+            match row.item_id {
                 None => {
                     // we have an empty (unused) category which has NULL values
                     // for the item_id column
@@ -342,14 +442,14 @@ impl<'a> Trip {
                 Some(item_id) => {
                     let item = TripItem {
                         item: Item {
-                            id: Uuid::try_parse(item_id)?,
-                            name: row.try_get("item_name")?,
-                            description: row.try_get("item_description")?,
-                            weight: row.try_get("item_weight")?,
+                            id: Uuid::try_parse(&item_id)?,
+                            name: row.item_name.unwrap(),
+                            description: row.item_description,
+                            weight: row.item_weight.unwrap(),
                             category_id: category.category.id,
                         },
-                        picked: row.try_get("item_is_picked")?,
-                        packed: row.try_get("item_is_packed")?,
+                        picked: row.item_is_picked.unwrap(),
+                        packed: row.item_is_packed.unwrap(),
                     };
 
                     if let Some(&mut ref mut c) = categories
@@ -385,41 +485,68 @@ pub struct TripType {
     pub active: bool,
 }
 
-impl TryFrom<SqliteRow> for TripType {
-    type Error = Error;
+// impl TryFrom<SqliteRow> for TripType {
+//     type Error = Error;
 
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
-        let name: String = row.try_get::<&str, _>("name")?.to_string();
-        let active: bool = row.try_get("active")?;
+//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+//         let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
+//         let name: String = row.try_get::<&str, _>("name")?.to_string();
+//         let active: bool = row.try_get("active")?;
 
-        Ok(Self { id, name, active })
-    }
+//         Ok(Self { id, name, active })
+//     }
+// }
+
+pub struct DbCategoryRow {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct Category {
     pub id: Uuid,
     pub name: String,
-    pub description: String,
+    pub description: Option<String>,
     items: Option<Vec<Item>>,
 }
 
-impl TryFrom<SqliteRow> for Category {
+impl TryFrom<DbCategoryRow> for Category {
     type Error = Error;
 
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        let name: &str = row.try_get("name")?;
-        let description: &str = row.try_get("description")?;
-        let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
-
+    fn try_from(row: DbCategoryRow) -> Result<Self, Self::Error> {
         Ok(Category {
-            id,
-            name: name.to_string(),
-            description: description.to_string(),
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            description: row.description,
             items: None,
         })
     }
+}
+
+// impl TryFrom<SqliteRow> for Category {
+//     type Error = Error;
+
+//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+//         let name: &str = row.try_get("name")?;
+//         let description: &str = row.try_get("description")?;
+//         let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
+
+//         Ok(Category {
+//             id,
+//             name: name.to_string(),
+//             description: description.to_string(),
+//             items: None,
+//         })
+//     }
+// }
+
+pub struct DbInventoryItemsRow {
+    id: String,
+    name: String,
+    weight: i64,
+    description: Option<String>,
+    category_id: String,
 }
 
 impl<'a> Category {
@@ -429,7 +556,7 @@ impl<'a> Category {
             .expect("you need to call populate_items()")
     }
 
-    pub fn total_weight(&self) -> u32 {
+    pub fn total_weight(&self) -> i64 {
         self.items().iter().map(|item| item.weight).sum()
     }
 
@@ -437,15 +564,21 @@ impl<'a> Category {
         &'a mut self,
         pool: &sqlx::Pool<sqlx::Sqlite>,
     ) -> Result<(), Error> {
-        let items = sqlx::query(&format!(
+        let id = self.id.to_string();
+        let items = sqlx::query_as!(
+            DbInventoryItemsRow,
             "SELECT
-                id,name,weight,description,category_id
+                id,
+                name,
+                weight,
+                description,
+                category_id
             FROM inventory_items
-            WHERE category_id = '{id}'",
-            id = self.id
-        ))
+            WHERE category_id = ?",
+            id
+        )
         .fetch(pool)
-        .map_ok(std::convert::TryInto::try_into)
+        .map_ok(|row| row.try_into())
         .try_collect::<Vec<Result<Item, Error>>>()
         .await?
         .into_iter()
@@ -460,40 +593,56 @@ impl<'a> Category {
 pub struct Item {
     pub id: Uuid,
     pub name: String,
-    pub description: String,
-    pub weight: u32,
+    pub description: Option<String>,
+    pub weight: i64,
     pub category_id: Uuid,
 }
 
-impl TryFrom<SqliteRow> for Item {
+impl TryFrom<DbInventoryItemsRow> for Item {
     type Error = Error;
 
-    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-        let name: &str = row.try_get("name")?;
-        let description: &str = row.try_get("description")?;
-        let weight: u32 = row.try_get("weight")?;
-        let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
-        let category_id: Uuid = Uuid::try_parse(row.try_get("category_id")?)?;
-
+    fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
         Ok(Item {
-            id,
-            name: name.to_string(),
-            weight,
-            description: description.to_string(),
-            category_id,
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            description: row.description, // TODO
+            weight: row.weight,
+            category_id: Uuid::try_parse(&row.category_id)?,
         })
     }
 }
 
+// impl TryFrom<SqliteRow> for Item {
+//     type Error = Error;
+
+//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+//         let name: &str = row.try_get("name")?;
+//         let description: &str = row.try_get("description")?;
+//         let weight: i64 = row.try_get("weight")?;
+//         let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
+//         let category_id: Uuid = Uuid::try_parse(row.try_get("category_id")?)?;
+
+//         Ok(Item {
+//             id,
+//             name: name.to_string(),
+//             weight,
+//             description: description.to_string(),
+//             category_id,
+//         })
+//     }
+// }
+
 impl Item {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
-        let item: Result<Result<Item, Error>, sqlx::Error> = sqlx::query(
+        let id_param = id.to_string();
+        let item: Result<Result<Item, Error>, sqlx::Error> = sqlx::query_as!(
+            DbInventoryItemsRow,
             "SELECT * FROM inventory_items AS item
             WHERE item.id = ?",
+            id_param,
         )
-        .bind(id.to_string())
         .fetch_one(pool)
-        .map_ok(std::convert::TryInto::try_into)
+        .map_ok(|row| row.try_into())
         .await;
 
         match item {
@@ -509,9 +658,10 @@ impl Item {
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         name: &str,
-        weight: u32,
+        weight: i64,
     ) -> Result<Option<Uuid>, Error> {
-        let id: Result<Result<Uuid, Error>, sqlx::Error> = sqlx::query(
+        let id_param = id.to_string();
+        let id: Result<Result<Uuid, Error>, sqlx::Error> = sqlx::query!(
             "UPDATE inventory_items AS item
             SET
                 name = ?,
@@ -519,13 +669,13 @@ impl Item {
             WHERE item.id = ?
             RETURNING inventory_items.category_id AS id
             ",
+            name,
+            weight,
+            id_param,
         )
-        .bind(name)
-        .bind(weight)
-        .bind(id.to_string())
         .fetch_one(pool)
         .map_ok(|row| {
-            let id: &str = row.try_get("id")?;
+            let id: &str = &row.id.unwrap(); // TODO
             let uuid: Result<Uuid, uuid::Error> = Uuid::try_parse(id);
             let uuid: Result<Uuid, Error> = uuid.map_err(|e| e.into());
             uuid

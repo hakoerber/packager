@@ -29,7 +29,9 @@ impl Root {
                     link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css";
                     script { (include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js"))) }
                 }
-                body hx-boost="true" {
+                body
+                    hx-boost="true"
+                {
                     header
                         ."bg-gray-200"
                         ."p-5"
