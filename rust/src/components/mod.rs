@@ -24,6 +24,7 @@ impl Root {
                 head {
                     title { "Packager" }
                     script src="https://unpkg.com/htmx.org@1.9.2" {}
+                    script src="https://unpkg.com/alpinejs@3.12.1" defer {}
                     script src="https://cdn.tailwindcss.com" {}
                     script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js" defer {}
                     link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css";

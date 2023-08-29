@@ -47,6 +47,7 @@ pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
     pub trip_edit_attribute: Option<TripAttribute>,
+    pub trip_type_edit: Option<Uuid>,
 }
 
 impl ClientState {
@@ -55,6 +56,7 @@ impl ClientState {
             active_category_id: None,
             edit_item: None,
             trip_edit_attribute: None,
+            trip_type_edit: None,
         }
     }
 }
@@ -102,6 +104,11 @@ async fn main() -> Result<(), sqlx::Error> {
         .route("/assets/luggage.svg", get(icon_handler))
         .route("/", get(root))
         .route("/trips/", get(trips))
+        .route("/trips/types/", get(trips_types).post(trip_type_create))
+        .route(
+            "/trips/types/:id/edit/name/submit",
+            post(trips_types_edit_name),
+        )
         .route("/trip/", post(trip_create))
         .route("/trip/:id/", get(trip))
         .route("/trip/:id/comment/submit", post(trip_comment_set))
@@ -119,6 +126,10 @@ async fn main() -> Result<(), sqlx::Error> {
         .route("/inventory/", get(inventory_inactive))
         .route("/inventory/category/", post(inventory_category_create))
         .route("/inventory/item/", post(inventory_item_create))
+        .route(
+            "/inventory/item/name/validate",
+            post(inventory_item_validate_name),
+        )
         .route("/inventory/category/:id/", get(inventory_active))
         .route("/inventory/item/:id/delete", get(inventory_item_delete))
         .route("/inventory/item/:id/edit", post(inventory_item_edit))
@@ -250,10 +261,62 @@ struct NewItem {
     category_id: Uuid,
 }
 
+#[derive(Deserialize)]
+struct NewItemName {
+    #[serde(rename = "new-item-name")]
+    name: String,
+}
+
+async fn inventory_item_validate_name(
+    State(state): State<AppState>,
+    Form(new_item): Form<NewItemName>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    let results = query!(
+        "SELECT id
+        FROM inventory_items
+        WHERE name = ?",
+        new_item.name,
+    )
+    .fetch(&state.database_pool)
+    .map_ok(|_| Ok(()))
+    .try_collect::<Vec<Result<(), models::Error>>>()
+    .await
+    // we have two error handling lines here. these are distinct errors
+    // this one is the SQL error that may arise during the query
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?
+    .into_iter()
+    .collect::<Result<Vec<()>, models::Error>>()
+    // and this one is the model mapping error that may arise e.g. during
+    // reading of the rows
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?;
+
+    Ok((
+        StatusCode::OK,
+        InventoryNewItemFormName::build(Some(&new_item.name), !results.is_empty()),
+    ))
+}
+
 async fn inventory_item_create(
     State(state): State<AppState>,
     Form(new_item): Form<NewItem>,
 ) -> Result<Redirect, (StatusCode, String)> {
+    if new_item.name.len() == 0 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "name cannot be empty".to_string(),
+        ));
+    }
+
     let id = Uuid::new_v4();
     let id_param = id.to_string();
     let name = &new_item.name;
@@ -411,6 +474,13 @@ async fn inventory_item_edit(
     Path(id): Path<Uuid>,
     Form(edit_item): Form<EditItem>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
+    if edit_item.name.len() == 0 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorPage::build("name cannot be empty"),
+        ));
+    }
+
     let id = Item::update(
         &state.database_pool,
         id,
@@ -469,6 +539,13 @@ async fn trip_create(
     State(state): State<AppState>,
     Form(new_trip): Form<NewTrip>,
 ) -> Result<Redirect, (StatusCode, String)> {
+    if new_trip.name.len() == 0 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "name cannot be empty".to_string(),
+        ));
+    }
+
     let id = Uuid::new_v4();
     let id_param = id.to_string();
     let date_start = new_trip
@@ -532,8 +609,6 @@ async fn trip_create(
 async fn trips(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    tracing::info!("receiving trips");
-
     let trips: Vec<models::Trip> = query_as!(
         DbTripRow,
         "SELECT
@@ -570,8 +645,6 @@ async fn trips(
             ErrorPage::build(&e.to_string()),
         )
     })?;
-
-    tracing::info!("received trips");
 
     Ok((
         StatusCode::OK,
@@ -811,6 +884,14 @@ async fn trip_edit_attribute(
     Path((trip_id, attribute)): Path<(Uuid, TripAttribute)>,
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
+    if let TripAttribute::Name = attribute {
+        if trip_update.new_value.len() == 0 {
+            return Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorPage::build("name cannot be empty"),
+            ));
+        }
+    }
     let result = query(&format!(
         "UPDATE trips
         SET {attribute} = ?
@@ -980,6 +1061,13 @@ async fn inventory_category_create(
     State(state): State<AppState>,
     Form(new_category): Form<NewCategory>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
+    if new_category.name.len() == 0 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorPage::build("name cannot be empty"),
+        ));
+    }
+
     let id = Uuid::new_v4();
     let id_param = id.to_string();
     query!(
@@ -1057,5 +1145,163 @@ async fn trip_state_set(
         ))
     } else {
         Ok(Redirect::to(&format!("/trip/{id}/", id = trip_id)))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct TripTypeQuery {
+    edit: Option<Uuid>,
+}
+
+async fn trips_types(
+    State(mut state): State<AppState>,
+    Query(trip_type_query): Query<TripTypeQuery>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    state.client_state.trip_type_edit = trip_type_query.edit;
+
+    let trip_types: Vec<models::TripsType> = query_as!(
+        DbTripsTypesRow,
+        "SELECT
+            id,
+            name
+        FROM trips_types",
+    )
+    .fetch(&state.database_pool)
+    .map_ok(|row| row.try_into())
+    .try_collect::<Vec<Result<models::TripsType, models::Error>>>()
+    .await
+    // we have two error handling lines here. these are distinct errors
+    // this one is the SQL error that may arise during the query
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?
+    .into_iter()
+    .collect::<Result<Vec<models::TripsType>, models::Error>>()
+    // and this one is the model mapping error that may arise e.g. during
+    // reading of the rows
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?;
+
+    Ok((
+        StatusCode::OK,
+        Root::build(
+            components::trip::TypeList::build(&state.client_state, trip_types),
+            &TopLevelPage::Trips,
+        ),
+    ))
+}
+
+#[derive(Deserialize)]
+struct NewTripType {
+    #[serde(rename = "new-trip-type-name")]
+    name: String,
+}
+
+async fn trip_type_create(
+    State(state): State<AppState>,
+    Form(new_trip_type): Form<NewTripType>,
+) -> Result<Redirect, (StatusCode, String)> {
+    if new_trip_type.name.len() == 0 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "name cannot be empty".to_string(),
+        ));
+    }
+
+    let id = Uuid::new_v4();
+    let id_param = id.to_string();
+    query!(
+        "INSERT INTO trips_types
+            (id, name)
+        VALUES
+            (?, ?)",
+        id_param,
+        new_trip_type.name,
+    )
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::Database(ref error) => {
+            let sqlite_error = error.downcast_ref::<SqliteError>();
+            if let Some(code) = sqlite_error.code() {
+                match &*code {
+                    "2067" => {
+                        // SQLITE_CONSTRAINT_UNIQUE
+                        (
+                            StatusCode::BAD_REQUEST,
+                            format!(
+                                "trip type with name \"{name}\" already exists",
+                                name = new_trip_type.name,
+                            ),
+                        )
+                    }
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("got error with unknown code: {}", sqlite_error.to_string()),
+                    ),
+                }
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("got error without code: {}", sqlite_error.to_string()),
+                )
+            }
+        }
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("got unknown error: {}", e.to_string()),
+        ),
+    })?;
+
+    Ok(Redirect::to("/trips/types/"))
+}
+
+#[derive(Deserialize)]
+struct TripTypeUpdate {
+    #[serde(rename = "new-value")]
+    new_value: String,
+}
+
+async fn trips_types_edit_name(
+    State(state): State<AppState>,
+    Path(trip_type_id): Path<Uuid>,
+    Form(trip_update): Form<TripTypeUpdate>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    if trip_update.new_value.len() == 0 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorPage::build("name cannot be empty"),
+        ));
+    }
+
+    let id_param = trip_type_id.to_string();
+    let result = query!(
+        "UPDATE trips_types
+        SET name = ?
+        WHERE id = ?",
+        trip_update.new_value,
+        id_param,
+    )
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+
+    if result.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!(
+                "tript type with id {id} not found",
+                id = trip_type_id
+            )),
+        ))
+    } else {
+        Ok(Redirect::to("/trips/types/"))
     }
 }

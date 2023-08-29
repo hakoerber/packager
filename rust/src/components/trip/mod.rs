@@ -9,6 +9,9 @@ use serde_variant::to_variant_name;
 use crate::ClientState;
 pub struct TripManager;
 
+pub mod types;
+pub use types::*;
+
 impl TripManager {
     pub fn build(trips: Vec<models::Trip>) -> Markup {
         html!(
@@ -557,7 +560,7 @@ impl TripInfo {
                                                         ."gap-1"
                                                     {
                                                         span { (triptype.name) }
-                                                        span ."mdi" ."mdi-delete" ."text-sm" {}
+                                                        span ."mdi" ."mdi-close" ."text-sm" {}
                                                     }
                                                 }
                                             }
@@ -584,6 +587,7 @@ impl TripInfo {
                                                         ."flex-column"
                                                         ."items-center"
                                                         ."hover:bg-green-200"
+                                                        ."hover:opacity-100"
                                                         ."gap-1"
                                                         ."opacity-60"
                                                     {
@@ -623,7 +627,9 @@ pub struct TripComment;
 impl TripComment {
     pub fn build(trip: &models::Trip) -> Markup {
         html!(
-            div {
+            div
+                x-data="{ save_active: false }"
+            {
                 h1 ."text-xl" ."mb-5" { "Comments" }
 
                 form
@@ -636,6 +642,7 @@ impl TripComment {
                 // https://stackoverflow.com/a/48460773
                 textarea
                     #"comment"
+                    x-on:input="save_active=true"
                     ."border" ."w-full" ."h-48"
                     name="new-comment"
                     form="edit-comment"
@@ -647,11 +654,14 @@ impl TripComment {
                 button
                     type="submit"
                     form="edit-comment"
+                    x-bind:disabled="!save_active"
+                    ."enabled:bg-green-200"
+                    ."enabled:hover:bg-green-400"
+                    ."enabled:cursor-pointer"
+                    ."disabled:opacity-50"
+                    ."disabled:bg-gray-300"
                     ."mt-2"
                     ."border"
-                    ."bg-green-200"
-                    ."hover:bg-green-400"
-                    ."cursor-pointer"
                     ."flex"
                     ."flex-column"
                     ."p-2"

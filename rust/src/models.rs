@@ -288,69 +288,6 @@ pub enum TripAttribute {
     TempMax,
 }
 
-// impl std::convert::Into<&'static str> for TripAttribute {
-//     fn into(self) -> &'static str {
-//         match self {
-//             Self::DateStart => "date_start",
-//             Self::DateEnd => "date_end",
-//             Self::Location => "location",
-//             Self::TempMin => "temp_min",
-//             Self::TempMax => "temp_max",
-//         }
-//     }
-// }
-
-// impl std::convert::TryFrom<&str> for TripAttribute {
-//     type Error = Error;
-
-//     fn try_from(value: &str) -> Result<Self, Error> {
-//         Ok(match value {
-//             "date_start" => Self::DateStart,
-//             "date_end" => Self::DateEnd,
-//             "location" => Self::Location,
-//             "temp_min" => Self::TempMin,
-//             "temp_max" => Self::TempMax,
-//             _ => {
-//                 return Err(Error::UnknownAttributeValue {
-//                     attribute: value.to_string(),
-//                 })
-//             }
-//         })
-//     }
-// }
-
-// impl TryFrom<SqliteRow> for Trip {
-//     type Error = Error;
-
-//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-//         let name: &str = row.try_get("name")?;
-//         let id: &str = row.try_get("id")?;
-//         let date_start: time::Date = row.try_get("date_start")?;
-//         let date_end: time::Date = row.try_get("date_end")?;
-//         let state: TripState = row.try_get("state")?;
-//         let location = row.try_get("location")?;
-//         let temp_min = row.try_get("temp_min")?;
-//         let temp_max = row.try_get("temp_max")?;
-//         let comment = row.try_get("comment")?;
-
-//         let id: Uuid = Uuid::try_parse(id)?;
-
-//         Ok(Trip {
-//             id,
-//             name: name.to_string(),
-//             date_start,
-//             date_end,
-//             state,
-//             location,
-//             temp_min,
-//             temp_max,
-//             comment,
-//             types: None,
-//             categories: None,
-//         })
-//     }
-// }
-
 impl<'a> Trip {
     pub fn types(&'a self) -> &Vec<TripType> {
         self.types
@@ -614,18 +551,6 @@ pub struct TripType {
     pub active: bool,
 }
 
-// impl TryFrom<SqliteRow> for TripType {
-//     type Error = Error;
-
-//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-//         let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
-//         let name: String = row.try_get::<&str, _>("name")?.to_string();
-//         let active: bool = row.try_get("active")?;
-
-//         Ok(Self { id, name, active })
-//     }
-// }
-
 pub struct DbCategoryRow {
     pub id: String,
     pub name: String,
@@ -652,23 +577,6 @@ impl TryFrom<DbCategoryRow> for Category {
         })
     }
 }
-
-// impl TryFrom<SqliteRow> for Category {
-//     type Error = Error;
-
-//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-//         let name: &str = row.try_get("name")?;
-//         let description: &str = row.try_get("description")?;
-//         let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
-
-//         Ok(Category {
-//             id,
-//             name: name.to_string(),
-//             description: description.to_string(),
-//             items: None,
-//         })
-//     }
-// }
 
 pub struct DbInventoryItemsRow {
     id: String,
@@ -741,26 +649,6 @@ impl TryFrom<DbInventoryItemsRow> for Item {
     }
 }
 
-// impl TryFrom<SqliteRow> for Item {
-//     type Error = Error;
-
-//     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
-//         let name: &str = row.try_get("name")?;
-//         let description: &str = row.try_get("description")?;
-//         let weight: i64 = row.try_get("weight")?;
-//         let id: Uuid = Uuid::try_parse(row.try_get("id")?)?;
-//         let category_id: Uuid = Uuid::try_parse(row.try_get("category_id")?)?;
-
-//         Ok(Item {
-//             id,
-//             name: name.to_string(),
-//             weight,
-//             description: description.to_string(),
-//             category_id,
-//         })
-//     }
-// }
-
 impl Item {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
         let id_param = id.to_string();
@@ -818,5 +706,32 @@ impl Item {
             },
             Ok(v) => Ok(Some(v?)),
         }
+    }
+}
+
+pub struct DbTripsTypesRow {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum TripTypeAttribute {
+    #[serde(rename = "name")]
+    Name,
+}
+
+pub struct TripsType {
+    pub id: Uuid,
+    pub name: String,
+}
+
+impl TryFrom<DbTripsTypesRow> for TripsType {
+    type Error = Error;
+
+    fn try_from(row: DbTripsTypesRow) -> Result<Self, Self::Error> {
+        Ok(TripsType {
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+        })
     }
 }

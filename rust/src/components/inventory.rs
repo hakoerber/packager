@@ -1,4 +1,4 @@
-use maud::{html, Markup};
+use maud::{html, Markup, PreEscaped};
 
 use crate::models::*;
 use crate::ClientState;
@@ -312,12 +312,154 @@ impl InventoryItemList {
     }
 }
 
+pub struct InventoryNewItemFormName;
+
+impl InventoryNewItemFormName {
+    pub fn build(value: Option<&str>, error: bool) -> Markup {
+        html!(
+            div
+                ."grid"
+                ."grid-cols-[2fr,3fr]"
+                ."justify-items-center"
+                ."items-center"
+                hx-post="/inventory/item/name/validate"
+                hx-trigger="input delay:1s, every 5s"
+                hx-params="new-item-name"
+                hx-swap="outerHTML"
+            {
+                label for="name" .font-bold { "Name" }
+                input
+                    type="text"
+                    id="new-item-name"
+                    name="new-item-name"
+                    x-on:input="(e) => {save_active = inventory_new_item_check_input()}"
+                    ."block"
+                    ."w-full"
+                    ."p-2"
+                    ."bg-gray-50"
+                    ."border-2"
+                    ."border-red-500"[error]
+                    ."border-gray-300"[!error]
+                    ."rounded"
+                    ."focus:outline-none"
+                    ."focus:bg-white"
+                    ."focus:border-purple-500"[!error]
+                    value=[value]
+                ;
+                @if error {
+                    div
+                        ."col-start-2"
+                        ."text-sm"
+                        ."text-red-500"
+                    { "name already exists" }
+                }
+            }
+        )
+    }
+}
+
+pub struct InventoryNewItemFormWeight;
+
+impl InventoryNewItemFormWeight {
+    pub fn build() -> Markup {
+        html!(
+            div
+                ."grid"
+                ."grid-cols-[2fr,3fr]"
+                ."justify-items-center"
+                ."items-center"
+            {
+                label for="weight" .font-bold { "Weight" }
+                input
+                    type="number"
+                    id="new-item-weight"
+                    name="new-item-weight"
+                    min="0"
+                    x-on:input="(e) => {
+                        save_active = inventory_new_item_check_input();
+                        weight_error = !check_weight();
+                    }"
+                    x-bind:class="weight_error && 'border-red-500' || 'border-gray-300 focus:border-purple-500'"
+                    ."block"
+                    ."w-full"
+                    ."p-2"
+                    ."bg-gray-50"
+                    ."border-2"
+                    ."rounded"
+                    ."focus:outline-none"
+                    ."focus:bg-white"
+                {}
+                span
+                    // x-on produces some errors, this works as well
+                    x-bind:class="!weight_error && 'hidden'"
+                    ."col-start-2"
+                    ."text-sm"
+                    ."text-red-500"
+                { "invalid input" }
+            }
+        )
+    }
+}
+
+pub struct InventoryNewItemFormCategory;
+
+impl InventoryNewItemFormCategory {
+    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
+        html!(
+            div
+                ."grid"
+                ."grid-cols-[2fr,3fr]"
+                ."justify-items-center"
+                ."items-center"
+            {
+                label for="item-category" .font-bold ."w-1/2" .text-center { "Category" }
+                select
+                        id="new-item-category-id"
+                        name="new-item-category-id"
+                        ."block"
+                        ."w-full"
+                        ."p-2"
+                        ."bg-gray-50"
+                        ."border-2"
+                        ."border-gray-300"
+                        ."rounded"
+                        ."focus:outline-none"
+                        ."focus:bg-white"
+                        ."focus:border-purple-500"
+                        autocomplete="off" // https://stackoverflow.com/a/10096033
+                    {
+                    @for category in categories {
+                        option value=(category.id) selected[state.active_category_id.map_or(false, |id| id == category.id)] {
+                            (category.name)
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
 pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
     pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
         html!(
+            script {
+                (PreEscaped("
+                function inventory_new_item_check_input() {
+                    return document.getElementById('new-item-name').value.length != 0
+                    && is_positive_integer(document.getElementById('new-item-weight').value)
+                }
+                function check_weight() {
+                    return document.getElementById('new-item-weight').validity.valid;
+                }
+                "))
+            }
             form
+                x-data="{
+                    save_active: inventory_new_item_check_input(),
+                    weight_error: !check_weight(),
+                }"
                 name="new-item"
                 id="new-item"
                 action="/inventory/item/"
@@ -328,74 +470,14 @@ impl InventoryNewItemForm {
                     span ."mdi" ."mdi-playlist-plus" ."text-2xl" ."mr-4" {}
                     p ."inline" ."text-xl" { "Add new item" }
                 }
-                div ."w-11/12" ."mx-auto" {
-                    div ."pb-8" {
-                        div ."flex" ."flex-row" ."justify-center" ."items-start"{
-                            label for="name" .font-bold ."w-1/2" ."p-2" ."text-center" { "Name" }
-                            span ."w-1/2" {
-                                input type="text" id="new-item-name" name="new-item-name"
-                                    ."block"
-                                    ."w-full"
-                                    ."p-2"
-                                    ."bg-gray-50"
-                                    ."border-2"
-                                    ."rounded"
-                                    ."focus:outline-none"
-                                    ."focus:bg-white"
-                                    ."focus:border-purple-500"
-                                    {
-                                    }
-                            }
-                        }
-                    }
-                    div ."flex" ."flex-row" ."justify-center" ."items-center" ."pb-8" {
-                        label for="weight" .font-bold ."w-1/2" .text-center { "Weight" }
-                        span ."w-1/2" {
-                            input
-                                type="text"
-                                id="new-item-weight"
-                                name="new-item-weight"
-                                ."block"
-                                ."w-full"
-                                ."p-2"
-                                ."bg-gray-50"
-                                ."border-2"
-                                ."border-gray-300"
-                                ."rounded"
-                                ."focus:outline-none"
-                                ."focus:bg-white"
-                                ."focus:border-purple-500"
-                                {
-                                }
-                        }
-                    }
-                    div ."flex" ."flex-row" ."justify-center" ."items-center" ."pb-8" {
-                        label for="item-category" .font-bold ."w-1/2" .text-center { "Category" }
-                        span ."w-1/2" {
-                            select
-                                    id="new-item-category-id"
-                                    name="new-item-category-id"
-                                    ."block"
-                                    ."w-full"
-                                    ."p-2"
-                                    ."bg-gray-50"
-                                    ."border-2"
-                                    ."border-gray-300"
-                                    ."rounded"
-                                    ."focus:outline-none"
-                                    ."focus:bg-white"
-                                    ."focus:border-purple-500"
-                                    autocomplete="off" // https://stackoverflow.com/a/10096033
-                                {
-                                @for category in categories {
-                                    option value=(category.id) selected[state.active_category_id.map_or(false, |id| id == category.id)] {
-                                        (category.name)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                div ."w-11/12" ."mx-auto" ."flex" ."flex-col" ."gap-8" {
+                    (InventoryNewItemFormName::build(None, false))
+                    (InventoryNewItemFormWeight::build())
+                    (InventoryNewItemFormCategory::build(&state, categories))
                     input type="submit" value="Add"
+                        x-bind:disabled="!save_active"
+                        ."enabled:cursor-pointer"
+                        ."disabled:opacity-50"
                         ."py-2"
                         ."border-2"
                         ."rounded"
@@ -415,6 +497,7 @@ impl InventoryNewCategoryForm {
     pub fn build() -> Markup {
         html!(
             form
+                x-data="{ save_active: document.getElementById('new-category-name').value.length != 0 }"
                 name="new-category"
                 id="new-category"
                 action="/inventory/category/"
@@ -431,11 +514,13 @@ impl InventoryNewCategoryForm {
                             label for="name" .font-bold ."w-1/2" ."p-2" ."text-center" { "Name" }
                             span ."w-1/2" {
                                 input type="text" id="new-category-name" name="new-category-name"
+                                    x-on:input="(e) => {save_active = e.target.value.length != 0 }"
                                     ."block"
                                     ."w-full"
                                     ."p-2"
                                     ."bg-gray-50"
                                     ."border-2"
+                                    ."border-gray-300"
                                     ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
@@ -446,6 +531,9 @@ impl InventoryNewCategoryForm {
                         }
                     }
                     input type="submit" value="Add"
+                        x-bind:disabled="!save_active"
+                        ."enabled:cursor-pointer"
+                        ."disabled:opacity-50"
                         ."py-2"
                         ."border-2"
                         ."rounded"
