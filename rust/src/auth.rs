@@ -12,7 +12,7 @@ pub enum Config {
     Disabled { assume_user: String },
 }
 
-#[tracing::instrument(name = "check_auth", skip(state, request, next))]
+// #[tracing::instrument(name = "check_auth", skip(state, request, next))]
 pub async fn authorize<B>(
     State(state): State<AppState>,
     mut request: Request<B>,
@@ -65,7 +65,7 @@ pub async fn authorize<B>(
         };
         Ok(user)
     }
-    .instrument(tracing::debug_span!("authorize"))
+    // .instrument(tracing::debug_span!("authorize"))
     .await?;
 
     request.extensions_mut().insert(current_user);

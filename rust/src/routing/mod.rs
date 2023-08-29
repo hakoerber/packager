@@ -23,7 +23,7 @@ mod html;
 mod routes;
 use routes::*;
 
-#[tracing::instrument]
+//#[tracing::instrument]
 fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
     headers
         .get("referer")
@@ -36,7 +36,7 @@ fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
         })
 }
 
-#[tracing::instrument]
+//#[tracing::instrument]
 async fn simple_handler(State(state): State<AppState>) -> &'static str {
     use tracing::Instrument;
     let pool = async {
@@ -71,7 +71,7 @@ async fn simple_handler(State(state): State<AppState>) -> &'static str {
     "ok"
 }
 
-#[tracing::instrument]
+//#[tracing::instrument]
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/favicon.svg", get(icon))

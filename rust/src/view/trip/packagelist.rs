@@ -6,7 +6,7 @@ use crate::models;
 pub struct TripPackageListRowReady;
 
 impl TripPackageListRowReady {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip_id: Uuid, item: &models::trips::TripItem) -> Markup {
         html!(
             li
@@ -83,7 +83,7 @@ impl TripPackageListRowReady {
 pub struct TripPackageListRowUnready;
 
 impl TripPackageListRowUnready {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip_id: Uuid, item: &models::trips::TripItem) -> Markup {
         html!(
             li
@@ -160,7 +160,7 @@ impl TripPackageListRowUnready {
 pub struct TripPackageListCategoryBlockReady;
 
 impl TripPackageListCategoryBlockReady {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip: &models::trips::Trip, category: &models::trips::TripCategory) -> Markup {
         let empty = !category
             .items
@@ -217,7 +217,7 @@ impl TripPackageListCategoryBlockReady {
 pub struct TripPackageListCategoryBlockUnready;
 
 impl TripPackageListCategoryBlockUnready {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip: &models::trips::Trip, category: &models::trips::TripCategory) -> Markup {
         let empty = !category
             .items
@@ -273,7 +273,7 @@ impl TripPackageListCategoryBlockUnready {
 pub struct TripPackageList;
 
 impl TripPackageList {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip: &models::trips::Trip) -> Markup {
         // let all_packed = trip.categories().iter().all(|category| {
         //     category

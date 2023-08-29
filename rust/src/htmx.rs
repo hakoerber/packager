@@ -44,7 +44,7 @@ impl From<RequestHeaders> for HeaderName {
     }
 }
 
-#[tracing::instrument]
+//#[tracing::instrument]
 pub fn is_htmx(headers: &HeaderMap) -> bool {
     headers
         .get::<HeaderName>(RequestHeaders::HtmxRequest.into())

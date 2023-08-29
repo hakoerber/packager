@@ -12,7 +12,7 @@ pub mod packagelist;
 pub mod types;
 
 impl TripManager {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
         html!(
             div
@@ -37,7 +37,7 @@ pub enum InputType {
 }
 
 impl From<InputType> for &'static str {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     fn from(value: InputType) -> &'static str {
         match value {
             InputType::Text => "text",
@@ -61,7 +61,7 @@ fn trip_state_icon(state: &models::trips::TripState) -> &'static str {
 pub struct TripTable;
 
 impl TripTable {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
         html!(
             table
@@ -105,7 +105,7 @@ impl TripTable {
 pub struct TripTableRow;
 
 impl TripTableRow {
-    #[tracing::instrument(skip(value))]
+    // #[tracing::instrument(skip(value))]
     pub fn build(trip_id: Uuid, value: impl maud::Render) -> Markup {
         html!(
             td ."border" ."p-0" ."m-0" {
@@ -125,7 +125,7 @@ impl TripTableRow {
 pub struct NewTrip;
 
 impl NewTrip {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build() -> Markup {
         html!(
             form
@@ -221,7 +221,7 @@ impl NewTrip {
 pub struct Trip;
 
 impl Trip {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         trip: &models::trips::Trip,
         trip_edit_attribute: Option<&models::trips::TripAttribute>,
@@ -349,7 +349,7 @@ impl Trip {
 pub struct TripInfoRow;
 
 impl TripInfoRow {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         name: &str,
         value: Option<impl std::fmt::Display + std::fmt::Debug>,
@@ -473,7 +473,7 @@ impl TripInfoRow {
 pub struct TripInfoTotalWeightRow;
 
 impl TripInfoTotalWeightRow {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip_id: Uuid, value: i64) -> Markup {
         html!(
             span
@@ -491,7 +491,7 @@ impl TripInfoTotalWeightRow {
 pub struct TripInfoStateRow;
 
 impl TripInfoStateRow {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip_state: &models::trips::TripState) -> Markup {
         let prev_state = trip_state.prev();
         let next_state = trip_state.next();
@@ -596,7 +596,7 @@ impl TripInfoStateRow {
 pub struct TripInfo;
 
 impl TripInfo {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         trip_edit_attribute: Option<&models::trips::TripAttribute>,
         trip: &models::trips::Trip,
@@ -766,7 +766,7 @@ impl TripInfo {
 pub struct TripComment;
 
 impl TripComment {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip: &models::trips::Trip) -> Markup {
         html!(
             div
@@ -821,7 +821,7 @@ impl TripComment {
 pub struct TripItems;
 
 impl TripItems {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         active_category: Option<&models::trips::TripCategory>,
         trip: &models::trips::Trip,
@@ -849,7 +849,7 @@ impl TripItems {
 pub struct TripCategoryListRow;
 
 impl TripCategoryListRow {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         trip_id: Uuid,
         category: &models::trips::TripCategory,
@@ -958,7 +958,7 @@ impl TripCategoryListRow {
 pub struct TripCategoryList;
 
 impl TripCategoryList {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         active_category: Option<&models::trips::TripCategory>,
         trip: &models::trips::Trip,
@@ -1015,7 +1015,7 @@ impl TripCategoryList {
 pub struct TripItemList;
 
 impl TripItemList {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(trip_id: Uuid, items: &Vec<models::trips::TripItem>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
@@ -1055,7 +1055,7 @@ impl TripItemList {
 pub struct TripItemListRow;
 
 impl TripItemListRow {
-    #[tracing::instrument]
+    //#[tracing::instrument]
     pub fn build(
         trip_id: Uuid,
         item: &models::trips::TripItem,
