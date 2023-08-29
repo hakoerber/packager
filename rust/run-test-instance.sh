@@ -8,6 +8,4 @@ port="${1}"
 
 db="$(mktemp)"
 
-export DATABASE_URL="sqlite://${db}"
-
-exec ./target/debug/packager --port "${port}"
+exec ./target/debug/packager --port "${port}" --database-url "sqlite://${db}"

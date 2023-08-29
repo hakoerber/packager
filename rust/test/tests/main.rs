@@ -6,6 +6,7 @@ use std::thread;
 use thirtyfour::common::capabilities::firefox::FirefoxPreferences;
 use thirtyfour::{FirefoxCapabilities, WebDriver};
 
+use std::io::Read;
 use std::time;
 
 use std::future::Future;
@@ -85,9 +86,7 @@ where
         }
 
         let mut handle_gecko = {
-            let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../run-test-instance.sh");
-
-            println!("[sub] starting script {script}");
+            println!("[sub] starting geckodriver");
             let handle = Command::new("geckodriver")
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
@@ -112,9 +111,9 @@ where
             println!("[sub] starting script {script}");
             let handle = Command::new(script)
                 .arg(PORT.to_string())
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .spawn()?;
             println!("[sub] app started");
             handle
@@ -122,16 +121,58 @@ where
 
         {
             let (lock, cvar) = &*event_in_subprocess;
-            let mut done = lock.lock().unwrap();
-            while !*done {
-                println!("[sub] waiting for done event");
-                done = cvar.wait(done).unwrap();
+            println!("[sub] waiting for done event");
+            loop {
+                let done = lock.try_lock();
+                if let Ok(mut done) = done {
+                    println!("could get mutex");
+                    while !*done {
+                        (done, _) = cvar
+                            .wait_timeout(done, time::Duration::from_millis(1000))
+                            .unwrap();
+                        if handle_app.try_wait()?.is_some() {
+                            println!("[sub] app died");
+                            println!("[sub] killing gecko subprocess");
+                            let _ = handle_gecko.kill()?;
+                            handle_gecko.wait()?;
+                            println!("[sub] killed gecko subprocess");
+                            let mut output = String::new();
+                            handle_app
+                                .stdout
+                                .take()
+                                .unwrap()
+                                .read_to_string(&mut output)
+                                .unwrap();
+                            handle_app
+                                .stderr
+                                .take()
+                                .unwrap()
+                                .read_to_string(&mut output)
+                                .unwrap();
+                            println!("{}", output);
+                            return Err(TestError::AppError {
+                                message: format!("app died: {}", output),
+                            });
+                        }
+                        if handle_gecko.try_wait()?.is_some() {
+                            println!("[sub] gecko died");
+                            println!("[sub] killing app subprocess");
+                            let _ = handle_app.kill()?;
+                            handle_app.wait()?;
+                            println!("[sub] killed app subprocess");
+                            return Err(TestError::AppError {
+                                message: "gecko died".to_string(),
+                            });
+                        }
+                    }
+                    break;
+                }
+                thread::sleep(time::Duration::from_secs(1));
             }
+
             println!("[sub] done received");
         }
 
-        // at worst, the child already exited, so we don't care about the
-        // return code
         println!("[sub] killing app subprocess");
         let _ = handle_app.kill()?;
         handle_app.wait()?;
@@ -264,28 +305,28 @@ async fn check_table(
 
 #[tokio::test]
 async fn test() -> Result<(), TestError> {
-    let mut handle = {
-        let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../run-test-instance.sh");
+    // let mut handle = {
+    //     let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../run-test-instance.sh");
 
-        println!("[sub] starting script {script}");
-        let handle = Command::new(script)
-            .arg(PORT.to_string())
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()?;
-        println!("[sub] started");
-        handle
-    };
+    //     println!("[sub] starting script {script}");
+    //     let handle = Command::new(script)
+    //         .arg(PORT.to_string())
+    //         .stdin(Stdio::null())
+    //         .stdout(Stdio::null())
+    //         .stderr(Stdio::null())
+    //         .spawn()?;
+    //     println!("[sub] started");
+    //     handle
+    // };
 
-    // at worst, the child already exited, so we don't care about the
-    // return code
-    println!("[sub] killing subprocess");
-    let _ = handle.kill().expect("failed to kill child");
-    handle.wait().unwrap();
-    println!("[sub] killed subprocess");
+    // // at worst, the child already exited, so we don't care about the
+    // // return code
+    // println!("[sub] killing subprocess");
+    // let _ = handle.kill().expect("failed to kill child");
+    // handle.wait().unwrap();
+    // println!("[sub] killed subprocess");
 
-    println!("[sub] done");
+    // println!("[sub] done");
 
     // return Ok(());
 
