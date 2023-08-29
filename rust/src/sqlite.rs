@@ -1,5 +1,7 @@
 use std::time;
 
+use base64::Engine as _;
+use sha2::{Digest, Sha256};
 use tracing::Instrument;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -48,10 +50,23 @@ pub async fn migrate(url: &str) -> Result<(), StartError> {
     Ok(())
 }
 
+pub fn sqlx_query(query: &str, labels: &[(&'static str, String)]) {
+    let query_id = {
+        let mut hasher = Sha256::new();
+        hasher.update(query);
+        hasher.finalize()
+    };
+    let query_id = base64::engine::general_purpose::STANDARD.encode(query_id);
+    let mut labels = Vec::from(labels);
+    labels.push(("query_id", query_id));
+    metrics::counter!("packager_database_queries_total", 1, &labels)
+}
+
 #[macro_export]
 macro_rules! query_all {
     ( $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
         async {
+            crate::sqlite::sqlx_query($query, &[]);
             let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
                 $struct_row,
                 $query,

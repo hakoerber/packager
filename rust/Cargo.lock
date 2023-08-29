@@ -1429,6 +1429,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum-prometheus",
+ "base64 0.21.2",
  "clap",
  "console-subscriber",
  "futures",
@@ -1441,6 +1442,7 @@ dependencies = [
  "opentelemetry-jaeger",
  "serde",
  "serde_variant",
+ "sha2",
  "sqlx",
  "time",
  "tokio",
