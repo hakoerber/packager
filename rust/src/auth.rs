@@ -6,7 +6,7 @@ use super::models;
 use super::{AppState, Error, RequestError};
 
 #[derive(Clone)]
-pub enum AuthConfig {
+pub enum Config {
     Enabled,
     Disabled { assume_user: String },
 }
@@ -17,7 +17,7 @@ pub async fn authorize<B>(
     next: Next<B>,
 ) -> Result<impl IntoResponse, Error> {
     let current_user = match state.auth_config {
-        AuthConfig::Disabled { assume_user } => {
+        Config::Disabled { assume_user } => {
             match models::user::User::find_by_name(&state.database_pool, &assume_user).await? {
                 Some(user) => user,
                 None => {
@@ -27,7 +27,7 @@ pub async fn authorize<B>(
                 }
             }
         }
-        AuthConfig::Enabled => {
+        Config::Enabled => {
             let Some(username) = request.headers().get("x-auth-username") else {
                 return Err(Error::Request(RequestError::AuthenticationHeaderMissing));
             };

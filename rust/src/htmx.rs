@@ -47,6 +47,5 @@ impl From<RequestHeaders> for HeaderName {
 pub fn is_htmx(headers: &HeaderMap) -> bool {
     headers
         .get::<HeaderName>(RequestHeaders::HtmxRequest.into())
-        .map(|value| value == "true")
-        .unwrap_or(false)
+        .map_or(false, |value| value == "true")
 }

@@ -17,7 +17,7 @@ pub use error::{CommandError, Error, RequestError, StartError};
 pub struct AppState {
     pub database_pool: sqlite::Pool<sqlite::Sqlite>,
     pub client_state: ClientState,
-    pub auth_config: auth::AuthConfig,
+    pub auth_config: auth::Config,
 }
 
 #[derive(Clone)]
@@ -64,9 +64,9 @@ impl fmt::Display for UriPath {
     }
 }
 
-impl<'a> From<&'a UriPath> for &'a str {
-    fn from(val: &'a UriPath) -> Self {
-        val.0.as_str()
+impl<'a> Into<&'a str> for &'a UriPath {
+    fn into(self) -> &'a str {
+        self.0.as_str()
     }
 }
 

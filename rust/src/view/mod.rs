@@ -13,7 +13,7 @@ use crate::TopLevelPage;
 impl Root {
     pub fn build(context: &Context, body: &Markup, active_page: Option<&TopLevelPage>) -> Markup {
         let menu_item = |item: TopLevelPage, active_page: Option<&TopLevelPage>| {
-            let active = active_page.map(|page| *page == item).unwrap_or(false);
+            let active = active_page.map_or(false, |page| *page == item);
             html!(
                 a
                     href=(item.path())

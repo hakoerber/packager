@@ -77,8 +77,8 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Database(error) => write!(f, "{}", error),
-            Self::Query(error) => write!(f, "{}", error),
+            Self::Database(error) => write!(f, "{error}"),
+            Self::Query(error) => write!(f, "{error}"),
         }
     }
 }
@@ -125,23 +125,17 @@ impl From<sqlx::Error> for Error {
                             description: "item with unique constraint already exists".to_string(),
                         }),
                         _ => Error::Database(DatabaseError::Sql {
-                            description: format!(
-                                "got error with unknown code: {}",
-                                sqlite_error
-                            ),
+                            description: format!("got error with unknown code: {sqlite_error}"),
                         }),
                     }
                 } else {
                     Error::Database(DatabaseError::Sql {
-                        description: format!(
-                            "got error without code: {}",
-                            sqlite_error
-                        ),
+                        description: format!("got error without code: {sqlite_error}"),
                     })
                 }
             }
             _ => Error::Database(DatabaseError::Sql {
-                description: format!("got unknown error: {}", value),
+                description: format!("got unknown error: {value}"),
             }),
         }
     }

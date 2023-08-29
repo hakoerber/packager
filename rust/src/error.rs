@@ -88,7 +88,7 @@ impl IntoResponse for Error {
             Self::Model(ref model_error) => match model_error {
                 models::Error::Database(_) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    view::ErrorPage::build(&format!("{}", self)),
+                    view::ErrorPage::build(&self.to_string()),
                 ),
                 models::Error::Query(error) => match error {
                     models::QueryError::NotFound { description } => {
@@ -96,7 +96,7 @@ impl IntoResponse for Error {
                     }
                     _ => (
                         StatusCode::BAD_REQUEST,
-                        view::ErrorPage::build(&format!("{}", error)),
+                        view::ErrorPage::build(&error.to_string()),
                     ),
                 },
             },
@@ -107,25 +107,22 @@ impl IntoResponse for Error {
                 ),
                 RequestError::RefererInvalid { message } => (
                     StatusCode::BAD_REQUEST,
-                    view::ErrorPage::build(&format!("referer could not be converted: {}", message)),
+                    view::ErrorPage::build(&format!("referer could not be converted: {message}")),
                 ),
                 RequestError::EmptyFormElement { name } => (
                     StatusCode::UNPROCESSABLE_ENTITY,
-                    view::ErrorPage::build(&format!("empty form element: {}", name)),
+                    view::ErrorPage::build(&format!("empty form element: {name}")),
                 ),
                 RequestError::NotFound { message } => (
                     StatusCode::NOT_FOUND,
-                    view::ErrorPage::build(&format!("not found: {}", message)),
+                    view::ErrorPage::build(&format!("not found: {message}")),
                 ),
                 RequestError::AuthenticationUserNotFound { username: _ } => (
                     StatusCode::BAD_REQUEST,
                     view::ErrorPage::build(&request_error.to_string()),
                 ),
-                RequestError::AuthenticationHeaderMissing => (
-                    StatusCode::UNAUTHORIZED,
-                    view::ErrorPage::build(&request_error.to_string()),
-                ),
-                RequestError::AuthenticationHeaderInvalid { message: _ } => (
+                RequestError::AuthenticationHeaderMissing
+                | RequestError::AuthenticationHeaderInvalid { message: _ } => (
                     StatusCode::UNAUTHORIZED,
                     view::ErrorPage::build(&request_error.to_string()),
                 ),

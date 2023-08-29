@@ -95,9 +95,9 @@ async fn main() -> MainResult {
                 database_pool,
                 client_state: ClientState::new(),
                 auth_config: if let Some(assume_user) = serve_args.disable_auth_and_assume_user {
-                    auth::AuthConfig::Disabled { assume_user }
+                    auth::Config::Disabled { assume_user }
                 } else {
-                    auth::AuthConfig::Enabled
+                    auth::Config::Enabled
                 },
             };
 

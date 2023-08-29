@@ -199,7 +199,7 @@ impl TripCategory {
                             items: None,
                         },
                         items: None,
-                    })
+                    });
                 }
             };
 
@@ -245,6 +245,7 @@ impl TripCategory {
     }
 }
 
+// TODO refactor the bools into an enum
 #[derive(Debug)]
 pub struct TripItem {
     pub item: inventory::Item,
@@ -673,7 +674,7 @@ impl Trip {
             user_id,
         )
         .fetch_one(pool)
-        .map_ok(|row| row.total_weight.unwrap() as i64)
+        .map_ok(|row| i64::from(row.total_weight.unwrap()))
         .await?;
 
         Ok(weight)

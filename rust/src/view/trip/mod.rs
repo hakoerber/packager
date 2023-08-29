@@ -219,7 +219,7 @@ pub struct Trip;
 impl Trip {
     pub fn build(
         trip: &models::trips::Trip,
-        trip_edit_attribute: Option<models::trips::TripAttribute>,
+        trip_edit_attribute: Option<&models::trips::TripAttribute>,
         active_category: Option<&models::trips::TripCategory>,
     ) -> Markup {
         html!(
@@ -253,7 +253,7 @@ impl Trip {
                             }
                         }
                         div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                            @if trip_edit_attribute.as_ref().map_or(false, |a| *a == models::trips::TripAttribute::Name) {
+                            @if trip_edit_attribute.map_or(false, |a| *a == models::trips::TripAttribute::Name) {
                                 form
                                     id="edit-trip"
                                     action=(format!("edit/{}/submit", to_variant_name(&models::trips::TripAttribute::Name).unwrap()))
@@ -597,7 +597,7 @@ pub struct TripInfo;
 
 impl TripInfo {
     pub fn build(
-        trip_edit_attribute: Option<models::trips::TripAttribute>,
+        trip_edit_attribute: Option<&models::trips::TripAttribute>,
         trip: &models::trips::Trip,
     ) -> Markup {
         html!(
@@ -613,31 +613,31 @@ impl TripInfo {
                     (TripInfoRow::build("Location",
                         trip.location.as_ref(),
                         &models::trips::TripAttribute::Location,
-                        trip_edit_attribute.as_ref(),
+                        trip_edit_attribute,
                         InputType::Text,
                     ))
                     (TripInfoRow::build("Start date",
                         Some(trip.date_start),
                         &models::trips::TripAttribute::DateStart,
-                        trip_edit_attribute.as_ref(),
+                        trip_edit_attribute,
                         InputType::Date,
                     ))
                     (TripInfoRow::build("End date",
                         Some(trip.date_end),
                         &models::trips::TripAttribute::DateEnd,
-                        trip_edit_attribute.as_ref(),
+                        trip_edit_attribute,
                         InputType::Date,
                     ))
                     (TripInfoRow::build("Temp (min)",
                         trip.temp_min,
                         &models::trips::TripAttribute::TempMin,
-                        trip_edit_attribute.as_ref(),
+                        trip_edit_attribute,
                         InputType::Number,
                     ))
                     (TripInfoRow::build("Temp (max)",
                         trip.temp_max,
                         &models::trips::TripAttribute::TempMax,
-                        trip_edit_attribute.as_ref(),
+                        trip_edit_attribute,
                         InputType::Number,
                     ))
                     (TripInfoStateRow::build(&trip.state))

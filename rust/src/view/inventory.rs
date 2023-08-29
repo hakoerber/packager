@@ -570,7 +570,7 @@ impl InventoryItem {
                         }
                         tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             td ."border" ."p-2" { "Description" }
-                            td ."border" ."p-2" { (item.description.clone().unwrap_or("".to_string())) }
+                            td ."border" ."p-2" { (item.description.clone().unwrap_or(String::new())) }
                         }
                         tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             td ."border" ."p-2" { "Weight" }

@@ -29,7 +29,7 @@ impl Inventory {
         .collect::<Result<Vec<Category>, Error>>()?;
 
         for category in &mut categories {
-            category.populate_items(ctx, pool).await?;
+            category.populate_items(&ctx, &pool).await?;
         }
 
         Ok(Self { categories })
@@ -384,7 +384,7 @@ impl InventoryItem {
         .map_ok(|row| {
             // convert to i64 because that the default integer type, but looks
             // like COALESCE return i32?
-            row.weight as i64
+            i64::from(row.weight)
         })
         .await?;
 
@@ -451,7 +451,7 @@ impl Item {
         .map_ok(|row| {
             // convert to i64 because that the default integer type, but looks
             // like COALESCE return i32?
-            row.weight as i64
+            i64::from(row.weight)
         })
         .await?)
     }

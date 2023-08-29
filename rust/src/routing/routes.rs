@@ -113,15 +113,13 @@ pub async fn icon() -> impl IntoResponse {
 }
 
 pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
-    
-    {
-        let mut out = String::new();
-        for (key, value) in headers.iter() {
-            out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));
-        }
-        out
+    let mut out = String::new();
+    for (key, value) in headers.iter() {
+        out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));
     }
+    out
 }
+
 pub async fn inventory_active(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
@@ -255,12 +253,12 @@ pub async fn inventory_item_delete(
     let ctx = Context::build(current_user);
     let deleted = models::inventory::InventoryItem::delete(&ctx, &state.database_pool, id).await?;
 
-    if !deleted {
+    if deleted {
+        Ok(Redirect::to(get_referer(&headers)?))
+    } else {
         Err(Error::Request(RequestError::NotFound {
             message: format!("item with id {id} not found"),
         }))
-    } else {
-        Ok(Redirect::to(get_referer(&headers)?))
     }
 }
 
@@ -286,7 +284,7 @@ pub async fn inventory_item_edit(
     )
     .await?;
 
-    Ok(Redirect::to(&format!("/inventory/category/{id}/", id = id)))
+    Ok(Redirect::to(&format!("/inventory/category/{id}/")))
 }
 
 pub async fn inventory_item_cancel(
@@ -385,7 +383,7 @@ pub async fn trip(
         &ctx,
         &view::trip::Trip::build(
             &trip,
-            state.client_state.trip_edit_attribute,
+            state.client_state.trip_edit_attribute.as_ref(),
             active_category,
         ),
         Some(&TopLevelPage::Trips),
@@ -401,12 +399,12 @@ pub async fn trip_type_remove(
     let found =
         models::trips::Trip::trip_type_remove(&ctx, &state.database_pool, trip_id, type_id).await?;
 
-    if !found {
+    if found {
+        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
+    } else {
         Err(Error::Request(RequestError::NotFound {
             message: format!("type {type_id} is not active for trip {trip_id}"),
         }))
-    } else {
-        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
     }
 }
 
@@ -441,7 +439,7 @@ pub async fn trip_comment_set(
             message: format!("trip with id {trip_id} not found"),
         }))
     } else {
-        Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)))
+        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
     }
 }
 
@@ -452,10 +450,12 @@ pub async fn trip_edit_attribute(
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, Error> {
     let ctx = Context::build(current_user);
-    if attribute == models::trips::TripAttribute::Name && trip_update.new_value.is_empty() {
-        return Err(Error::Request(RequestError::EmptyFormElement {
-            name: "name".to_string(),
-        }));
+    if attribute == models::trips::TripAttribute::Name {
+        if trip_update.new_value.is_empty() {
+            return Err(Error::Request(RequestError::EmptyFormElement {
+                name: "name".to_string(),
+            }));
+        }
     }
     models::trips::Trip::set_attribute(
         &ctx,
@@ -477,7 +477,7 @@ pub async fn trip_item_set_state(
     key: models::trips::TripItemStateKey,
     value: bool,
 ) -> Result<(), Error> {
-    models::trips::TripItem::set_state(ctx, &state.database_pool, trip_id, item_id, key, value)
+    models::trips::TripItem::set_state(&ctx, &state.database_pool, trip_id, item_id, key, value)
         .await?;
     Ok(())
 }
@@ -500,7 +500,7 @@ pub async fn trip_row(
         trip_id,
         &item,
         models::inventory::InventoryItem::get_category_max_weight(
-            ctx,
+            &ctx,
             &state.database_pool,
             item.item.category_id,
         )
@@ -523,7 +523,7 @@ pub async fn trip_row(
     // TODO biggest_category_weight?
     let category_row = view::trip::TripCategoryListRow::build(trip_id, &category, true, 0, true);
 
-    Ok(html::concat(item_row, category_row))
+    Ok(html::concat(&item_row, &category_row))
 }
 
 pub async fn trip_item_set_pick(
@@ -841,7 +841,7 @@ pub async fn trip_state_set(
     if htmx::is_htmx(&headers) {
         Ok(view::trip::TripInfoStateRow::build(&new_state).into_response())
     } else {
-        Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)).into_response())
+        Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
     }
 }
 pub async fn trips_types(
@@ -899,12 +899,12 @@ pub async fn trips_types_edit_name(
     )
     .await?;
 
-    if !exists {
+    if exists {
+        Ok(Redirect::to("/trips/types/"))
+    } else {
         Err(Error::Request(RequestError::NotFound {
             message: format!("trip type with id {trip_type_id} not found"),
         }))
-    } else {
-        Ok(Redirect::to("/trips/types/"))
     }
 }
 
