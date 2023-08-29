@@ -1,8 +1,12 @@
 use crate::models;
 use crate::models::*;
 
-use maud::{html, Markup};
+use maud::{html, Markup, PreEscaped};
+use uuid::Uuid;
 
+use serde_variant::to_variant_name;
+
+use crate::ClientState;
 pub struct TripManager;
 
 impl TripManager {
@@ -13,6 +17,22 @@ impl TripManager {
                 (NewTrip::build())
             }
         )
+    }
+}
+
+pub enum InputType {
+    Text,
+    Number,
+    Date,
+}
+
+impl From<InputType> for &'static str {
+    fn from(value: InputType) -> &'static str {
+        match value {
+            InputType::Text => "text",
+            InputType::Number => "number",
+            InputType::Date => "date",
+        }
     }
 }
 
@@ -42,34 +62,28 @@ impl TripTable {
                 tbody {
                     @for trip in trips {
                         tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
-                            td ."border" ."p-0" ."m-0" {
-                                a ."inline-block" ."p-2" ."m-0" ."w-full"
-                                    href=(format!("/trip/{id}/", id=trip.id))
-                                { (trip.name) }
-                            }
-                            td ."border" ."p-0" ."m-0" {
-                                a ."inline-block" ."p-2" ."m-0" ."w-full"
-                                    href=(format!("/trip/{id}/", id=trip.id))
-                                { (trip.start_date) }
-                            }
-                            td ."border" ."p-0" ."m-0" {
-                                a ."inline-block" ."p-2" ."m-0" ."w-full"
-                                    href=(format!("/trip/{id}/", id=trip.id))
-                                { (trip.end_date) }
-                            }
-                            td ."border" ."p-0" ."m-0" {
-                                a ."inline-block" ."p-2" ."m-0" ."w-full"
-                                    href=(format!("/trip/{id}/", id=trip.id))
-                                { ((trip.end_date - trip.start_date).whole_days()) }
-                            }
-                            td ."border" ."p-0" ."m-0" {
-                                a ."inline-block" ."p-2" ."m-0" ."w-full"
-                                    href=(format!("/trip/{id}/", id=trip.id))
-                                { (trip.state.to_string()) }
-                            }
+                            (TripTableRow::build(trip.id, &trip.name))
+                            (TripTableRow::build(trip.id, &trip.date_start))
+                            (TripTableRow::build(trip.id, &trip.date_end))
+                            (TripTableRow::build(trip.id, (trip.date_end - trip.date_start).whole_days()))
+                            (TripTableRow::build(trip.id, trip.state))
                         }
                     }
                 }
+            }
+        )
+    }
+}
+
+pub struct TripTableRow;
+
+impl TripTableRow {
+    pub fn build(trip_id: Uuid, value: impl std::fmt::Display) -> Markup {
+        html!(
+            td ."border" ."p-0" ."m-0" {
+                a ."inline-block" ."p-2" ."m-0" ."w-full"
+                    href=(format!("/trip/{id}/", id=trip_id))
+                { (value) }
             }
         )
     }
@@ -177,14 +191,129 @@ impl NewTrip {
 pub struct Trip;
 
 impl Trip {
-    pub fn build(trip: &models::Trip) -> Markup {
+    pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
         html!(
             div ."p-8" {
                 div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
                     h1 ."text-2xl" ."font-semibold"{ (trip.name) }
                 }
                 div ."my-6" {
-                    (TripInfo::build(&trip))
+                    (TripInfo::build(state, &trip))
+                }
+                div ."my-6" {
+                    (TripComment::build(&trip))
+                }
+            }
+        )
+    }
+}
+
+pub struct TripInfoRow;
+
+impl TripInfoRow {
+    pub fn build(
+        name: &str,
+        value: impl std::fmt::Display,
+        attribute_key: TripAttribute,
+        edit_attribute: Option<&TripAttribute>,
+        input_type: InputType,
+    ) -> Markup {
+        let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
+        html!(
+            @if edit {
+                form
+                    name="edit-trip"
+                    id="edit-trip"
+                    action=(format!("edit/{key}/submit", key=(to_variant_name(&attribute_key).unwrap()) ))
+                    // hx-post=(format!("edit/{name}/submit"))
+                    target="."
+                    method="post"
+                ;
+            }
+            tr .h-full {
+                @if edit {
+                    td ."border" ."p-2" { (name) }
+                    td ."border" ."bg-blue-300" ."px-2" ."py-0" {
+                        div ."h-full" ."w-full" ."flex" {
+                            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                                type=(<InputType as Into<&'static str>>::into(input_type))
+                                id="new-value"
+                                name="new-value"
+                                form="edit-trip"
+                                value=(value)
+                            ;
+                        }
+                    }
+                    td
+                        ."border-none"
+                        ."bg-red-100"
+                        ."hover:bg-red-200"
+                        ."p-0"
+                        ."h-full"
+                        ."w-8"
+                    {
+                        a
+                            ."aspect-square"
+                            ."flex"
+                            ."w-full"
+                            ."h-full"
+                            ."p-0"
+                            href="." // strips query parameters
+                        {
+                            span
+                                ."m-auto"
+                                ."mdi"
+                                ."mdi-cancel"
+                                ."text-xl";
+                        }
+                    }
+                    td
+                        ."border-none"
+                        ."bg-green-100"
+                        ."hover:bg-green-200"
+                        ."p-0"
+                        ."h-full"
+                        ."w-8"
+                    {
+                        button
+                            ."aspect-square"
+                            ."flex"
+                            ."w-full"
+                            ."h-full"
+                            type="submit"
+                            form="edit-trip"
+                        {
+                            span
+                                ."m-auto"
+                                ."mdi"
+                                ."mdi-content-save"
+                                ."text-xl";
+                        }
+                    }
+                } @else {
+                    td ."border" ."p-2" { (name) }
+                    td ."border" ."p-2" { (value) }
+                    td
+                        ."border-none"
+                        ."bg-blue-100"
+                        ."hover:bg-blue-200"
+                        ."p-0"
+                        ."w-8"
+                        ."h-full"
+                    {
+                        a
+                            .flex
+                            ."w-full"
+                            ."h-full"
+                            href={ "?edit=" (to_variant_name(&attribute_key).unwrap()) }
+                        {
+                            span
+                                ."m-auto"
+                                ."mdi"
+                                ."mdi-pencil"
+                                ."text-xl";
+                        }
+                    }
                 }
             }
         )
@@ -194,7 +323,7 @@ impl Trip {
 pub struct TripInfo;
 
 impl TripInfo {
-    pub fn build(trip: &models::Trip) -> Markup {
+    pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
         html!(
             table
                 ."table"
@@ -205,31 +334,12 @@ impl TripInfo {
                 ."w-full"
             {
                 tbody {
-                    tr {
-                        td ."border" ."p-2" { "State" }
-                        td ."border" ."p-2" { (trip.state.to_string()) }
-                    }
-                    tr {
-                        td ."border" ."p-2" { "Location" }
-                        td ."border" ."p-2" { (trip.location) }
-                    }
-                    tr {
-                        td ."border" ."p-2" { "Start date" }
-                        td ."border" ."p-2" { (trip.start_date) }
-                    }
-                    tr {
-                        td ."border" ."p-2" { "End date" }
-                        td ."border" ."p-2" { (trip.end_date) }
-                    }
-                    tr {
-                        td ."border" ."p-2" { "Temp (min)" }
-                        td ."border" ."p-2" { (trip.temp_min) }
-                    }
-                    tr {
-                        td ."border" ."p-2" { "Temp (max)" }
-                        td ."border" ."p-2" { (trip.temp_max) }
-                    }
-                    tr {
+                    (TripInfoRow::build("Location", &trip.location, TripAttribute::Location, state.trip_edit_attribute.as_ref(), InputType::Text))
+                    (TripInfoRow::build("Start date", trip.date_start, TripAttribute::DateStart, state.trip_edit_attribute.as_ref(), InputType::Date))
+                    (TripInfoRow::build("End date", trip.date_end, TripAttribute::DateEnd, state.trip_edit_attribute.as_ref(), InputType::Date))
+                    (TripInfoRow::build("Temp (min)", trip.temp_min, TripAttribute::TempMin, state.trip_edit_attribute.as_ref(), InputType::Number))
+                    (TripInfoRow::build("Temp (max)", trip.temp_max, TripAttribute::TempMax, state.trip_edit_attribute.as_ref(), InputType::Number))
+                    tr .h-full {
                         td ."border" ."p-2" { "Types" }
                         td ."border" ."p-2" {
                             ul
@@ -301,6 +411,52 @@ impl TripInfo {
                         }
                     }
                 }
+            }
+        )
+    }
+}
+
+pub struct TripComment;
+
+impl TripComment {
+    pub fn build(trip: &models::Trip) -> Markup {
+        html!(
+            h1 ."text-xl" ."mb-5" { "Comments" }
+
+            form
+                id="edit-comment"
+                action="comment/submit"
+                target="_self"
+                method="post"
+                ;
+
+            // https://stackoverflow.com/a/48460773
+            textarea
+                #"comment"
+                ."border" ."w-full" ."h-48"
+                name="new-comment"
+                form="edit-comment"
+                autocomplete="off"
+                oninput=r#"this.style.height = "";this.style.height = this.scrollHeight + 2 + "px""#
+            { (trip.comment.as_ref().unwrap_or(&"".to_string())) }
+            script defer { (PreEscaped(r#"e = document.getElementById("comment"); e.style.height = e.scrollHeight + 2 + "px";"#)) }
+
+            button
+                type="submit"
+                form="edit-comment"
+                ."mt-2"
+                ."border"
+                ."bg-green-200"
+                ."hover:bg-green-400"
+                ."cursor-pointer"
+                ."flex"
+                ."flex-column"
+                ."p-2"
+                ."gap-2"
+                ."items-center"
+            {
+                span ."mdi" ."mdi-content-save" ."text-xl";
+                span { "Save" }
             }
         )
     }

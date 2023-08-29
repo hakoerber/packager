@@ -38,7 +38,6 @@ impl Root {
                         ."flex-nowrap"
                         ."justify-between"
                         ."items-center"
-                        hx-boost="true"
                     {
                         span ."text-xl" ."font-semibold" {
                             a href="/" { "Packager" }
@@ -54,7 +53,9 @@ impl Root {
                             }} { "Trips" }
                         }
                     }
-                    div hx-boost="true" {
+                    div
+                        hx-boost="true"
+                    {
                         (body)
                     }
                 }
@@ -67,12 +68,17 @@ pub struct ErrorPage;
 
 impl ErrorPage {
     pub fn build(message: &str) -> Markup {
-        Root::build(
-            html!(
+        html!(
+            (DOCTYPE)
+            html {
+                head {
+                    title { "Packager" }
+                }
+                body {
                     h1 { "Error" }
                     p { (message) }
-            ),
-            &TopLevelPage::None,
+                }
+            }
         )
     }
 }

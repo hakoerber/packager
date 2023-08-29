@@ -181,8 +181,8 @@ impl InventoryItemList {
                                 @if state.edit_item.map_or(false, |edit_item| edit_item == item.id) {
                                     tr ."h-10" {
                                         td ."border" ."bg-blue-300" ."px-2" ."py-0" {
-                                            div ."h-full" ."w-full" {
-                                                input ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                                            div ."h-full" ."w-full" ."flex" {
+                                                input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
                                                     type="text"
                                                     id="edit-item-name"
                                                     name="edit-item-name"
@@ -192,8 +192,8 @@ impl InventoryItemList {
                                             }
                                         }
                                         td ."border" ."bg-blue-300" ."px-2" ."py-0" {
-                                            div ."h-full" ."w-full" {
-                                                input ."px-1"."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                                            div ."h-full" ."w-full" ."flex" {
+                                                input ."m-auto" ."px-1"."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
                                                     type="number"
                                                     id="edit-item-weight"
                                                     name="edit-item-weight"
@@ -202,18 +202,48 @@ impl InventoryItemList {
                                                 {}
                                             }
                                         }
-                                        td ."border-none" ."bg-green-100" ."hover:bg-green-200" .flex ."p-0" {
-                                            div .aspect-square .w-full .h-full .flex {
-                                                button type="submit" form="edit-item" .m-auto .w-full .h-full {
-                                                    span ."mdi" ."mdi-content-save" ."text-xl" .m-auto {}
-                                                }
+                                        td
+                                            ."border-none"
+                                            ."bg-green-100"
+                                            ."hover:bg-green-200"
+                                            ."p-0"
+                                            ."h-full"
+                                        {
+                                            button
+                                                ."aspect-square"
+                                                ."flex"
+                                                ."w-full"
+                                                ."h-full"
+                                                type="submit"
+                                                form="edit-item"
+                                            {
+                                                span
+                                                    ."m-auto"
+                                                    ."mdi"
+                                                    ."mdi-content-save"
+                                                    ."text-xl";
                                             }
                                         }
-                                        td ."border-none" ."bg-red-100" ."hover:bg-red-200" ."p-0" {
-                                            div .aspect-square .flex .w-full .h-full {
-                                                a href=(format!("/inventory/item/{id}/cancel", id = item.id)) .flex .m-auto .w-full .h-full {
-                                                    span ."mdi" ."mdi-cancel" ."text-xl" .m-auto {}
-                                                }
+                                        td
+                                            ."border-none"
+                                            ."bg-red-100"
+                                            ."hover:bg-red-200"
+                                            ."p-0"
+                                            ."h-full"
+                                        {
+                                            a
+                                                ."aspect-square"
+                                                ."flex"
+                                                ."w-full"
+                                                ."h-full"
+                                                ."p-0"
+                                                href=(format!("/inventory/item/{id}/cancel", id = item.id))
+                                            {
+                                                span
+                                                    ."m-auto"
+                                                    ."mdi"
+                                                    ."mdi-cancel"
+                                                    ."text-xl";
                                             }
                                         }
                                     }
@@ -243,17 +273,16 @@ impl InventoryItemList {
                                             ."p-0"
                                             ."bg-blue-200"
                                             ."hover:bg-blue-400"
-                                            ."cursor-pointer"
                                             ."w-8"
-                                            ."text-center"
+                                            ."h-full"
                                             {
-                                                div .aspect-square .flex .w-full .h-full {
-                                                    a href = (format!("?edit_item={id}", id = item.id)) ."m-auto"
-                                                    {
-                                                        button {
-                                                            span ."mdi" ."mdi-pencil" ."text-xl" {}
-                                                        }
-                                                    }
+                                                a
+                                                    ."aspect-square"
+                                                    ."flex"
+                                                    ."w-full"
+                                                    href=(format!("?edit_item={id}", id = item.id))
+                                                {
+                                                    span ."m-auto" ."mdi" ."mdi-pencil" ."text-xl";
                                                 }
                                         }
                                         td
@@ -261,18 +290,17 @@ impl InventoryItemList {
                                             ."p-0"
                                             ."bg-red-200"
                                             ."hover:bg-red-400"
-                                            ."cursor-pointer"
                                             ."w-8"
-                                            ."text-center"
+                                            ."h-full"
+                                        {
+                                            a
+                                                ."aspect-square"
+                                                ."flex"
+                                                ."w-full"
+                                                href=(format!("/inventory/item/{id}/delete", id = item.id))
                                             {
-                                                div .aspect-square .flex .w-full .h-full {
-                                                    a href = (format!("/inventory/item/{id}/delete", id = item.id)) ."m-auto"
-                                                    {
-                                                        button {
-                                                            span ."mdi" ."mdi-delete" ."text-xl" {}
-                                                        }
-                                                    }
-                                                }
+                                                span ."m-auto" ."mdi" ."mdi-delete" ."text-xl";
+                                            }
                                         }
                                     }
                                 }

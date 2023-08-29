@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use sqlx::{
     database::Database,
     database::HasValueRef,
@@ -90,14 +91,60 @@ impl fmt::Display for TripState {
 pub struct Trip {
     pub id: Uuid,
     pub name: String,
-    pub start_date: time::Date,
-    pub end_date: time::Date,
+    pub date_start: time::Date,
+    pub date_end: time::Date,
     pub state: TripState,
     pub location: String,
     pub temp_min: i32,
     pub temp_max: i32,
+    pub comment: Option<String>,
     types: Option<Vec<TripType>>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum TripAttribute {
+    #[serde(rename = "date_start")]
+    DateStart,
+    #[serde(rename = "date_end")]
+    DateEnd,
+    #[serde(rename = "location")]
+    Location,
+    #[serde(rename = "temp_min")]
+    TempMin,
+    #[serde(rename = "temp_max")]
+    TempMax,
+}
+
+// impl std::convert::Into<&'static str> for TripAttribute {
+//     fn into(self) -> &'static str {
+//         match self {
+//             Self::DateStart => "date_start",
+//             Self::DateEnd => "date_end",
+//             Self::Location => "location",
+//             Self::TempMin => "temp_min",
+//             Self::TempMax => "temp_max",
+//         }
+//     }
+// }
+
+// impl std::convert::TryFrom<&str> for TripAttribute {
+//     type Error = Error;
+
+//     fn try_from(value: &str) -> Result<Self, Error> {
+//         Ok(match value {
+//             "date_start" => Self::DateStart,
+//             "date_end" => Self::DateEnd,
+//             "location" => Self::Location,
+//             "temp_min" => Self::TempMin,
+//             "temp_max" => Self::TempMax,
+//             _ => {
+//                 return Err(Error::UnknownAttributeValue {
+//                     attribute: value.to_string(),
+//                 })
+//             }
+//         })
+//     }
+// }
 
 impl TryFrom<SqliteRow> for Trip {
     type Error = Error;
@@ -105,24 +152,26 @@ impl TryFrom<SqliteRow> for Trip {
     fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
         let name: &str = row.try_get("name")?;
         let id: &str = row.try_get("id")?;
-        let start_date: time::Date = row.try_get("start_date")?;
-        let end_date: time::Date = row.try_get("end_date")?;
+        let date_start: time::Date = row.try_get("date_start")?;
+        let date_end: time::Date = row.try_get("date_end")?;
         let state: TripState = row.try_get("state")?;
         let location = row.try_get("location")?;
         let temp_min = row.try_get("temp_min")?;
         let temp_max = row.try_get("temp_max")?;
+        let comment = row.try_get("comment")?;
 
         let id: Uuid = Uuid::try_parse(id)?;
 
         Ok(Trip {
             id,
             name: name.to_string(),
-            start_date,
-            end_date,
+            date_start,
+            date_end,
             state,
             location,
             temp_min,
             temp_max,
+            comment,
             types: None,
         })
     }

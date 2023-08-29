@@ -9,6 +9,8 @@ use axum::{
     Form, Router,
 };
 
+use serde_variant::to_variant_name;
+
 use sqlx::{
     error::DatabaseError,
     query,
@@ -42,6 +44,7 @@ pub struct AppState {
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
+    pub trip_edit_attribute: Option<TripAttribute>,
 }
 
 impl ClientState {
@@ -49,6 +52,7 @@ impl ClientState {
         ClientState {
             active_category_id: None,
             edit_item: None,
+            trip_edit_attribute: None,
         }
     }
 }
@@ -86,8 +90,13 @@ async fn main() -> Result<(), sqlx::Error> {
         .route("/trips/", get(trips))
         .route("/trip/", post(trip_create))
         .route("/trip/:id/", get(trip))
+        .route("/trip/:id/comment/submit", post(trip_comment_set))
         .route("/trip/:id/type/:id/add", get(trip_type_add))
         .route("/trip/:id/type/:id/remove", get(trip_type_remove))
+        .route(
+            "/trip/:id/edit/:attribute/submit",
+            post(trip_edit_attribute),
+        )
         .route("/inventory/", get(inventory_inactive))
         .route("/inventory/item/", post(inventory_item_create))
         .route("/inventory/category/:id/", get(inventory_active))
@@ -408,9 +417,9 @@ struct NewTrip {
     #[serde(rename = "new-trip-name")]
     name: String,
     #[serde(rename = "new-trip-start-date")]
-    start_date: time::Date,
+    date_start: time::Date,
     #[serde(rename = "new-trip-end-date")]
-    end_date: time::Date,
+    date_end: time::Date,
 }
 
 async fn trip_create(
@@ -420,14 +429,14 @@ async fn trip_create(
     let id = Uuid::new_v4();
     query(
         "INSERT INTO trips
-            (id, name, start_date, end_date)
+            (id, name, date_start, date_end)
         VALUES
             (?, ?, ?, ?)",
     )
     .bind(id.to_string())
     .bind(&new_trip.name)
-    .bind(new_trip.start_date)
-    .bind(new_trip.end_date)
+    .bind(new_trip.date_start)
+    .bind(new_trip.date_end)
     .execute(&state.database_pool)
     .await
     .map_err(|e| match e {
@@ -499,12 +508,20 @@ async fn trips(
     ))
 }
 
+#[derive(Debug, Deserialize)]
+struct TripQuery {
+    edit: Option<TripAttribute>,
+}
+
 async fn trip(
     Path(id): Path<Uuid>,
-    State(state): State<AppState>,
+    State(mut state): State<AppState>,
+    Query(trip_query): Query<TripQuery>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    state.client_state.trip_edit_attribute = trip_query.edit;
+
     let mut trip: models::Trip =
-        query("SELECT id,name,start_date,end_date,state,location,temp_min,temp_max FROM trips WHERE id = ?")
+        query("SELECT id,name,date_start,date_end,state,location,temp_min,temp_max,comment FROM trips WHERE id = ?")
             .bind(id.to_string())
             .fetch_one(&state.database_pool)
             .map_ok(std::convert::TryInto::try_into)
@@ -529,7 +546,10 @@ async fn trip(
 
     Ok((
         StatusCode::OK,
-        Root::build(components::Trip::build(&trip), &TopLevelPage::Trips),
+        Root::build(
+            components::Trip::build(&state.client_state, &trip),
+            &TopLevelPage::Trips,
+        ),
     ))
 }
 
@@ -620,4 +640,69 @@ async fn trip_type_add(
     })?;
 
     Ok(Redirect::to(&format!("/trip/{trip_id}/")))
+}
+
+#[derive(Deserialize)]
+struct CommentUpdate {
+    #[serde(rename = "new-comment")]
+    new_comment: String,
+}
+
+async fn trip_comment_set(
+    Path(trip_id): Path<Uuid>,
+    State(state): State<AppState>,
+    Form(comment_update): Form<CommentUpdate>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    let result = query(
+        "UPDATE trips
+        SET comment = ?
+        WHERE id = ?",
+    )
+    .bind(comment_update.new_comment)
+    .bind(trip_id.to_string())
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+
+    if result.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
+        ))
+    } else {
+        Ok(Redirect::to(&format!("/trip/{id}/", id = trip_id)))
+    }
+}
+
+#[derive(Deserialize)]
+struct TripUpdate {
+    #[serde(rename = "new-value")]
+    new_value: String,
+}
+
+async fn trip_edit_attribute(
+    Path((trip_id, attribute)): Path<(Uuid, TripAttribute)>,
+    State(state): State<AppState>,
+    Form(trip_update): Form<TripUpdate>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    let result = query(&format!(
+        "UPDATE trips
+        SET {attribute} = ?
+        WHERE id = ?",
+        attribute = to_variant_name(&attribute).unwrap()
+    ))
+    .bind(trip_update.new_value)
+    .bind(trip_id.to_string())
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+
+    if result.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
+        ))
+    } else {
+        Ok(Redirect::to(&format!("/trips/")))
+    }
 }
