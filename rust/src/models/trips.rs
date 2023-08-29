@@ -13,11 +13,29 @@ use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
 
-macro_rules! build_state_query {
-    () => {
-        println!("hi")
-    };
-}
+// #[macro_use]
+// mod macros {
+//     macro_rules! build_state_query {
+//         ($pool:expr, $state_name:literal, $value:expr, $trip_id:expr, $item_id:expr, $user_id:expr) => {
+//             crate::execute!(
+//                 &sqlite::QueryClassification {
+//                     query_type: sqlite::QueryType::Update,
+//                     component: sqlite::Component::Trips,
+//                 },
+//                 $pool,
+//                 ["UPDATE trips_items SET pick = ?
+//                 WHERE trip_id = ?
+//                 AND item_id = ?
+//                 AND user_id = "
+//                     ,"?"]
+//                 $value,
+//                 $trip_id,
+//                 $item_id,
+//                 $user_id
+//             )
+//         };
+//     }
+// }
 
 #[derive(sqlite::Type, PartialEq, PartialOrd, Deserialize, Debug)]
 pub enum TripState {
@@ -384,11 +402,11 @@ impl TripItem {
                 crate::execute!(
                     &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Inventory,
+                        component: sqlite::Component::Trips,
                     },
                     pool,
                     "UPDATE trips_items
-                        SET pick = ?
+                        SET " => "pick" => "= ?
                         WHERE trip_id = ?
                         AND item_id = ?
                         AND user_id = ?",
@@ -403,7 +421,7 @@ impl TripItem {
                 crate::execute!(
                     &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Inventory,
+                        component: sqlite::Component::Trips,
                     },
                     pool,
                     "UPDATE trips_items
@@ -422,7 +440,7 @@ impl TripItem {
                 crate::execute!(
                     &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Inventory,
+                        component: sqlite::Component::Trips,
                     },
                     pool,
                     "UPDATE trips_items

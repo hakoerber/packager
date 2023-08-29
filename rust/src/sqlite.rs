@@ -138,6 +138,30 @@ pub fn sqlx_query(
     metrics::counter!("packager_database_queries_total", 1, &labels);
 }
 
+// This does not work, as the query*! macros expect a string literal for the query, so
+// it has to be there at compile time
+//
+// fn query_all<Row, Out>(
+//     classification: &QueryClassification,
+//     pool: &Pool,
+//     query: &'static str,
+//     args: &[&str],
+// ) {
+//     async {
+//         sqlx_query(classification, query, &[]);
+//         let result: Result<Vec<Out>, Error> = sqlx::query_as!(Row, query, args)
+//             .fetch(pool)
+//             .map_ok(|row: Row| row.try_into())
+//             .try_collect::<Vec<Result<Out, Error>>>()
+//             .await?
+//             .into_iter()
+//             .collect::<Result<Vec<Out>, Error>>();
+
+//         result
+//     }
+//     .instrument(tracing::info_span!("packager::sql::query", "query"))
+// }
+
 #[macro_export]
 macro_rules! query_all {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
@@ -211,6 +235,13 @@ macro_rules! query_exists {
 }
 
 #[macro_export]
+macro_rules! strip_plus {
+    (+ $($rest:tt)*) => {
+        $($rest)*
+    }
+}
+
+#[macro_export]
 macro_rules! execute {
     ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
         {
@@ -219,6 +250,32 @@ macro_rules! execute {
                 $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
                     $query,
+                    $( $args )*
+                )
+                .execute($pool)
+                .await
+                .map_err(|e| e.into());
+
+                result
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+
+    ( $class:expr, $pool:expr, $( $query:expr )=>+, $( $args:tt )*) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                // $crate::sqlite::sqlx_query($class, $( $query )+ , &[]);
+                // println!("haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay: {}", $crate::strip_plus!($(+ $query )+));
+                let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
+                    // "x" + "y",
+                    $crate::strip_plus!($(+ $query )+),
+                    // "UPDATE trips_items
+                    //     SET " + "pick" +
+                    //                                                         "= ?
+                    //     WHERE trip_id = ?
+                    //     AND item_id = ?
+                    //     AND user_id = ?",
                     $( $args )*
                 )
                 .execute($pool)
