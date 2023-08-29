@@ -404,6 +404,72 @@
     },
     "query": "INSERT INTO trips\n            (id, name, date_start, date_end, state)\n        VALUES\n            (?, ?, ?, ?, ?)"
   },
+  "999fe09a6a095ac0ee7b3e3c38a6f2008641e03f9344f31bf9f8eb16a47403da": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "date_start",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "date_end",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "state",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "location",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "temp_min",
+          "ordinal": 6,
+          "type_info": "Int64"
+        },
+        {
+          "name": "temp_max",
+          "ordinal": 7,
+          "type_info": "Int64"
+        },
+        {
+          "name": "comment",
+          "ordinal": 8,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT\n                id,\n                name,\n                CAST (date_start AS TEXT) date_start,\n                CAST (date_end AS TEXT) date_end,\n                state,\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE id = ?"
+  },
   "a81bcbeb11260e3b4363e19c26b71b489e326b08bfacb6e11b4c4fc068dc7806": {
     "describe": {
       "columns": [
@@ -444,35 +510,23 @@
     },
     "query": "DELETE FROM inventory_items\n        WHERE id = ?"
   },
-  "cc1ad49669cff7f89975abfab3d0a8caef2e3978c826e1877db91c05a7f9d00d": {
+  "cc70d7a392a0283fec1896acba805f5c2a527537b8faa22d1c69306017b9c465": {
     "describe": {
       "columns": [
         {
-          "name": "id",
+          "name": "total_weight",
           "ordinal": 0,
-          "type_info": "Text"
-        },
-        {
-          "name": "name",
-          "ordinal": 1,
-          "type_info": "Text"
-        },
-        {
-          "name": "description",
-          "ordinal": 2,
-          "type_info": "Text"
+          "type_info": "Int"
         }
       ],
       "nullable": [
-        false,
-        false,
         true
       ],
       "parameters": {
         "Right": 1
       }
     },
-    "query": "SELECT\n                id,\n                name,\n                description\n            FROM inventory_items_categories AS category\n            WHERE category.id = ?"
+    "query": "\n                SELECT\n                    CAST(IFNULL(SUM(i_item.weight), 0) AS INTEGER) AS total_weight\n                FROM trips AS trip\n                INNER JOIN trips_items AS t_item\n                    ON t_item.trip_id = trip.id\n                INNER JOIN inventory_items AS i_item\n                    ON t_item.item_id = i_item.id\n                WHERE\n                    trip.id = ?\n                AND t_item.pick = true\n            "
   },
   "d0562ad92782a6ad6080c0535749c4a0a28fa78a17698933bce670db057e2628": {
     "describe": {

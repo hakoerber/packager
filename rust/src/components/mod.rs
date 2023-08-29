@@ -33,7 +33,6 @@ impl Root {
                     meta name="htmx-config" content=r#"{"useTemplateFragments":true}"# {}
                 }
                 body
-                    hx-boost="true"
                 {
                     header
                         #header

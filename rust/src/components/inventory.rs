@@ -8,37 +8,36 @@ use uuid::{uuid, Uuid};
 pub struct Inventory;
 
 impl Inventory {
-    pub fn build(state: ClientState, categories: Vec<Category>) -> Result<Markup, Error> {
-        let doc = html!(
+    pub fn build(
+        active_category: Option<&Category>,
+        categories: &Vec<Category>,
+        edit_item_id: Option<Uuid>,
+    ) -> Markup {
+        html!(
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-5" {
                     div ."col-span-2" ."flex" ."flex-col" ."gap-8" {
                         h1 ."text-2xl" ."text-center" { "Categories" }
-                        (InventoryCategoryList::build(&state, &categories))
+                        (InventoryCategoryList::build(active_category, categories))
                         (InventoryNewCategoryForm::build())
                     }
                     div ."col-span-2" ."flex" ."flex-col" ."gap-8" {
                         h1 ."text-2xl" ."text-center" { "Items" }
-                        @if let Some(active_category_id) = state.active_category_id {
-                            (InventoryItemList::build(&state, categories.iter().find(|category| category.id == active_category_id)
-                                                      .ok_or(Error::NotFound{ description: format!("no category with id {}", active_category_id) })?
-                                                      .items())
-                             )
+                        @if let Some(active_category) = active_category {
+                            (InventoryItemList::build(edit_item_id, active_category.items()))
                         }
-                        (InventoryNewItemForm::build(&state, &categories))
+                        (InventoryNewItemForm::build(active_category, &categories))
                     }
                 }
             }
-        );
-
-        Ok(doc)
+        )
     }
 }
 
 pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
-    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
+    pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
         let biggest_category_weight: i64 = categories
             .iter()
             .map(Category::total_weight)
@@ -68,10 +67,10 @@ impl InventoryCategoryList {
                 }
                 tbody {
                     @for category in categories {
-                        @let active = state.active_category_id.map_or(false, |id| category.id == id);
+                        @let active = active_category.map_or(false, |c| category.id == c.id);
                         tr
                             ."h-10"
-                            ."hover:bg-purple-100"
+                            ."hover:bg-gray-100"
                             ."m-3"
                             ."h-full"
                             ."outline"[active]
@@ -81,7 +80,7 @@ impl InventoryCategoryList {
                         {
 
                             td
-                                class=@if state.active_category_id.map_or(false, |id| category.id == id) {
+                                class=@if active_category.map_or(false, |c| category.id == c.id) {
                                     "border p-0 m-0 font-bold"
                                 } @else {
                                     "border p-0 m-0"
@@ -125,7 +124,7 @@ impl InventoryCategoryList {
                             }
                         }
                     }
-                    tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
+                    tr ."h-10" ."bg-gray-300" ."font-bold" {
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" { "Sum" }
                         }
@@ -144,18 +143,18 @@ impl InventoryCategoryList {
 pub struct InventoryItemList;
 
 impl InventoryItemList {
-    pub fn build(state: &ClientState, items: &Vec<Item>) -> Markup {
+    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         html!(
             div #items {
                 @if items.is_empty() {
                     p ."text-lg" ."text-center" ."py-5" ."text-gray-400" { "[Empty]" }
                 } @else {
-                    @if let Some(edit_item) = state.edit_item {
+                    @if let Some(edit_item_id) = edit_item_id {
                         form
                             name="edit-item"
                             id="edit-item"
-                            action=(format!("/inventory/item/{edit_item}/edit"))
+                            action={"/inventory/item/" (edit_item_id) "/edit"}
                             target="_self"
                             method="post"
                         {}
@@ -163,7 +162,7 @@ impl InventoryItemList {
                     table
                         ."table"
                         ."table-auto"
-                        .table-fixed
+                        ."table-fixed"
                         ."border-collapse"
                         ."border-spacing-0"
                         ."border"
@@ -179,7 +178,7 @@ impl InventoryItemList {
                         }
                         tbody {
                             @for item in items {
-                                @if state.edit_item.map_or(false, |edit_item| edit_item == item.id) {
+                                @if edit_item_id.map_or(false, |id| id == item.id) {
                                     tr ."h-10" {
                                         td ."border" ."bg-blue-300" ."px-2" ."py-0" {
                                             div ."h-full" ."w-full" ."flex" {
@@ -251,7 +250,7 @@ impl InventoryItemList {
                                         }
                                     }
                                 } @else {
-                                    tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" {
+                                    tr ."h-10" {
                                         td ."border" ."p-0" {
                                             a
                                                 ."p-2" ."w-full" ."inline-block"
@@ -321,6 +320,17 @@ pub struct InventoryNewItemFormName;
 impl InventoryNewItemFormName {
     pub fn build(value: Option<&str>, error: bool) -> Markup {
         html!(
+            script {
+                (PreEscaped("
+                function inventory_new_item_check_input() {
+                    return document.getElementById('new-item-name').value.length != 0
+                    && is_positive_integer(document.getElementById('new-item-weight').value)
+                }
+                function check_weight() {
+                    return document.getElementById('new-item-weight').validity.valid;
+                }
+                "))
+            }
             div
                 ."grid"
                 ."grid-cols-[2fr,3fr]"
@@ -328,7 +338,7 @@ impl InventoryNewItemFormName {
                 ."items-center"
                 hx-post="/inventory/item/name/validate"
                 hx-trigger="input delay:1s, loaded from:document"
-
+                hx-target="this"
                 hx-params="new-item-name"
                 hx-swap="outerHTML"
                 #abc
@@ -349,7 +359,7 @@ impl InventoryNewItemFormName {
                     ."rounded"
                     ."focus:outline-none"
                     ."focus:bg-white"
-                    ."focus:border-purple-500"[!error]
+                    ."focus:border-gray-500"[!error]
                     value=[value]
                 {}
                 @if error {
@@ -369,6 +379,17 @@ pub struct InventoryNewItemFormWeight;
 impl InventoryNewItemFormWeight {
     pub fn build() -> Markup {
         html!(
+            script {
+                (PreEscaped("
+                function inventory_new_item_check_input() {
+                    return document.getElementById('new-item-name').value.length != 0
+                    && is_positive_integer(document.getElementById('new-item-weight').value)
+                }
+                function check_weight() {
+                    return document.getElementById('new-item-weight').validity.valid;
+                }
+                "))
+            }
             div
                 ."grid"
                 ."grid-cols-[2fr,3fr]"
@@ -385,7 +406,7 @@ impl InventoryNewItemFormWeight {
                         save_active = inventory_new_item_check_input();
                         weight_error = !check_weight();
                     }"
-                    x-bind:class="weight_error && 'border-red-500' || 'border-gray-300 focus:border-purple-500'"
+                    x-bind:class="weight_error && 'border-red-500' || 'border-gray-300 focus:border-gray-500'"
                     ."block"
                     ."w-full"
                     ."p-2"
@@ -410,7 +431,7 @@ impl InventoryNewItemFormWeight {
 pub struct InventoryNewItemFormCategory;
 
 impl InventoryNewItemFormCategory {
-    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
+    pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
         html!(
             div
                 ."grid"
@@ -431,11 +452,11 @@ impl InventoryNewItemFormCategory {
                         ."rounded"
                         ."focus:outline-none"
                         ."focus:bg-white"
-                        ."focus:border-purple-500"
+                        ."focus:border-gray-500"
                         autocomplete="off" // https://stackoverflow.com/a/10096033
                     {
                     @for category in categories {
-                        option value=(category.id) selected[state.active_category_id.map_or(false, |id| id == category.id)] {
+                        option value=(category.id) selected[active_category.map_or(false, |c| c.id == category.id)] {
                             (category.name)
                         }
                     }
@@ -448,7 +469,7 @@ impl InventoryNewItemFormCategory {
 pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
-    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
+    pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
         html!(
             script {
                 (PreEscaped("
@@ -467,6 +488,9 @@ impl InventoryNewItemForm {
                     weight_error: !check_weight(),
                 }"
                 name="new-item"
+                hx-post="/inventory/item/"
+                hx-swap="outerHTML"
+                hx-target="#pkglist-item-manager"
                 id="new-item"
                 action="/inventory/item/"
                 target="_self"
@@ -479,7 +503,7 @@ impl InventoryNewItemForm {
                 div ."w-11/12" ."mx-auto" ."flex" ."flex-col" ."gap-8" {
                     (InventoryNewItemFormName::build(None, false))
                     (InventoryNewItemFormWeight::build())
-                    (InventoryNewItemFormCategory::build(state, categories))
+                    (InventoryNewItemFormCategory::build(active_category, categories))
                     input type="submit" value="Add"
                         x-bind:disabled="!save_active"
                         ."enabled:cursor-pointer"
@@ -530,7 +554,7 @@ impl InventoryNewCategoryForm {
                                     ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
-                                    ."focus:border-purple-500"
+                                    ."focus:border-gray-500"
                                     {
                                     }
                             }
@@ -568,19 +592,19 @@ impl InventoryItem {
                     ."w-full"
                 {
                     tbody {
-                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             td ."border" ."p-2" { "Name" }
                             td ."border" ."p-2" { (item.name) }
                         }
-                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             td ."border" ."p-2" { "Description" }
                             td ."border" ."p-2" { (item.description.clone().unwrap_or("".to_string())) }
                         }
-                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             td ."border" ."p-2" { "Weight" }
                             td ."border" ."p-2" { (item.weight.to_string()) }
                         }
-                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             td ."border" ."p-2" { "Category" }
                             td ."border" ."p-2" { (item.category.name) }
                         }

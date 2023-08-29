@@ -1,5 +1,5 @@
-use crate::models;
 use crate::models::*;
+use crate::{models, HtmxEvents};
 
 use maud::{html, Markup, PreEscaped};
 use uuid::Uuid;
@@ -15,7 +15,13 @@ pub use types::*;
 impl TripManager {
     pub fn build(trips: Vec<models::Trip>) -> Markup {
         html!(
-            div ."p-8" {
+            div
+                ."p-8"
+                ."flex"
+                ."flex-col"
+                ."gap-8"
+            {
+                h1 ."text-2xl" {"Trips"}
                 (TripTable::build(trips))
                 (NewTrip::build())
             }
@@ -55,7 +61,6 @@ pub struct TripTable;
 impl TripTable {
     pub fn build(trips: Vec<models::Trip>) -> Markup {
         html!(
-            h1 ."text-2xl" ."mb-5" {"Trips"}
             table
                 ."table"
                 ."table-auto"
@@ -75,7 +80,7 @@ impl TripTable {
                 }
                 tbody {
                     @for trip in trips {
-                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             (TripTableRow::build(trip.id, &trip.name))
                             (TripTableRow::build(trip.id, trip.date_start.to_string()))
                             (TripTableRow::build(trip.id, trip.date_end.to_string()))
@@ -118,7 +123,7 @@ impl NewTrip {
                 action="/trips/"
                 target="_self"
                 method="post"
-                ."mt-8" ."p-5" ."border-2" ."border-gray-200"
+                ."p-5" ."border-2" ."border-gray-200"
             {
                 div ."mb-5" ."flex" ."flex-row" ."trips-center" {
                     span ."mdi" ."mdi-playlist-plus" ."text-2xl" ."mr-4" {}
@@ -210,83 +215,110 @@ impl NewTrip {
 pub struct Trip;
 
 impl Trip {
-    pub fn build(state: &ClientState, trip: &models::Trip) -> Result<Markup, Error> {
-        Ok(html!(
+    pub fn build(
+        trip: &models::Trip,
+        trip_edit_attribute: Option<TripAttribute>,
+        active_category: Option<&TripCategory>,
+    ) -> Markup {
+        html!(
             div ."p-8" ."flex" ."flex-col" ."gap-8" {
-                div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                    @if state.trip_edit_attribute.as_ref().map_or(false, |a| *a == TripAttribute::Name) {
-                        form
-                            id="edit-trip"
-                            action=(format!("edit/{}/submit", to_variant_name(&TripAttribute::Name).unwrap()))
-                            target="_self"
-                            method="post"
+                div
+                    ."flex"
+                    ."flex-row"
+                    ."items-stretch"
+                    ."gap-x-5"
+                {
+                    a
+                        href="/trips/"
+                        ."text-sm"
+                        ."text-gray-500"
+                        ."flex"
+                    {
+                        div
+                            ."m-auto"
                         {
-                            div
-                                ."flex"
-                                ."flex-row"
-                                ."items-center"
-                                ."gap-x-3"
-                                ."items-stretch"
+                            span
+                                ."mdi"
+                                ."mdi-arrow-left"
+                            {}
+                            "back"
+                        }
+                    }
+                    div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
+                        @if trip_edit_attribute.as_ref().map_or(false, |a| *a == TripAttribute::Name) {
+                            form
+                                id="edit-trip"
+                                action=(format!("edit/{}/submit", to_variant_name(&TripAttribute::Name).unwrap()))
+                                target="_self"
+                                method="post"
                             {
-                                input
-                                    ."bg-blue-200"
-                                    ."w-full"
-                                    ."text-2xl"
-                                    ."font-semibold"
-                                    type=(<InputType as Into<&'static str>>::into(InputType::Text))
-                                    name="new-value"
-                                    form="edit-trip"
-                                    value=(trip.name)
-                                {}
-                                a
-                                    href="."
-                                    ."bg-red-200"
-                                    ."hover:bg-red-300"
-                                    ."w-8"
+                                div
                                     ."flex"
+                                    ."flex-row"
+                                    ."items-center"
+                                    ."gap-x-3"
+                                    ."items-stretch"
                                 {
-                                    span
-                                        ."mdi"
-                                        ."mdi-cancel"
-                                        ."text-xl"
-                                        ."m-auto"
+                                    input
+                                        ."bg-blue-200"
+                                        ."w-full"
+                                        ."text-2xl"
+                                        ."font-semibold"
+                                        type=(<InputType as Into<&'static str>>::into(InputType::Text))
+                                        name="new-value"
+                                        form="edit-trip"
+                                        value=(trip.name)
                                     {}
-                                }
-                                button
-                                    type="submit"
-                                    form="edit-trip"
-                                    ."bg-green-200"
-                                    ."hover:bg-green-300"
-                                    ."w-8"
-                                {
-                                    span
-                                        ."mdi"
-                                        ."mdi-content-save"
-                                        ."text-xl"
-                                    {}
+                                    a
+                                        href="."
+                                        ."bg-red-200"
+                                        ."hover:bg-red-300"
+                                        ."w-8"
+                                        ."flex"
+                                    {
+                                        span
+                                            ."mdi"
+                                            ."mdi-cancel"
+                                            ."text-xl"
+                                            ."m-auto"
+                                        {}
+                                    }
+                                    button
+                                        type="submit"
+                                        form="edit-trip"
+                                        ."bg-green-200"
+                                        ."hover:bg-green-300"
+                                        ."w-8"
+                                    {
+                                        span
+                                            ."mdi"
+                                            ."mdi-content-save"
+                                            ."text-xl"
+                                        {}
+                                    }
                                 }
                             }
-                        }
-                    } @else {
-                        h1 ."text-2xl" ."font-semibold"{ (trip.name) }
-                        span {
-                            a href=(format!("?edit={}", to_variant_name(&TripAttribute::Name).unwrap()))
-                            {
-                                span
-                                    ."mdi"
-                                    ."mdi-pencil"
-                                    ."text-xl"
-                                    ."opacity-50"
-                                {}
+                        } @else {
+                            h1 ."text-2xl" { (trip.name) }
+                            span {
+                                a href=(format!("?edit={}", to_variant_name(&TripAttribute::Name).unwrap()))
+                                {
+                                    span
+                                        ."mdi"
+                                        ."mdi-pencil"
+                                        ."text-xl"
+                                        ."opacity-50"
+                                    {}
+                                }
                             }
                         }
                     }
                 }
-                (TripInfo::build(state, trip))
+                (TripInfo::build(trip_edit_attribute, trip))
                 (TripComment::build(trip))
-                (TripItems::build(state, trip)?)
+                (TripItems::build(active_category, trip))
             }
-        ))
+        )
     }
 }
 
@@ -299,7 +331,6 @@ impl TripInfoRow {
         attribute_key: &TripAttribute,
         edit_attribute: Option<&TripAttribute>,
         input_type: InputType,
-        has_two_columns: bool,
     ) -> Markup {
         let edit = edit_attribute.map_or(false, |a| a == attribute_key);
         html!(
@@ -327,58 +358,66 @@ impl TripInfoRow {
                         }
                     }
                     td
-                        ."border-none"
-                        ."bg-red-100"
-                        ."hover:bg-red-200"
+                        ."border"
+                        ."border-solid"
+                        ."border-gray-300"
                         ."p-0"
                         ."h-full"
-                        ."w-8"
                     {
-                        a
-                            ."aspect-square"
+                        div
                             ."flex"
-                            ."w-full"
+                            ."flex-row"
+                            ."items-stretch"
                             ."h-full"
-                            ."p-0"
-                            href="." // strips query parameters
                         {
-                            span
-                                ."m-auto"
-                                ."mdi"
-                                ."mdi-cancel"
-                                ."text-xl"
-                            {}
-                        }
-                    }
-                    td
-                        ."border-none"
-                        ."bg-green-100"
-                        ."hover:bg-green-200"
-                        ."p-0"
-                        ."h-full"
-                        ."w-8"
-                    {
-                        button
-                            ."aspect-square"
-                            ."flex"
-                            ."w-full"
-                            ."h-full"
-                            type="submit"
-                            form="edit-trip"
-                        {
-                            span
-                                ."m-auto"
-                                ."mdi"
-                                ."mdi-content-save"
-                                ."text-xl"
-                            {}
+                            div
+                                ."bg-red-100"
+                                ."hover:bg-red-200"
+                                ."w-8"
+                                ."h-full"
+                            {
+                                a
+                                    ."flex"
+                                    ."w-full"
+                                    ."h-full"
+                                    ."p-0"
+                                    href="." // strips query parameters
+                                {
+                                    span
+                                        ."m-auto"
+                                        ."mdi"
+                                        ."mdi-cancel"
+                                        ."text-xl"
+                                    {}
+                                }
+                            }
+                            div
+                                ."bg-green-100"
+                                ."hover:bg-green-200"
+                                ."w-8"
+                                ."h-full"
+                            {
+                                button
+                                    ."flex"
+                                    ."w-full"
+                                    ."h-full"
+                                    type="submit"
+                                    form="edit-trip"
+                                {
+                                    span
+                                        ."m-auto"
+                                        ."mdi"
+                                        ."mdi-content-save"
+                                        ."text-xl"
+                                    {}
+                                }
+                            }
                         }
                     }
                 } @else {
                     td ."border" ."p-2" { (name) }
                     td ."border" ."p-2" { (value.map_or(String::new(), |v| v.to_string())) }
                     td
-                        colspan=(if has_two_columns {"2"} else {"1"})
                         ."border-none"
                         ."bg-blue-100"
                         ."hover:bg-blue-200"
@@ -406,79 +445,64 @@ impl TripInfoRow {
     }
 }
 
-pub struct TripInfo;
+pub struct TripInfoTotalWeightRow;
 
-impl TripInfo {
-    pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
-        let has_two_columns =
-            state.trip_edit_attribute.is_some() || !(trip.state.is_first() || trip.state.is_last());
+impl TripInfoTotalWeightRow {
+    pub fn build(trip_id: Uuid, value: i64) -> Markup {
         html!(
-            table
-                ."table"
-                ."table-auto"
-                ."border-collapse"
-                ."border-spacing-0"
-                ."border"
-                ."w-full"
+            span
+                hx-trigger={
+                    (HtmxEvents::TripItemEdited.to_str()) " from:body"
+                }
+                hx-get={"/trips/" (trip_id) "/total_weight"}
             {
-                tbody {
-                    (TripInfoRow::build("Location",
-                        trip.location.as_ref(),
-                        &TripAttribute::Location,
-                        state.trip_edit_attribute.as_ref(),
-                        InputType::Text,
-                        has_two_columns
-                    ))
-                    (TripInfoRow::build("Start date",
-                        Some(trip.date_start),
-                        &TripAttribute::DateStart,
-                        state.trip_edit_attribute.as_ref(),
-                        InputType::Date,
-                        has_two_columns
-                    ))
-                    (TripInfoRow::build("End date",
-                        Some(trip.date_end),
-                        &TripAttribute::DateEnd,
-                        state.trip_edit_attribute.as_ref(),
-                        InputType::Date,
-                        has_two_columns
-                    ))
-                    (TripInfoRow::build("Temp (min)",
-                        trip.temp_min,
-                        &TripAttribute::TempMin,
-                        state.trip_edit_attribute.as_ref(),
-                        InputType::Number,
-                        has_two_columns
-                    ))
-                    (TripInfoRow::build("Temp (max)",
-                        trip.temp_max,
-                        &TripAttribute::TempMax,
-                        state.trip_edit_attribute.as_ref(),
-                        InputType::Number,
-                        has_two_columns
-                    ))
-                    tr .h-full {
-                        td ."border" ."p-2" { "State" }
-                        td ."border" {
-                            span .flex .flex-row .items-center .justify-start ."gap-2" {
-                                span ."mdi" .(trip_state_icon(&trip.state)) ."text-2xl" ."pl-2" {}
-                                span ."pr-2" ."py-2" { (trip.state) }
-                            }
-                        }
-                        @let prev_state = trip.state.prev();
-                        @let next_state = trip.state.next();
+                (value)
+            }
+        )
+    }
+}
 
+pub struct TripInfoStateRow;
+
+impl TripInfoStateRow {
+    pub fn build(trip_state: &models::TripState) -> Markup {
+        let prev_state = trip_state.prev();
+        let next_state = trip_state.next();
+        html!(
+            tr .h-full {
+                td ."border" ."p-2" { "State" }
+                td ."border" {
+                    span .flex .flex-row .items-center .justify-start ."gap-2" {
+                        span ."mdi" .(trip_state_icon(&trip_state)) ."text-2xl" ."pl-2" {}
+                        span ."pr-2" ."py-2" { (trip_state) }
+                    }
+                }
+
+                td
+                    ."border-none"
+                    ."p-0"
+                    ."w-8"
+                    ."h-full"
+                {
+                    div
+                        ."h-full"
+                        ."flex"
+                        ."flex-row"
+                        ."items-stretch"
+                        ."justify-stretch"
+                    {
                         @if let Some(ref prev_state) = prev_state {
-                            td
-                                colspan=(if next_state.is_none() && has_two_columns { "2" } else { "1" })
-                                ."border-none"
+                            div
+                                ."w-8"
+                                ."grow"
+                                ."h-full"
                                 ."bg-yellow-100"
                                 ."hover:bg-yellow-200"
-                                ."p-0"
-                                ."w-8"
-                                ."h-full"
                             {
                                 form
+                                    hx-post={"./state/" (prev_state)}
+                                    hx-target="closest tr"
+                                    hx-swap="outerHTML"
                                     action={"./state/" (prev_state)}
                                     method="post"
                                     ."flex"
@@ -501,17 +525,18 @@ impl TripInfo {
                                 }
                             }
                         }
-                        @if let Some(ref next_state) = trip.state.next() {
-                            td
-                                colspan=(if prev_state.is_none() && has_two_columns { "2" } else { "1" })
-                                ."border-none"
+                        @if let Some(ref next_state) = next_state {
+                            div
+                                ."w-8"
+                                ."grow"
+                                ."h-full"
                                 ."bg-green-100"
                                 ."hover:bg-green-200"
-                                ."p-0"
-                                ."w-8"
-                                ."h-full"
                             {
                                 form
+                                    hx-post={"./state/" (next_state)}
+                                    hx-target="closest tr"
+                                    hx-swap="outerHTML"
                                     action={"./state/" (next_state)}
                                     method="post"
                                     ."flex"
@@ -535,9 +560,63 @@ impl TripInfo {
                             }
                         }
                     }
+                }
+            }
+        )
+    }
+}
+
+pub struct TripInfo;
+
+impl TripInfo {
+    pub fn build(trip_edit_attribute: Option<TripAttribute>, trip: &models::Trip) -> Markup {
+        html!(
+            table
+                ."table"
+                ."table-auto"
+                ."border-collapse"
+                ."border-spacing-0"
+                ."border"
+                ."w-full"
+            {
+                tbody {
+                    (TripInfoRow::build("Location",
+                        trip.location.as_ref(),
+                        &TripAttribute::Location,
+                        trip_edit_attribute.as_ref(),
+                        InputType::Text,
+                    ))
+                    (TripInfoRow::build("Start date",
+                        Some(trip.date_start),
+                        &TripAttribute::DateStart,
+                        trip_edit_attribute.as_ref(),
+                        InputType::Date,
+                    ))
+                    (TripInfoRow::build("End date",
+                        Some(trip.date_end),
+                        &TripAttribute::DateEnd,
+                        trip_edit_attribute.as_ref(),
+                        InputType::Date,
+                    ))
+                    (TripInfoRow::build("Temp (min)",
+                        trip.temp_min,
+                        &TripAttribute::TempMin,
+                        trip_edit_attribute.as_ref(),
+                        InputType::Number,
+                    ))
+                    (TripInfoRow::build("Temp (max)",
+                        trip.temp_max,
+                        &TripAttribute::TempMax,
+                        trip_edit_attribute.as_ref(),
+                        InputType::Number,
+                    ))
+                    (TripInfoStateRow::build(&trip.state))
                     tr .h-full {
                         td ."border" ."p-2" { "Types" }
-                        td ."border" {
+                        td
+                            colspan="2"
+                            ."border"
+                        {
                             div
                                 ."flex"
                                 ."flex-row"
@@ -636,9 +715,12 @@ impl TripInfo {
                     }
                     tr .h-full {
                         td ."border" ."p-2" { "Carried weight" }
-                        td ."border" ."p-2"
+                        td
+                            colspan="2"
+                            ."border"
+                            ."p-2"
                         {
-                            (trip.total_picked_weight())
+                            (TripInfoTotalWeightRow::build(trip.id, trip.total_picked_weight()))
                         }
                     }
                 }
@@ -704,38 +786,24 @@ impl TripComment {
 pub struct TripItems;
 
 impl TripItems {
-    pub fn build(state: &ClientState, trip: &models::Trip) -> Result<Markup, Error> {
-        Ok(html!(
-            div ."grid" ."grid-cols-4" ."gap-3" {
+    pub fn build(active_category: Option<&TripCategory>, trip: &models::Trip) -> Markup {
+        html!(
+            div #trip-items ."grid" ."grid-cols-4" ."gap-3" {
                 div ."col-span-2" {
-                    (TripCategoryList::build(state, trip))
+                    (TripCategoryList::build(active_category, trip))
                 }
                 div ."col-span-2" {
                     h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
-                    @if let Some(active_category_id) = state.active_category_id {
+                    @if let Some(active_category) = active_category {
                         (TripItemList::build(
-                            state,
-                            trip,
-                            trip
-                                .categories()
-                                .iter()
-                                .find(|category|
-                                    category.category.id == active_category_id
-                                )
-                                .ok_or(
-                                    Error::NotFound{
-                                        description: format!("no category with id {active_category_id}")
-                                    }
-                                )?
-                                .items
-                                .as_ref()
-                                .unwrap()
+                            trip.id,
+                            active_category.items.as_ref().unwrap()
                             )
                         )
                     }
                 }
             }
-        ))
+        )
     }
 }
 
@@ -743,6 +811,7 @@ pub struct TripCategoryListRow;
 
 impl TripCategoryListRow {
     pub fn build(
+        trip_id: Uuid,
         category: &TripCategory,
         active: bool,
         biggest_category_weight: i64,
@@ -754,19 +823,17 @@ impl TripCategoryListRow {
                 id={"category-" (category.category.id)}
                 hx-swap-oob=[htmx_swap.then_some("outerHTML")]
                 ."h-10"
-                ."hover:bg-purple-100"
+                ."hover:bg-gray-100"
                 ."m-3"
                 ."h-full"
                 ."outline"[active]
                 ."outline-2"[active]
                 ."outline-indigo-300"[active]
             {
-
                 td
 
                     ."border"
                     ."m-0"
-
                 {
                     div
                         ."p-0"
@@ -783,6 +850,13 @@ impl TripCategoryListRow {
                                     id=category.category.id
                                 )
                             )
+                            hx-post={
+                                "/trips/" (trip_id)
+                                "/categories/" (category.category.id)
+                                "/select"
+                            }
+                            hx-target="#trip-items"
+                            hx-swap="outerHTML"
                             ."inline-block"
                             ."p-2"
                             ."m-0"
@@ -833,7 +907,8 @@ impl TripCategoryListRow {
                                     * 100.0
                                 )
                             )
-                        ) {}
+                        )
+                    {}
                 }
             }
         )
@@ -843,7 +918,7 @@ impl TripCategoryListRow {
 pub struct TripCategoryList;
 
 impl TripCategoryList {
-    pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
+    pub fn build(active_category: Option<&TripCategory>, trip: &models::Trip) -> Markup {
         let categories = trip.categories();
 
         let biggest_category_weight: i64 = categories
@@ -874,10 +949,10 @@ impl TripCategoryList {
                 }
                 tbody {
                     @for category in trip.categories() {
-                        @let active = state.active_category_id.map_or(false, |id| category.category.id == id);
-                        (TripCategoryListRow::build(category, active, biggest_category_weight,false))
+                        @let active = active_category.map_or(false, |c| category.category.id == c.category.id);
+                        (TripCategoryListRow::build(trip.id, category, active, biggest_category_weight, false))
                     }
-                    tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
+                    tr ."h-10" ."bg-gray-300" ."font-bold" {
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" { "Sum" }
                         }
@@ -896,22 +971,13 @@ impl TripCategoryList {
 pub struct TripItemList;
 
 impl TripItemList {
-    pub fn build(state: &ClientState, trip: &models::Trip, items: &Vec<TripItem>) -> Markup {
+    pub fn build(trip_id: Uuid, items: &Vec<TripItem>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
         html!(
             @if items.is_empty() {
                 p ."text-lg" ."text-center" ."py-5" ."text-gray-400" { "[Empty]" }
             } @else {
-                @if let Some(edit_item) = state.edit_item {
-                    form
-                        name="edit-item"
-                        id="edit-item"
-                        action=(format!("/inventory/item/{edit_item}/edit"))
-                        target="_self"
-                        method="post"
-                    {}
-                }
                 table
                     ."table"
                     ."table-auto"
@@ -931,7 +997,7 @@ impl TripItemList {
                     }
                     tbody {
                         @for item in items {
-                            (TripItemListRow::build(trip.id, item, biggest_item_weight))
+                            (TripItemListRow::build(trip_id, item, biggest_item_weight))
                         }
                     }
                 }

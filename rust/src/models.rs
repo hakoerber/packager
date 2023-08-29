@@ -25,7 +25,6 @@ pub enum Error {
     Sql { description: String },
     Uuid { description: String },
     Enum { description: String },
-    NotFound { description: String },
     Int { description: String },
     TimeParse { description: String },
 }
@@ -38,9 +37,6 @@ impl fmt::Display for Error {
             }
             Self::Uuid { description } => {
                 write!(f, "UUID error: {description}")
-            }
-            Self::NotFound { description } => {
-                write!(f, "Not found: {description}")
             }
             Self::Int { description } => {
                 write!(f, "Integer error: {description}")
@@ -131,14 +127,6 @@ impl TripState {
             Self::Review => Some(Self::Active),
             Self::Done => Some(Self::Review),
         }
-    }
-
-    pub fn is_first(&self) -> bool {
-        self == &TripState::new()
-    }
-
-    pub fn is_last(&self) -> bool {
-        self == &TripState::Done
     }
 }
 
@@ -467,7 +455,79 @@ pub enum TripAttribute {
     TempMax,
 }
 
+pub struct DbTripWeightRow {
+    pub total_weight: Option<i32>,
+}
+
 impl<'a> Trip {
+    pub async fn find(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+    ) -> Result<Option<Self>, Error> {
+        let trip_id_param = trip_id.to_string();
+        let trip = sqlx::query_as!(
+            DbTripRow,
+            "SELECT
+                id,
+                name,
+                CAST (date_start AS TEXT) date_start,
+                CAST (date_end AS TEXT) date_end,
+                state,
+                location,
+                temp_min,
+                temp_max,
+                comment
+            FROM trips
+            WHERE id = ?",
+            trip_id_param
+        )
+        .fetch_one(pool)
+        .map_ok(|row| row.try_into())
+        .await;
+
+        match trip {
+            Err(e) => match e {
+                sqlx::Error::RowNotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+            Ok(v) => Ok(Some(v?)),
+        }
+    }
+
+    pub async fn find_total_picked_weight(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+    ) -> Result<Option<i64>, Error> {
+        let trip_id_param = trip_id.to_string();
+        let weight = sqlx::query_as!(
+            DbTripWeightRow,
+            "
+                SELECT
+                    CAST(IFNULL(SUM(i_item.weight), 0) AS INTEGER) AS total_weight
+                FROM trips AS trip
+                INNER JOIN trips_items AS t_item
+                    ON t_item.trip_id = trip.id
+                INNER JOIN inventory_items AS i_item
+                    ON t_item.item_id = i_item.id
+                WHERE
+                    trip.id = ?
+                AND t_item.pick = true
+            ",
+            trip_id_param
+        )
+        .fetch_one(pool)
+        .map_ok(|row| row.total_weight.map(|weight| weight as i64))
+        .await;
+
+        match weight {
+            Err(e) => match e {
+                sqlx::Error::RowNotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+            Ok(v) => Ok(v),
+        }
+    }
+
     pub fn types(&'a self) -> &Vec<TripType> {
         self.types
             .as_ref()
@@ -479,9 +539,7 @@ impl<'a> Trip {
             .as_ref()
             .expect("you need to call load_trips_types()")
     }
-}
 
-impl<'a> Trip {
     pub fn total_picked_weight(&self) -> i64 {
         self.categories()
             .iter()
@@ -1065,5 +1123,40 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
                 })
                 .transpose()?,
         })
+    }
+}
+
+pub struct Inventory {
+    pub categories: Vec<Category>,
+}
+
+impl Inventory {
+    pub async fn load(pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
+        let mut categories = sqlx::query_as!(
+            DbCategoryRow,
+            "SELECT id,name,description FROM inventory_items_categories"
+        )
+        .fetch(pool)
+        .map_ok(|row: DbCategoryRow| row.try_into())
+        .try_collect::<Vec<Result<Category, Error>>>()
+        .await
+        // we have two error handling lines here. these are distinct errors
+        // this one is the SQL error that may arise during the query
+        .map_err(|e| Error::Sql {
+            description: e.to_string(),
+        })?
+        .into_iter()
+        .collect::<Result<Vec<Category>, Error>>()
+        // and this one is the model mapping error that may arise e.g. during
+        // reading of the rows
+        .map_err(|e| Error::Sql {
+            description: e.to_string(),
+        })?;
+
+        for category in &mut categories {
+            category.populate_items(pool).await?;
+        }
+
+        Ok(Self { categories })
     }
 }
