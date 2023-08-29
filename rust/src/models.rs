@@ -229,18 +229,18 @@ impl<'a> Trip {
     pub fn types(&'a self) -> &Vec<TripType> {
         self.types
             .as_ref()
-            .expect("you need to call load_triptypes()")
+            .expect("you need to call load_trips_types()")
     }
 
     pub fn categories(&'a self) -> &Vec<TripCategory> {
         self.categories
             .as_ref()
-            .expect("you need to call load_triptypes()")
+            .expect("you need to call load_trips_types()")
     }
 }
 
 impl<'a> Trip {
-    pub async fn load_triptypes(
+    pub async fn load_trips_types(
         &'a mut self,
         pool: &sqlx::Pool<sqlx::Sqlite>,
     ) -> Result<(), Error> {
@@ -250,13 +250,13 @@ impl<'a> Trip {
                 type.id as id,
                 type.name as name,
                 CASE WHEN inner.id IS NOT NULL THEN true ELSE false END AS active
-            FROM triptypes AS type
+            FROM trips_types AS type
                 LEFT JOIN (
                     SELECT type.id as id, type.name as name
                     FROM trips as trip
-                    INNER JOIN trips_to_triptypes as ttt
+                    INNER JOIN trips_to_trips_types as ttt
                         ON ttt.trip_id = trip.id
-                    INNER JOIN triptypes AS type
+                    INNER JOIN trips_types AS type
                         ON type.id == ttt.trip_type_id
                     WHERE trip.id = ?
                 ) AS inner
@@ -287,19 +287,36 @@ impl<'a> Trip {
                 SELECT
                     category.id as category_id,
                     category.name as category_name,
-                    category.description as category_description,
-                    item.id as item_id,
-                    item.name as item_name,
-                    item.description as item_description,
-                    item.weight as item_weight,
-                    trip.pick as item_is_picked,
-                    trip.pack as item_is_packed
-                FROM tripitems as trip
-                INNER JOIN inventoryitems as item
-                    ON item.id = trip.item_id
-                INNER JOIN inventoryitemcategories as category
-                    ON category.id = item.category_id
-                WHERE trip.trip_id = ?;
+                    category.description AS category_description,
+                    inner.trip_id AS trip_id,
+                    inner.category_description AS category_description,
+                    inner.item_id AS item_id,
+                    inner.item_name AS item_name,
+                    inner.item_description AS item_description,
+                    inner.item_weight AS item_weight,
+                    inner.item_is_picked AS item_is_picked,
+                    inner.item_is_packed AS item_is_packed
+                FROM inventory_items_categories AS category
+                    LEFT JOIN (
+                        SELECT
+                            trip.trip_id AS trip_id,
+                            category.id as category_id,
+                            category.name as category_name,
+                            category.description as category_description,
+                            item.id as item_id,
+                            item.name as item_name,
+                            item.description as item_description,
+                            item.weight as item_weight,
+                            trip.pick as item_is_picked,
+                            trip.pack as item_is_packed
+                        FROM trips_items as trip
+                        INNER JOIN inventory_items as item
+                            ON item.id = trip.item_id
+                        INNER JOIN inventory_items_categories as category
+                            ON category.id = item.category_id
+                        WHERE trip.trip_id = 'a8b181d6-3b16-4a41-99fa-0713b94a34d9'
+                    ) AS inner
+                    ON inner.category_id = category.id
             ",
         )
         .bind(self.id.to_string())
@@ -315,28 +332,38 @@ impl<'a> Trip {
                 items: None,
             };
 
-            let item = TripItem {
-                item: Item {
-                    id: Uuid::try_parse(row.try_get("item_id")?)?,
-                    name: row.try_get("item_name")?,
-                    description: row.try_get("item_description")?,
-                    weight: row.try_get("item_weight")?,
-                    category_id: category.category.id,
-                },
-                picked: row.try_get("item_is_picked")?,
-                packed: row.try_get("item_is_packed")?,
-            };
+            match row.try_get("item_id")? {
+                None => {
+                    // we have an empty (unused) category which has NULL values
+                    // for the item_id column
+                    category.items = Some(vec![]);
+                    categories.push(category);
+                }
+                Some(item_id) => {
+                    let item = TripItem {
+                        item: Item {
+                            id: Uuid::try_parse(item_id)?,
+                            name: row.try_get("item_name")?,
+                            description: row.try_get("item_description")?,
+                            weight: row.try_get("item_weight")?,
+                            category_id: category.category.id,
+                        },
+                        picked: row.try_get("item_is_picked")?,
+                        packed: row.try_get("item_is_packed")?,
+                    };
 
-            if let Some(&mut ref mut c) = categories
-                .iter_mut()
-                .find(|c| c.category.id == category.category.id)
-            {
-                // we always populate c.items when we add a new category, so
-                // it's safe to unwrap here
-                c.items.as_mut().unwrap().push(item);
-            } else {
-                category.items = Some(vec![item]);
-                categories.push(category);
+                    if let Some(&mut ref mut c) = categories
+                        .iter_mut()
+                        .find(|c| c.category.id == category.category.id)
+                    {
+                        // we always populate c.items when we add a new category, so
+                        // it's safe to unwrap here
+                        c.items.as_mut().unwrap().push(item);
+                    } else {
+                        category.items = Some(vec![item]);
+                        categories.push(category);
+                    }
+                }
             }
 
             Ok(())
@@ -413,7 +440,7 @@ impl<'a> Category {
         let items = sqlx::query(&format!(
             "SELECT
                 id,name,weight,description,category_id
-            FROM inventoryitems
+            FROM inventory_items
             WHERE category_id = '{id}'",
             id = self.id
         ))
@@ -461,7 +488,7 @@ impl TryFrom<SqliteRow> for Item {
 impl Item {
     pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Item>, Error> {
         let item: Result<Result<Item, Error>, sqlx::Error> = sqlx::query(
-            "SELECT * FROM inventoryitems AS item
+            "SELECT * FROM inventory_items AS item
             WHERE item.id = ?",
         )
         .bind(id.to_string())
@@ -485,12 +512,12 @@ impl Item {
         weight: u32,
     ) -> Result<Option<Uuid>, Error> {
         let id: Result<Result<Uuid, Error>, sqlx::Error> = sqlx::query(
-            "UPDATE inventoryitems AS item
+            "UPDATE inventory_items AS item
             SET
                 name = ?,
                 weight = ?
             WHERE item.id = ?
-            RETURNING inventoryitems.category_id AS id
+            RETURNING inventory_items.category_id AS id
             ",
         )
         .bind(name)

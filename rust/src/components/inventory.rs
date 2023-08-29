@@ -13,6 +13,7 @@ impl Inventory {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-3" {
                     div ."col-span-2" {
                         (InventoryCategoryList::build(&state, &categories))
+                        (InventoryNewCategoryForm::build())
                     }
                     div ."col-span-2" {
                         h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
@@ -393,6 +394,56 @@ impl InventoryNewItemForm {
                                         (category.name)
                                     }
                                 }
+                            }
+                        }
+                    }
+                    input type="submit" value="Add"
+                        ."py-2"
+                        ."border-2"
+                        ."rounded"
+                        ."border-gray-300"
+                        ."mx-auto"
+                        ."w-full" {
+                    }
+                }
+            }
+        )
+    }
+}
+
+pub struct InventoryNewCategoryForm;
+
+impl InventoryNewCategoryForm {
+    pub fn build() -> Markup {
+        html!(
+            form
+                name="new-category"
+                id="new-category"
+                action="/inventory/category/"
+                target="_self"
+                method="post"
+                ."mt-8" ."p-5" ."border-2" ."border-gray-200" {
+                div ."mb-5" ."flex" ."flex-row" ."items-center" {
+                    span ."mdi" ."mdi-playlist-plus" ."text-2xl" ."mr-4" {}
+                    p ."inline" ."text-xl" { "Add new category" }
+                }
+                div ."w-11/12" ."mx-auto" {
+                    div ."pb-8" {
+                        div ."flex" ."flex-row" ."justify-center" ."items-start"{
+                            label for="name" .font-bold ."w-1/2" ."p-2" ."text-center" { "Name" }
+                            span ."w-1/2" {
+                                input type="text" id="new-category-name" name="new-category-name"
+                                    ."block"
+                                    ."w-full"
+                                    ."p-2"
+                                    ."bg-gray-50"
+                                    ."border-2"
+                                    ."rounded"
+                                    ."focus:outline-none"
+                                    ."focus:bg-white"
+                                    ."focus:border-purple-500"
+                                    {
+                                    }
                             }
                         }
                     }

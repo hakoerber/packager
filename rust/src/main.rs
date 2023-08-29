@@ -9,6 +9,8 @@ use axum::{
     Form, Router,
 };
 
+use std::str::FromStr;
+
 use serde_variant::to_variant_name;
 
 use sqlx::{
@@ -72,12 +74,15 @@ async fn main() -> Result<(), sqlx::Error> {
     let database_pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect_with(
-            SqliteConnectOptions::new()
-                .filename(std::env::var("SQLITE_DATABASE").expect("env SQLITE_DATABASE not found"))
-                .pragma("foreign_keys", "1"),
+            SqliteConnectOptions::from_str(
+                &std::env::var("DATABASE_URL").expect("env DATABASE_URL not found"),
+            )?
+            .pragma("foreign_keys", "1"),
         )
         .await
         .unwrap();
+
+    sqlx::migrate!().run(&database_pool).await?;
 
     let state = AppState {
         database_pool,
@@ -102,6 +107,7 @@ async fn main() -> Result<(), sqlx::Error> {
         .route("/trip/:id/items/:id/pack", get(trip_item_set_pack))
         .route("/trip/:id/items/:id/unpack", get(trip_item_set_unpack))
         .route("/inventory/", get(inventory_inactive))
+        .route("/inventory/category/", post(inventory_category_create))
         .route("/inventory/item/", post(inventory_item_create))
         .route("/inventory/category/:id/", get(inventory_active))
         .route("/inventory/item/:id/delete", get(inventory_item_delete))
@@ -142,8 +148,8 @@ impl Default for InventoryQuery {
 }
 
 async fn inventory_active(
-    Path(id): Path<Uuid>,
     State(mut state): State<AppState>,
+    Path(id): Path<Uuid>,
     Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.edit_item = inventory_query.edit_item;
@@ -164,7 +170,7 @@ async fn inventory(
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.active_category_id = active_id;
 
-    let mut categories = query("SELECT id,name,description FROM inventoryitemcategories")
+    let mut categories = query("SELECT id,name,description FROM inventory_items_categories")
         .fetch(&state.database_pool)
         .map_ok(std::convert::TryInto::try_into)
         .try_collect::<Vec<Result<Category, models::Error>>>()
@@ -236,7 +242,7 @@ async fn inventory_item_create(
     Form(new_item): Form<NewItem>,
 ) -> Result<Redirect, (StatusCode, String)> {
     query(
-        "INSERT INTO inventoryitems
+        "INSERT INTO inventory_items
             (id, name, description, weight, category_id)
         VALUES
             (?, ?, ?, ?, ?)",
@@ -301,7 +307,7 @@ async fn inventory_item_delete(
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, (StatusCode, String)> {
     let results = query(
-        "DELETE FROM inventoryitems
+        "DELETE FROM inventory_items
         WHERE id = ?",
     )
     .bind(id.to_string())
@@ -346,7 +352,7 @@ async fn inventory_item_delete(
 //     //TODO bind this stuff!!!!!!! no sql injection pls
 //         "SELECT
 //             i.id, i.name, i.description, i.weight, i.category_id
-//         FROM inventoryitemcategories AS c
+//         FROM inventory_items_categories AS c
 //         INNER JOIN inventoryitems AS i
 //         ON i.category_id = c.id WHERE c.id = '{id}';",
 //         id = id,
@@ -476,7 +482,7 @@ async fn trip_create(
         ),
     })?;
 
-    Ok(Redirect::to(&format!("/trips/{id}/", id = id.to_string())))
+    Ok(Redirect::to(&format!("/trip/{id}/", id = id.to_string())))
 }
 
 async fn trips(
@@ -519,8 +525,8 @@ struct TripQuery {
 }
 
 async fn trip(
-    Path(id): Path<Uuid>,
     State(mut state): State<AppState>,
+    Path(id): Path<Uuid>,
     Query(trip_query): Query<TripQuery>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.trip_edit_attribute = trip_query.edit;
@@ -541,7 +547,7 @@ async fn trip(
             })?
             .map_err(|e: Error| (StatusCode::INTERNAL_SERVER_ERROR, ErrorPage::build(&e.to_string())))?;
 
-    trip.load_triptypes(&state.database_pool)
+    trip.load_trips_types(&state.database_pool)
         .await
         .map_err(|e| {
             (
@@ -577,11 +583,11 @@ async fn trip(
 }
 
 async fn trip_type_remove(
-    Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
     State(state): State<AppState>,
+    Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     let results = query(
-        "DELETE FROM trips_to_triptypes AS ttt
+        "DELETE FROM trips_to_trips_types AS ttt
         WHERE ttt.trip_id = ?
             AND ttt.trip_type_id = ?
         ",
@@ -603,11 +609,11 @@ async fn trip_type_remove(
 }
 
 async fn trip_type_add(
-    Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
     State(state): State<AppState>,
+    Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     query(
-        "INSERT INTO trips_to_triptypes
+        "INSERT INTO trips_to_trips_types
         (trip_id, trip_type_id) VALUES (?, ?)",
     )
     .bind(trip_id.to_string())
@@ -672,8 +678,8 @@ struct CommentUpdate {
 }
 
 async fn trip_comment_set(
-    Path(trip_id): Path<Uuid>,
     State(state): State<AppState>,
+    Path(trip_id): Path<Uuid>,
     Form(comment_update): Form<CommentUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     let result = query(
@@ -704,8 +710,8 @@ struct TripUpdate {
 }
 
 async fn trip_edit_attribute(
-    Path((trip_id, attribute)): Path<(Uuid, TripAttribute)>,
     State(state): State<AppState>,
+    Path((trip_id, attribute)): Path<(Uuid, TripAttribute)>,
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     let result = query(&format!(
@@ -738,7 +744,7 @@ async fn trip_item_set_state(
     value: bool,
 ) -> Result<(), (StatusCode, Markup)> {
     let result = query(&format!(
-        "UPDATE tripitems
+        "UPDATE trips_items
         SET {key} = ?
         WHERE trip_id = ?
         AND item_id = ?",
@@ -764,9 +770,9 @@ async fn trip_item_set_state(
 }
 
 async fn trip_item_set_pick(
+    State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-    State(state): State<AppState>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, true).await?).map(
         |_| -> Result<Redirect, (StatusCode, Markup)> {
@@ -790,9 +796,9 @@ async fn trip_item_set_pick(
 }
 
 async fn trip_item_set_unpick(
+    State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-    State(state): State<AppState>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, false).await?).map(
         |_| -> Result<Redirect, (StatusCode, Markup)> {
@@ -816,9 +822,9 @@ async fn trip_item_set_unpick(
 }
 
 async fn trip_item_set_pack(
+    State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-    State(state): State<AppState>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?).map(
         |_| -> Result<Redirect, (StatusCode, Markup)> {
@@ -842,9 +848,9 @@ async fn trip_item_set_pack(
 }
 
 async fn trip_item_set_unpack(
+    State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-    State(state): State<AppState>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
     Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?).map(
         |_| -> Result<Redirect, (StatusCode, Markup)> {
@@ -865,4 +871,67 @@ async fn trip_item_set_unpack(
             ))
         },
     )?
+}
+
+#[derive(Deserialize)]
+struct NewCategory {
+    #[serde(rename = "new-category-name")]
+    name: String,
+}
+
+async fn inventory_category_create(
+    State(state): State<AppState>,
+    Form(new_category): Form<NewCategory>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    let id = Uuid::new_v4();
+    query(
+        "INSERT INTO inventory_items_categories
+            (id, name)
+        VALUES
+            (?, ?)",
+    )
+    .bind(id.to_string())
+    .bind(&new_category.name)
+    .execute(&state.database_pool)
+    .map_err(|e| match e {
+        sqlx::Error::Database(ref error) => {
+            let sqlite_error = error.downcast_ref::<SqliteError>();
+            if let Some(code) = sqlite_error.code() {
+                match &*code {
+                    "2067" => {
+                        // SQLITE_CONSTRAINT_UNIQUE
+                        (
+                            StatusCode::BAD_REQUEST,
+                            ErrorPage::build(&format!(
+                                "category with name \"{name}\" already exists",
+                                name = new_category.name
+                            )),
+                        )
+                    }
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        ErrorPage::build(&format!(
+                            "got error with unknown code: {}",
+                            sqlite_error.to_string()
+                        )),
+                    ),
+                }
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorPage::build(&format!(
+                        "got error without code: {}",
+                        sqlite_error.to_string()
+                    )),
+                )
+            }
+        }
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
+        ),
+    })
+    .await?;
+
+    Ok(Redirect::to("/inventory/"))
 }

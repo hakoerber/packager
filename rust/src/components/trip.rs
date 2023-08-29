@@ -411,61 +411,73 @@ impl TripInfo {
                                 ."flex-wrap"
                                 ."gap-2"
                                 ."justify-between"
+                            // as we have a gap between the elements, we have
+                            // to completely skip an element when there are no
+                            // active or inactive items, otherwise we get the gap
+                            // between the empty (invisible) item, throwing off
+                            // the margins
                             {
                                 @let types = trip.types();
-                                div
-                                    ."flex"
-                                    ."flex-row"
-                                    ."flex-wrap"
-                                    ."gap-2"
-                                    ."justify-start"
-                                {
-                                    @for triptype in types.iter().filter(|t| t.active) {
-                                        a href=(format!("type/{}/remove", triptype.id)) {
-                                            li
-                                                ."border"
-                                                ."rounded-2xl"
-                                                ."py-0.5"
-                                                ."px-2"
-                                                ."bg-green-100"
-                                                ."cursor-pointer"
-                                                ."flex"
-                                                ."flex-column"
-                                                ."items-center"
-                                                ."hover:bg-red-200"
-                                                ."gap-1"
-                                            {
-                                                span { (triptype.name) }
-                                                span ."mdi" ."mdi-delete" ."text-sm" {}
+                                @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&TripType>>();
+                                @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&TripType>>();
+
+                                @if !active_triptypes.is_empty() {
+                                    div
+                                        ."flex"
+                                        ."flex-row"
+                                        ."flex-wrap"
+                                        ."gap-2"
+                                        ."justify-start"
+                                    {
+                                        @for triptype in active_triptypes {
+                                            a href=(format!("type/{}/remove", triptype.id)) {
+                                                li
+                                                    ."border"
+                                                    ."rounded-2xl"
+                                                    ."py-0.5"
+                                                    ."px-2"
+                                                    ."bg-green-100"
+                                                    ."cursor-pointer"
+                                                    ."flex"
+                                                    ."flex-column"
+                                                    ."items-center"
+                                                    ."hover:bg-red-200"
+                                                    ."gap-1"
+                                                {
+                                                    span { (triptype.name) }
+                                                    span ."mdi" ."mdi-delete" ."text-sm" {}
+                                                }
                                             }
                                         }
                                     }
                                 }
-                                div
-                                    ."flex"
-                                    ."flex-row"
-                                    ."flex-wrap"
-                                    ."gap-2"
-                                    ."justify-start"
-                                {
-                                    @for triptype in types.iter().filter(|t| !t.active) {
-                                        a href=(format!("type/{}/add", triptype.id)) {
-                                            li
-                                                ."border"
-                                                ."rounded-2xl"
-                                                ."py-0.5"
-                                                ."px-2"
-                                                ."bg-gray-100"
-                                                ."cursor-pointer"
-                                                ."flex"
-                                                ."flex-column"
-                                                ."items-center"
-                                                ."hover:bg-green-200"
-                                                ."gap-1"
-                                                ."opacity-60"
-                                            {
-                                                span { (triptype.name) }
-                                                span ."mdi" ."mdi-plus" ."text-sm" {}
+                                @if !inactive_triptypes.is_empty() {
+                                    div
+                                        ."flex"
+                                        ."flex-row"
+                                        ."flex-wrap"
+                                        ."gap-2"
+                                        ."justify-start"
+                                    {
+                                        @for triptype in inactive_triptypes {
+                                            a href=(format!("type/{}/add", triptype.id)) {
+                                                li
+                                                    ."border"
+                                                    ."rounded-2xl"
+                                                    ."py-0.5"
+                                                    ."px-2"
+                                                    ."bg-gray-100"
+                                                    ."cursor-pointer"
+                                                    ."flex"
+                                                    ."flex-column"
+                                                    ."items-center"
+                                                    ."hover:bg-green-200"
+                                                    ."gap-1"
+                                                    ."opacity-60"
+                                                {
+                                                    span { (triptype.name) }
+                                                    span ."mdi" ."mdi-plus" ."text-sm" {}
+                                                }
                                             }
                                         }
                                     }
