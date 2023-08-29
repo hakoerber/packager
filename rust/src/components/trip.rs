@@ -191,20 +191,83 @@ impl NewTrip {
 pub struct Trip;
 
 impl Trip {
-    pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
-        html!(
-            div ."p-8" {
+    pub fn build(state: &ClientState, trip: &models::Trip) -> Result<Markup, Error> {
+        Ok(html!(
+            div ."p-8" ."flex" ."flex-col" ."gap-8" {
                 div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                    h1 ."text-2xl" ."font-semibold"{ (trip.name) }
+                    @if state.trip_edit_attribute.as_ref().map_or(false, |a| *a == TripAttribute::Name) {
+                        form
+                            id="edit-trip"
+                            action=(format!("edit/{}/submit", to_variant_name(&TripAttribute::Name).unwrap()))
+                            target="_self"
+                            method="post"
+                        {
+                            div
+                                ."flex"
+                                ."flex-row"
+                                ."items-center"
+                                ."gap-x-3"
+                                ."items-stretch"
+                            {
+                                input
+                                    ."bg-blue-200"
+                                    ."w-full"
+                                    ."text-2xl"
+                                    ."font-semibold"
+                                    type=(<InputType as Into<&'static str>>::into(InputType::Text))
+                                    name="new-value"
+                                    form="edit-trip"
+                                    value=(trip.name)
+                                ;
+                                a
+                                    href="."
+                                    ."bg-red-200"
+                                    ."hover:bg-red-300"
+                                    ."w-8"
+                                    ."flex"
+                                {
+                                    span
+                                        ."mdi"
+                                        ."mdi-cancel"
+                                        ."text-xl"
+                                        ."m-auto"
+                                    ;
+                                }
+                                button
+                                    type="submit"
+                                    form="edit-trip"
+                                    ."bg-green-200"
+                                    ."hover:bg-green-300"
+                                    ."w-8"
+                                {
+                                    span
+                                        ."mdi"
+                                        ."mdi-content-save"
+                                        ."text-xl"
+                                    ;
+                                }
+                            }
+                        }
+                    } @else {
+                        h1 ."text-2xl" ."font-semibold"{ (trip.name) }
+                        span {
+                            a href=(format!("?edit={}", to_variant_name(&TripAttribute::Name).unwrap()))
+                            {
+                                span
+                                    ."mdi"
+                                    ."mdi-pencil"
+                                    ."text-xl"
+                                    ."opacity-50"
+                                ;
+                            }
+                        }
+                    }
                 }
-                div ."my-6" {
-                    (TripInfo::build(state, &trip))
-                }
-                div ."my-6" {
-                    (TripComment::build(&trip))
-                }
+                (TripInfo::build(state, &trip))
+                (TripComment::build(&trip))
+                (TripItems::build(state, &trip)?)
             }
-        )
+        ))
     }
 }
 
@@ -225,8 +288,8 @@ impl TripInfoRow {
                     name="edit-trip"
                     id="edit-trip"
                     action=(format!("edit/{key}/submit", key=(to_variant_name(&attribute_key).unwrap()) ))
-                    // hx-post=(format!("edit/{name}/submit"))
-                    target="."
+                    htmx-push-url="true"
+                    target="_self"
                     method="post"
                 ;
             }
@@ -410,6 +473,10 @@ impl TripInfo {
                             }
                         }
                     }
+                    tr .h-full {
+                        td ."border" ."p-2" { "Carried weight" }
+                        td ."border" ."p-2" { "TODO" }
+                    }
                 }
             }
         )
@@ -421,42 +488,290 @@ pub struct TripComment;
 impl TripComment {
     pub fn build(trip: &models::Trip) -> Markup {
         html!(
-            h1 ."text-xl" ."mb-5" { "Comments" }
+            div {
+                h1 ."text-xl" ."mb-5" { "Comments" }
 
-            form
-                id="edit-comment"
-                action="comment/submit"
-                target="_self"
-                method="post"
-                ;
+                form
+                    id="edit-comment"
+                    action="comment/submit"
+                    target="_self"
+                    method="post"
+                    ;
 
-            // https://stackoverflow.com/a/48460773
-            textarea
-                #"comment"
-                ."border" ."w-full" ."h-48"
-                name="new-comment"
-                form="edit-comment"
-                autocomplete="off"
-                oninput=r#"this.style.height = "";this.style.height = this.scrollHeight + 2 + "px""#
-            { (trip.comment.as_ref().unwrap_or(&"".to_string())) }
-            script defer { (PreEscaped(r#"e = document.getElementById("comment"); e.style.height = e.scrollHeight + 2 + "px";"#)) }
+                // https://stackoverflow.com/a/48460773
+                textarea
+                    #"comment"
+                    ."border" ."w-full" ."h-48"
+                    name="new-comment"
+                    form="edit-comment"
+                    autocomplete="off"
+                    oninput=r#"this.style.height = "";this.style.height = this.scrollHeight + 2 + "px""#
+                { (trip.comment.as_ref().unwrap_or(&"".to_string())) }
+                script defer { (PreEscaped(r#"e = document.getElementById("comment"); e.style.height = e.scrollHeight + 2 + "px";"#)) }
 
-            button
-                type="submit"
-                form="edit-comment"
-                ."mt-2"
+                button
+                    type="submit"
+                    form="edit-comment"
+                    ."mt-2"
+                    ."border"
+                    ."bg-green-200"
+                    ."hover:bg-green-400"
+                    ."cursor-pointer"
+                    ."flex"
+                    ."flex-column"
+                    ."p-2"
+                    ."gap-2"
+                    ."items-center"
+                {
+                    span ."mdi" ."mdi-content-save" ."text-xl";
+                    span { "Save" }
+                }
+            }
+        )
+    }
+}
+
+pub struct TripItems;
+
+impl TripItems {
+    pub fn build(state: &ClientState, trip: &models::Trip) -> Result<Markup, Error> {
+        Ok(html!(
+            div ."grid" ."grid-cols-4" ."gap-3" {
+                div ."col-span-2" {
+                    (TripCategoryList::build(state, &trip))
+                }
+                div ."col-span-2" {
+                    h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
+                    @if let Some(active_category_id) = state.active_category_id {
+                        (TripItemList::build(
+                            &state,
+                            &trip,
+                            &trip
+                                .categories()
+                                .iter()
+                                .find(|category|
+                                    category.category.id == active_category_id
+                                )
+                                .ok_or(
+                                    Error::NotFoundError {
+                                        description: format!("no category with id {}", active_category_id)
+                                    }
+                                )?
+                                .items
+                                .as_ref()
+                                .unwrap()
+                            )
+                        )
+                    }
+                }
+            }
+        ))
+    }
+}
+
+pub struct TripCategoryList;
+
+impl TripCategoryList {
+    pub fn build(state: &ClientState, trip: &models::Trip) -> Markup {
+        let categories = trip.categories();
+
+        let biggest_category_weight: u32 = categories
+            .iter()
+            .map(TripCategory::total_picked_weight)
+            .max()
+            .unwrap_or(1);
+
+        html!(
+            h1 ."text-2xl" ."mb-5" ."text-center" { "Categories" }
+            table
+                ."table"
+                ."table-auto"
+                ."border-collapse"
+                ."border-spacing-0"
                 ."border"
-                ."bg-green-200"
-                ."hover:bg-green-400"
-                ."cursor-pointer"
-                ."flex"
-                ."flex-column"
-                ."p-2"
-                ."gap-2"
-                ."items-center"
+                ."w-full"
             {
-                span ."mdi" ."mdi-content-save" ."text-xl";
-                span { "Save" }
+                colgroup {
+                    col style="width:50%" {}
+                    col style="width:50%" {}
+                }
+                thead ."bg-gray-200" {
+                    tr ."h-10" {
+                        th ."border" ."p-2" ."w-2/5" { "Name" }
+                        th ."border" ."p-2" { "Weight" }
+                    }
+                }
+                tbody {
+                    @for category in trip.categories() {
+                        @let active = state.active_category_id.map_or(false, |id| category.category.id == id);
+                        tr
+                            ."h-10"
+                            ."hover:bg-purple-100"
+                            ."m-3"
+                            ."h-full"
+                            ."outline"[active]
+                            ."outline-2"[active]
+                            ."outline-indigo-300"[active]
+                            ."pointer-events-none"[active]
+                        {
+
+                            td
+                                class=@if state.active_category_id.map_or(false, |id| category.category.id == id) {
+                                    "border p-0 m-0 font-bold"
+                                } @else {
+                                    "border p-0 m-0"
+                                } {
+                                a
+                                    id="select-category"
+                                    href=(
+                                        format!(
+                                            "?category={id}",
+                                            id=category.category.id
+                                        )
+                                    )
+                                    ."inline-block" ."p-2" ."m-0" ."w-full"
+                                    {
+                                        (category.category.name.clone())
+                                    }
+                            }
+                            td ."border" ."p-2" ."m-0" style="position:relative;" {
+                                p {
+                                    (category.total_picked_weight().to_string())
+                                }
+                                div ."bg-blue-600" ."h-1.5"
+                                    style=(
+                                        format!(
+                                            "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
+                                            width=(
+                                                f64::from(category.total_picked_weight())
+                                                / f64::from(biggest_category_weight)
+                                                * 100.0
+                                            )
+                                        )
+                                    ) {}
+                            }
+                        }
+                    }
+                    tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
+                        td ."border" ."p-0" ."m-0" {
+                            p ."p-2" ."m-2" { "Sum" }
+                        }
+                        td ."border" ."p-0" ."m-0" {
+                            p ."p-2" ."m-2" {
+                                (categories.iter().map(TripCategory::total_picked_weight).sum::<u32>().to_string())
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+pub struct TripItemList;
+
+impl TripItemList {
+    pub fn build(state: &ClientState, trip: &models::Trip, items: &Vec<TripItem>) -> Markup {
+        let biggest_item_weight: u32 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
+
+        html!(
+            @if items.is_empty() {
+                p ."text-lg" ."text-center" ."py-5" ."text-gray-400" { "[Empty]" }
+            } @else {
+                @if let Some(edit_item) = state.edit_item {
+                    form
+                        name="edit-item"
+                        id="edit-item"
+                        action=(format!("/inventory/item/{edit_item}/edit"))
+                        target="_self"
+                        method="post"
+                    {}
+                }
+                table
+                    ."table"
+                    ."table-auto"
+                    .table-fixed
+                    ."border-collapse"
+                    ."border-spacing-0"
+                    ."border"
+                    ."w-full"
+                {
+                    thead ."bg-gray-200" {
+                        tr ."h-10" {
+                            th ."border" ."p-2" { "Take?" }
+                            th ."border" ."p-2" { "Packed?" }
+                            th ."border" ."p-2" ."w-1/2" { "Name" }
+                            th ."border" ."p-2" ."w-1/4" { "Weight" }
+                        }
+                    }
+                    tbody {
+                        @for item in items {
+                            tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" {
+                                td {
+                                    a
+                                        href={
+                                            "/trip/" (trip.id)
+                                            "/items/" (item.item.id)
+                                            "/" (if item.picked { "unpick" } else { "pick" }) }
+                                        ."inline-block"
+                                        ."p-2"
+                                        ."m-0"
+                                        ."w-full"
+                                        ."justify-center"
+                                        ."content-center"
+                                        ."flex"
+                                    {
+                                        input
+                                            type="checkbox"
+                                            checked[item.picked]
+                                            autocomplete="off"
+                                        ;
+                                    }
+                                }
+                                td {
+                                    a
+                                        href={
+                                            "/trip/" (trip.id)
+                                            "/items/" (item.item.id)
+                                            "/" (if item.packed { "unpack" } else { "pack" }) }
+                                        ."inline-block"
+                                        ."p-2"
+                                        ."m-0"
+                                        ."w-full"
+                                        ."justify-center"
+                                        ."content-center"
+                                        ."flex"
+                                    {
+                                        input
+                                            type="checkbox"
+                                            checked[item.packed]
+                                            autocomplete="off"
+                                        ;
+                                    }
+                                }
+                                td ."border" ."p-0" {
+                                    a
+                                        ."p-2" ."w-full" ."inline-block"
+                                        href=(
+                                            format!("/inventory/item/{id}/", id=item.item.id)
+                                        ) {
+
+                                            (item.item.name.clone())
+                                        }
+                                }
+                                td ."border" ."p-2" style="position:relative;" {
+                                    p { (item.item.weight.to_string()) }
+                                    div ."bg-blue-600" ."h-1.5" style=(format!("
+                                    width: {width}%;
+                                    position:absolute;
+                                    left:0;
+                                    bottom:0;
+                                    right:0;", width=(f64::from(item.item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
+                                }
+                            }
+                        }
+                    }
+                }
             }
         )
     }

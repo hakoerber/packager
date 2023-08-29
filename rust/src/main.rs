@@ -97,6 +97,10 @@ async fn main() -> Result<(), sqlx::Error> {
             "/trip/:id/edit/:attribute/submit",
             post(trip_edit_attribute),
         )
+        .route("/trip/:id/items/:id/pick", get(trip_item_set_pick))
+        .route("/trip/:id/items/:id/unpick", get(trip_item_set_unpick))
+        .route("/trip/:id/items/:id/pack", get(trip_item_set_pack))
+        .route("/trip/:id/items/:id/unpack", get(trip_item_set_unpack))
         .route("/inventory/", get(inventory_inactive))
         .route("/inventory/item/", post(inventory_item_create))
         .route("/inventory/category/:id/", get(inventory_active))
@@ -511,6 +515,7 @@ async fn trips(
 #[derive(Debug, Deserialize)]
 struct TripQuery {
     edit: Option<TripAttribute>,
+    category: Option<Uuid>,
 }
 
 async fn trip(
@@ -519,6 +524,7 @@ async fn trip(
     Query(trip_query): Query<TripQuery>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.trip_edit_attribute = trip_query.edit;
+    state.client_state.active_category_id = trip_query.category;
 
     let mut trip: models::Trip =
         query("SELECT id,name,date_start,date_end,state,location,temp_min,temp_max,comment FROM trips WHERE id = ?")
@@ -544,10 +550,27 @@ async fn trip(
             )
         })?;
 
+    trip.load_categories(&state.database_pool)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?;
+
     Ok((
         StatusCode::OK,
         Root::build(
-            components::Trip::build(&state.client_state, &trip),
+            components::Trip::build(&state.client_state, &trip).map_err(|e| match e {
+                Error::NotFoundError { description } => {
+                    (StatusCode::NOT_FOUND, ErrorPage::build(&description))
+                }
+                _ => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorPage::build(&e.to_string()),
+                ),
+            })?,
             &TopLevelPage::Trips,
         ),
     ))
@@ -703,6 +726,143 @@ async fn trip_edit_attribute(
             ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
         ))
     } else {
-        Ok(Redirect::to(&format!("/trips/")))
+        Ok(Redirect::to(&format!("/trip/{trip_id}/")))
     }
+}
+
+async fn trip_item_set_state(
+    state: &AppState,
+    trip_id: Uuid,
+    item_id: Uuid,
+    key: TripItemStateKey,
+    value: bool,
+) -> Result<(), (StatusCode, Markup)> {
+    let result = query(&format!(
+        "UPDATE tripitems
+        SET {key} = ?
+        WHERE trip_id = ?
+        AND item_id = ?",
+        key = to_variant_name(&key).unwrap()
+    ))
+    .bind(value)
+    .bind(trip_id.to_string())
+    .bind(item_id.to_string())
+    .execute(&state.database_pool)
+    .await
+    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+
+    if result.rows_affected() == 0 {
+        Err((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!(
+                "trip with id {trip_id} or item with id {item_id} not found"
+            )),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+async fn trip_item_set_pick(
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, true).await?).map(
+        |_| -> Result<Redirect, (StatusCode, Markup)> {
+            Ok(Redirect::to(
+                headers
+                    .get("referer")
+                    .ok_or((
+                        StatusCode::BAD_REQUEST,
+                        ErrorPage::build("no referer header found"),
+                    ))?
+                    .to_str()
+                    .map_err(|e| {
+                        (
+                            StatusCode::BAD_REQUEST,
+                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
+                        )
+                    })?,
+            ))
+        },
+    )?
+}
+
+async fn trip_item_set_unpick(
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, false).await?).map(
+        |_| -> Result<Redirect, (StatusCode, Markup)> {
+            Ok(Redirect::to(
+                headers
+                    .get("referer")
+                    .ok_or((
+                        StatusCode::BAD_REQUEST,
+                        ErrorPage::build("no referer header found"),
+                    ))?
+                    .to_str()
+                    .map_err(|e| {
+                        (
+                            StatusCode::BAD_REQUEST,
+                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
+                        )
+                    })?,
+            ))
+        },
+    )?
+}
+
+async fn trip_item_set_pack(
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?).map(
+        |_| -> Result<Redirect, (StatusCode, Markup)> {
+            Ok(Redirect::to(
+                headers
+                    .get("referer")
+                    .ok_or((
+                        StatusCode::BAD_REQUEST,
+                        ErrorPage::build("no referer header found"),
+                    ))?
+                    .to_str()
+                    .map_err(|e| {
+                        (
+                            StatusCode::BAD_REQUEST,
+                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
+                        )
+                    })?,
+            ))
+        },
+    )?
+}
+
+async fn trip_item_set_unpack(
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Result<Redirect, (StatusCode, Markup)> {
+    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?).map(
+        |_| -> Result<Redirect, (StatusCode, Markup)> {
+            Ok(Redirect::to(
+                headers
+                    .get("referer")
+                    .ok_or((
+                        StatusCode::BAD_REQUEST,
+                        ErrorPage::build("no referer header found"),
+                    ))?
+                    .to_str()
+                    .map_err(|e| {
+                        (
+                            StatusCode::BAD_REQUEST,
+                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
+                        )
+                    })?,
+            ))
+        },
+    )?
 }

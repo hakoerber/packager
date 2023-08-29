@@ -88,6 +88,50 @@ impl fmt::Display for TripState {
     }
 }
 
+#[derive(Serialize, Debug)]
+pub enum TripItemStateKey {
+    Pick,
+    Pack,
+}
+
+impl fmt::Display for TripItemStateKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Pick => "pick",
+                Self::Pack => "pack",
+            },
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct TripCategory {
+    pub category: Category,
+    pub items: Option<Vec<TripItem>>,
+}
+
+impl TripCategory {
+    pub fn total_picked_weight(&self) -> u32 {
+        self.items
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter(|item| item.picked)
+            .map(|item| item.item.weight)
+            .sum()
+    }
+}
+
+#[derive(Debug)]
+pub struct TripItem {
+    pub item: Item,
+    pub picked: bool,
+    pub packed: bool,
+}
+
 pub struct Trip {
     pub id: Uuid,
     pub name: String,
@@ -99,10 +143,13 @@ pub struct Trip {
     pub temp_max: i32,
     pub comment: Option<String>,
     types: Option<Vec<TripType>>,
+    categories: Option<Vec<TripCategory>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum TripAttribute {
+    #[serde(rename = "name")]
+    Name,
     #[serde(rename = "date_start")]
     DateStart,
     #[serde(rename = "date_end")]
@@ -173,6 +220,7 @@ impl TryFrom<SqliteRow> for Trip {
             temp_max,
             comment,
             types: None,
+            categories: None,
         })
     }
 }
@@ -180,6 +228,12 @@ impl TryFrom<SqliteRow> for Trip {
 impl<'a> Trip {
     pub fn types(&'a self) -> &Vec<TripType> {
         self.types
+            .as_ref()
+            .expect("you need to call load_triptypes()")
+    }
+
+    pub fn categories(&'a self) -> &Vec<TripCategory> {
+        self.categories
             .as_ref()
             .expect("you need to call load_triptypes()")
     }
@@ -218,6 +272,82 @@ impl<'a> Trip {
         .collect::<Result<Vec<TripType>, Error>>()?;
 
         self.types = Some(types);
+        Ok(())
+    }
+
+    pub async fn load_categories(
+        &'a mut self,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
+        let mut categories: Vec<TripCategory> = vec![];
+        // we can ignore the return type as we collect into `categories`
+        // in the `map_ok()` closure
+        sqlx::query(
+            "
+                SELECT
+                    category.id as category_id,
+                    category.name as category_name,
+                    category.description as category_description,
+                    item.id as item_id,
+                    item.name as item_name,
+                    item.description as item_description,
+                    item.weight as item_weight,
+                    trip.pick as item_is_picked,
+                    trip.pack as item_is_packed
+                FROM tripitems as trip
+                INNER JOIN inventoryitems as item
+                    ON item.id = trip.item_id
+                INNER JOIN inventoryitemcategories as category
+                    ON category.id = item.category_id
+                WHERE trip.trip_id = ?;
+            ",
+        )
+        .bind(self.id.to_string())
+        .fetch(pool)
+        .map_ok(|row| -> Result<(), Error> {
+            let mut category = TripCategory {
+                category: Category {
+                    id: Uuid::try_parse(row.try_get("category_id")?)?,
+                    name: row.try_get("category_name")?,
+                    description: row.try_get("category_description")?,
+                    items: None,
+                },
+                items: None,
+            };
+
+            let item = TripItem {
+                item: Item {
+                    id: Uuid::try_parse(row.try_get("item_id")?)?,
+                    name: row.try_get("item_name")?,
+                    description: row.try_get("item_description")?,
+                    weight: row.try_get("item_weight")?,
+                    category_id: category.category.id,
+                },
+                picked: row.try_get("item_is_picked")?,
+                packed: row.try_get("item_is_packed")?,
+            };
+
+            if let Some(&mut ref mut c) = categories
+                .iter_mut()
+                .find(|c| c.category.id == category.category.id)
+            {
+                // we always populate c.items when we add a new category, so
+                // it's safe to unwrap here
+                c.items.as_mut().unwrap().push(item);
+            } else {
+                category.items = Some(vec![item]);
+                categories.push(category);
+            }
+
+            Ok(())
+        })
+        .try_collect::<Vec<Result<(), Error>>>()
+        .await?
+        .into_iter()
+        .collect::<Result<(), Error>>()?;
+
+        self.categories = Some(categories);
+
         Ok(())
     }
 }
