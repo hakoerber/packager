@@ -8,9 +8,7 @@ pub use home::*;
 pub use inventory::*;
 pub use trip::*;
 
-pub struct Root {
-    doc: Markup,
-}
+pub struct Root;
 
 pub enum TopLevelPage {
     Inventory,
@@ -19,8 +17,8 @@ pub enum TopLevelPage {
 }
 
 impl Root {
-    pub fn build(body: Markup, active_page: &TopLevelPage) -> Self {
-        let doc = html!(
+    pub fn build(body: Markup, active_page: &TopLevelPage) -> Markup {
+        html!(
             (DOCTYPE)
             html {
                 head {
@@ -61,12 +59,20 @@ impl Root {
                     }
                 }
             }
-        );
-
-        Self { doc }
+        )
     }
+}
 
-    pub fn into_string(self) -> String {
-        self.doc.into_string()
+pub struct ErrorPage;
+
+impl ErrorPage {
+    pub fn build(message: &str) -> Markup {
+        Root::build(
+            html!(
+                    h1 { "Error" }
+                    p { (message) }
+            ),
+            &TopLevelPage::None,
+        )
     }
 }

@@ -1,12 +1,10 @@
 use maud::{html, Markup};
 
-pub struct Home {
-    doc: Markup,
-}
+pub struct Home;
 
 impl Home {
-    pub fn build() -> Self {
-        let doc: Markup = html!(
+    pub fn build() -> Markup {
+        html!(
             div id="home" class={"p-8" "max-w-xl"} {
                 p {
                     a href="/inventory/" { "Inventory" }
@@ -15,14 +13,6 @@ impl Home {
                     a href="/trips/" { "Trips" }
                 }
             }
-        );
-
-        Self { doc }
-    }
-}
-
-impl From<Home> for Markup {
-    fn from(val: Home) -> Self {
-        val.doc
+        )
     }
 }

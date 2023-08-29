@@ -19,7 +19,6 @@ pub enum Error {
     SqlError { description: String },
     UuidError { description: String },
     NotFoundError { description: String },
-    InvalidEnumError { description: String },
 }
 
 impl fmt::Display for Error {
@@ -33,9 +32,6 @@ impl fmt::Display for Error {
             }
             Self::NotFoundError { description } => {
                 write!(f, "Not found: {description}")
-            }
-            Self::InvalidEnumError { description } => {
-                write!(f, "Enum error: {description}")
             }
         }
     }

@@ -16,6 +16,8 @@ use sqlx::{
     Pool, Row, Sqlite,
 };
 
+use maud::Markup;
+
 use serde::Deserialize;
 
 use futures::TryFutureExt;
@@ -108,10 +110,10 @@ async fn main() -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-async fn root() -> (StatusCode, Html<String>) {
+async fn root() -> (StatusCode, Markup) {
     (
         StatusCode::OK,
-        Html::from(Root::build(Home::build().into(), &TopLevelPage::None).into_string()),
+        Root::build(Home::build(), &TopLevelPage::None),
     )
 }
 
@@ -130,7 +132,7 @@ async fn inventory_active(
     Path(id): Path<Uuid>,
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
-) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.edit_item = inventory_query.edit_item;
     inventory(state, Some(id)).await
 }
@@ -138,7 +140,7 @@ async fn inventory_active(
 async fn inventory_inactive(
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
-) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.edit_item = inventory_query.edit_item;
     inventory(state, None).await
 }
@@ -146,7 +148,7 @@ async fn inventory_inactive(
 async fn inventory(
     mut state: AppState,
     active_id: Option<Uuid>,
-) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     state.client_state.active_category_id = active_id;
 
     let mut categories = query("SELECT id,name,description FROM inventoryitemcategories")
@@ -156,36 +158,50 @@ async fn inventory(
         .await
         // we have two error handling lines here. these are distinct errors
         // this one is the SQL error that may arise during the query
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?
         .into_iter()
         .collect::<Result<Vec<Category>, models::Error>>()
         // and this one is the model mapping error that may arise e.g. during
         // reading of the rows
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?;
 
     for category in &mut categories {
         category
             .populate_items(&state.database_pool)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ErrorPage::build(&e.to_string()),
+                )
+            })?;
     }
 
     Ok((
         StatusCode::OK,
-        Html::from(
-            Root::build(
-                Inventory::build(state.client_state, categories)
-                    .await
-                    .map_err(|e| match e {
-                        Error::NotFoundError { description } => {
-                            (StatusCode::NOT_FOUND, Html::from(description))
-                        }
-                        _ => (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())),
-                    })?
-                    .into(),
-                &TopLevelPage::Inventory,
-            )
-            .into_string(),
+        Root::build(
+            Inventory::build(state.client_state, categories)
+                .await
+                .map_err(|e| match e {
+                    Error::NotFoundError { description } => {
+                        (StatusCode::NOT_FOUND, ErrorPage::build(&description))
+                    }
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        ErrorPage::build(&e.to_string()),
+                    ),
+                })?,
+            &TopLevelPage::Inventory,
         ),
     ))
 }
@@ -306,7 +322,7 @@ async fn inventory_item_delete(
 
 // async fn htmx_inventory_category_items(
 //     Path(id): Path<String>,
-// ) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+// ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
 //     let pool = SqlitePoolOptions::new()
 //         .max_connections(5)
 //         .connect("sqlite:///home/hannes-private/sync/items/items.sqlite")
@@ -452,7 +468,7 @@ async fn trip_create(
 
 async fn trips(
     State(state): State<AppState>,
-) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     let trips: Vec<models::Trip> = query("SELECT * FROM trips")
         .fetch(&state.database_pool)
         .map_ok(std::convert::TryInto::try_into)
@@ -460,25 +476,33 @@ async fn trips(
         .await
         // we have two error handling lines here. these are distinct errors
         // this one is the SQL error that may arise during the query
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?
         .into_iter()
         .collect::<Result<Vec<models::Trip>, models::Error>>()
         // and this one is the model mapping error that may arise e.g. during
         // reading of the rows
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?;
 
     Ok((
         StatusCode::OK,
-        Html::from(
-            Root::build(TripManager::build(trips).into(), &TopLevelPage::Trips).into_string(),
-        ),
+        Root::build(TripManager::build(trips), &TopLevelPage::Trips),
     ))
 }
 
 async fn trip(
     Path(id): Path<Uuid>,
     State(state): State<AppState>,
-) -> Result<(StatusCode, Html<String>), (StatusCode, Html<String>)> {
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     let mut trip: models::Trip =
         query("SELECT id,name,start_date,end_date,state,location,temp_min,temp_max FROM trips WHERE id = ?")
             .bind(id.to_string())
@@ -488,32 +512,31 @@ async fn trip(
             .map_err(|e: sqlx::Error| match e {
                 sqlx::Error::RowNotFound => (
                     StatusCode::NOT_FOUND,
-                    Html::from(format!("trip with id {} not found", id)),
+                    ErrorPage::build(&format!("trip with id {} not found", id)),
                 ),
-                _ => (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())),
+                _ => (StatusCode::INTERNAL_SERVER_ERROR, ErrorPage::build(&e.to_string())),
             })?
-            .map_err(|e: Error| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+            .map_err(|e: Error| (StatusCode::INTERNAL_SERVER_ERROR, ErrorPage::build(&e.to_string())))?;
 
     trip.load_triptypes(&state.database_pool)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Html::from(e.to_string())))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?;
 
     Ok((
         StatusCode::OK,
-        Html::from(
-            Root::build(
-                components::Trip::build(&trip).into_markup(),
-                &TopLevelPage::Trips,
-            )
-            .into_string(),
-        ),
+        Root::build(components::Trip::build(&trip), &TopLevelPage::Trips),
     ))
 }
 
 async fn trip_type_remove(
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
     State(state): State<AppState>,
-) -> Result<Redirect, (StatusCode, Html<String>)> {
+) -> Result<Redirect, (StatusCode, Markup)> {
     let results = query(
         "DELETE FROM trips_to_triptypes AS ttt
         WHERE ttt.trip_id = ?
@@ -524,12 +547,12 @@ async fn trip_type_remove(
     .bind(type_id.to_string())
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, Html::from(e.to_string())))?;
+    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
 
     if results.rows_affected() == 0 {
         Err((
             StatusCode::NOT_FOUND,
-            Html::from(format!("type {type_id} is not active for trip {trip_id}")),
+            ErrorPage::build(&format!("type {type_id} is not active for trip {trip_id}")),
         ))
     } else {
         Ok(Redirect::to(&format!("/trip/{trip_id}/")))
@@ -539,8 +562,8 @@ async fn trip_type_remove(
 async fn trip_type_add(
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
     State(state): State<AppState>,
-) -> Result<Redirect, (StatusCode, Html<String>)> {
-    let results = query(
+) -> Result<Redirect, (StatusCode, Markup)> {
+    query(
         "INSERT INTO trips_to_triptypes
         (trip_id, trip_type_id) VALUES (?, ?)",
     )
@@ -560,21 +583,21 @@ async fn trip_type_add(
                             // TODO: this is not perfect, as both foreign keys
                             // may be responsible for the error. how can we tell
                             // which one?
-                            Html::from(format!("invalid id: {}", code.to_string())),
+                            ErrorPage::build(&format!("invalid id: {}", code.to_string())),
                         )
                     }
                     "2067" => {
                         // SQLITE_CONSTRAINT_UNIQUE
                         (
                             StatusCode::BAD_REQUEST,
-                            Html::from(format!(
+                            ErrorPage::build(&format!(
                                 "type {type_id} is already active for trip {trip_id}"
                             )),
                         )
                     }
                     _ => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Html::from(format!(
+                        ErrorPage::build(&format!(
                             "got error with unknown code: {}",
                             sqlite_error.to_string()
                         )),
@@ -583,7 +606,7 @@ async fn trip_type_add(
             } else {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Html::from(format!(
+                    ErrorPage::build(&format!(
                         "got error without code: {}",
                         sqlite_error.to_string()
                     )),
@@ -592,7 +615,7 @@ async fn trip_type_add(
         }
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Html::from(format!("got unknown error: {}", e.to_string())),
+            ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
         ),
     })?;
 

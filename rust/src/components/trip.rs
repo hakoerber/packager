@@ -3,36 +3,24 @@ use crate::models::*;
 
 use maud::{html, Markup};
 
-pub struct TripManager {
-    doc: Markup,
-}
+pub struct TripManager;
 
 impl TripManager {
-    pub fn build(trips: Vec<models::Trip>) -> Self {
-        let doc = html!(
+    pub fn build(trips: Vec<models::Trip>) -> Markup {
+        html!(
             div ."p-8" {
-                (TripTable::build(trips).into_markup())
-                (NewTrip::build().into_markup())
+                (TripTable::build(trips))
+                (NewTrip::build())
             }
-        );
-
-        Self { doc }
+        )
     }
 }
 
-pub struct TripTable {
-    doc: Markup,
-}
-
-impl From<TripManager> for Markup {
-    fn from(val: TripManager) -> Self {
-        val.doc
-    }
-}
+pub struct TripTable;
 
 impl TripTable {
-    pub fn build(trips: Vec<models::Trip>) -> Self {
-        let doc = html!(
+    pub fn build(trips: Vec<models::Trip>) -> Markup {
+        html!(
             h1 ."text-2xl" ."mb-5" {"Trips"}
             table
                 ."table"
@@ -83,23 +71,15 @@ impl TripTable {
                     }
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    pub fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }
 
-pub struct NewTrip {
-    doc: Markup,
-}
+pub struct NewTrip;
 
 impl NewTrip {
-    pub fn build() -> Self {
-        let doc = html!(
+    pub fn build() -> Markup {
+        html!(
             form
                 name="new_trip"
                 action="/trip/"
@@ -190,48 +170,32 @@ impl NewTrip {
                     {}
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    pub fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }
 
-pub struct Trip {
-    doc: Markup,
-}
+pub struct Trip;
 
 impl Trip {
-    pub fn build(trip: &models::Trip) -> Self {
-        let doc = html!(
+    pub fn build(trip: &models::Trip) -> Markup {
+        html!(
             div ."p-8" {
                 div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
                     h1 ."text-2xl" ."font-semibold"{ (trip.name) }
                 }
                 div ."my-6" {
-                    (TripInfo::build(&trip).into_markup())
+                    (TripInfo::build(&trip))
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    pub fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }
 
-pub struct TripInfo {
-    doc: Markup,
-}
+pub struct TripInfo;
 
 impl TripInfo {
-    pub fn build(trip: &models::Trip) -> Self {
-        let doc = html!(
+    pub fn build(trip: &models::Trip) -> Markup {
+        html!(
             table
                 ."table"
                 ."table-auto"
@@ -338,12 +302,6 @@ impl TripInfo {
                     }
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    pub fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }

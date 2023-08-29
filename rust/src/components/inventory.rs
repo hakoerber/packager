@@ -4,17 +4,15 @@ use crate::models::*;
 use crate::ClientState;
 use uuid::{uuid, Uuid};
 
-pub struct Inventory {
-    doc: Markup,
-}
+pub struct Inventory;
 
 impl Inventory {
-    pub async fn build(state: ClientState, categories: Vec<Category>) -> Result<Self, Error> {
+    pub async fn build(state: ClientState, categories: Vec<Category>) -> Result<Markup, Error> {
         let doc = html!(
             div id="pkglist-item-manager" {
                 div ."p-8" ."grid" ."grid-cols-4" ."gap-3" {
                     div ."col-span-2" {
-                        (InventoryCategoryList::build(&state, &categories).into_markup())
+                        (InventoryCategoryList::build(&state, &categories))
                     }
                     div ."col-span-2" {
                         h1 ."text-2xl" ."mb-5" ."text-center" { "Items" }
@@ -22,37 +20,29 @@ impl Inventory {
                             (InventoryItemList::build(&state, categories.iter().find(|category| category.id == active_category_id)
                                                       .ok_or(Error::NotFoundError { description: format!("no category with id {}", active_category_id) })?
                                                       .items())
-                             .into_markup())
+                             )
                         }
-                        (InventoryNewItemForm::build(&state, &categories).into_markup())
+                        (InventoryNewItemForm::build(&state, &categories))
                     }
                 }
             }
         );
 
-        Ok(Self { doc })
+        Ok(doc)
     }
 }
 
-impl From<Inventory> for Markup {
-    fn from(val: Inventory) -> Self {
-        val.doc
-    }
-}
-
-pub struct InventoryCategoryList {
-    doc: Markup,
-}
+pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
-    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Self {
+    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
         let biggest_category_weight: u32 = categories
             .iter()
             .map(Category::total_weight)
             .max()
             .unwrap_or(1);
 
-        let doc = html!(
+        html!(
             div {
                 h1 ."text-2xl" ."mb-5" ."text-center" { "Categories" }
                 table
@@ -146,30 +136,16 @@ impl InventoryCategoryList {
                     }
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }
 
-impl From<InventoryCategoryList> for Markup {
-    fn from(val: InventoryCategoryList) -> Self {
-        val.doc
-    }
-}
-
-pub struct InventoryItemList {
-    doc: Markup,
-}
+pub struct InventoryItemList;
 
 impl InventoryItemList {
-    pub fn build(state: &ClientState, items: &Vec<Item>) -> Self {
+    pub fn build(state: &ClientState, items: &Vec<Item>) -> Markup {
         let biggest_item_weight: u32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
-        let doc = html!(
+        html!(
             div #items {
                 @if items.is_empty() {
                     p ."text-lg" ."text-center" ."py-5" ."text-gray-400" { "[Empty]" }
@@ -305,30 +281,15 @@ impl InventoryItemList {
                     }
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }
 
-impl From<InventoryItemList> for Markup {
-    fn from(val: InventoryItemList) -> Self {
-        val.doc
-    }
-}
-
-pub struct InventoryNewItemForm {
-    doc: Markup,
-}
+pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
-    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Self {
-        let doc = html!(
-
+    pub fn build(state: &ClientState, categories: &Vec<Category>) -> Markup {
+        html!(
             form
                 name="new-item"
                 id="new-item"
@@ -417,24 +378,6 @@ impl InventoryNewItemForm {
                     }
                 }
             }
-        );
-
-        Self { doc }
-    }
-
-    fn into_markup(self) -> Markup {
-        self.doc
+        )
     }
 }
-
-impl From<InventoryNewItemForm> for Markup {
-    fn from(val: InventoryNewItemForm) -> Self {
-        val.doc
-    }
-}
-// impl InventoryItemList {
-//     pub fn to_string(self) -> String {
-//         self.doc.into_string()
-//     }
-// }
-//ItemList
