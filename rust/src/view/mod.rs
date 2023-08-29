@@ -98,7 +98,7 @@ impl Root {
                             ."px-5"
                             ."bg-gray-200"
                             ."hover:bg-gray-300"
-                            href=(format!("/user/{}", context.user.username))
+                            href=(format!("/user/{}", context.user.id))
                         {
                             span
                                 ."m-auto"
@@ -106,7 +106,7 @@ impl Root {
                                 ."mdi-account"
                                 ."text-3xl"
                             {}
-                            p { (context.user.username)}
+                            p { (context.user.fullname)}
                         }
                     }
                     (body)

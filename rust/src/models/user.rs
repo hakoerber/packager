@@ -8,6 +8,11 @@ pub struct User {
     pub fullname: String,
 }
 
+pub struct NewUser<'a> {
+    pub username: &'a str,
+    pub fullname: &'a str,
+}
+
 #[derive(Debug)]
 pub struct DbUserRow {
     id: String,
@@ -42,4 +47,23 @@ impl User {
         .map(|row: DbUserRow| row.try_into())
         .transpose()
     }
+}
+
+pub async fn create(pool: &sqlx::Pool<sqlx::Sqlite>, user: NewUser<'_>) -> Result<Uuid, Error> {
+    let id = Uuid::new_v4();
+    let id_param = id.to_string();
+
+    sqlx::query!(
+        "INSERT INTO users
+            (id, username, fullname)
+        VALUES
+            (?, ?, ?)",
+        id_param,
+        user.username,
+        user.fullname
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(id)
 }

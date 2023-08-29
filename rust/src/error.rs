@@ -47,6 +47,21 @@ pub enum StartError {
     DatabaseMigrationError { message: String },
 }
 
+impl fmt::Display for StartError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::DatabaseInitError { message } => {
+                write!(f, "database initialization error: {message}")
+            }
+            Self::DatabaseMigrationError { message } => {
+                write!(f, "database migration error: {message}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for StartError {}
+
 impl From<sqlx::Error> for StartError {
     fn from(value: sqlx::Error) -> Self {
         Self::DatabaseInitError {
