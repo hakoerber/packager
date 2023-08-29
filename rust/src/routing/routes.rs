@@ -113,14 +113,14 @@ pub async fn icon() -> impl IntoResponse {
 }
 
 pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
-    let out = {
+    
+    {
         let mut out = String::new();
         for (key, value) in headers.iter() {
             out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));
         }
         out
-    };
-    out
+    }
 }
 pub async fn inventory_active(
     Extension(current_user): Extension<models::user::User>,
@@ -452,12 +452,10 @@ pub async fn trip_edit_attribute(
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, Error> {
     let ctx = Context::build(current_user);
-    if attribute == models::trips::TripAttribute::Name {
-        if trip_update.new_value.is_empty() {
-            return Err(Error::Request(RequestError::EmptyFormElement {
-                name: "name".to_string(),
-            }));
-        }
+    if attribute == models::trips::TripAttribute::Name && trip_update.new_value.is_empty() {
+        return Err(Error::Request(RequestError::EmptyFormElement {
+            name: "name".to_string(),
+        }));
     }
     models::trips::Trip::set_attribute(
         &ctx,
@@ -479,7 +477,7 @@ pub async fn trip_item_set_state(
     key: models::trips::TripItemStateKey,
     value: bool,
 ) -> Result<(), Error> {
-    models::trips::TripItem::set_state(&ctx, &state.database_pool, trip_id, item_id, key, value)
+    models::trips::TripItem::set_state(ctx, &state.database_pool, trip_id, item_id, key, value)
         .await?;
     Ok(())
 }
@@ -502,7 +500,7 @@ pub async fn trip_row(
         trip_id,
         &item,
         models::inventory::InventoryItem::get_category_max_weight(
-            &ctx,
+            ctx,
             &state.database_pool,
             item.item.category_id,
         )
@@ -902,9 +900,9 @@ pub async fn trips_types_edit_name(
     .await?;
 
     if !exists {
-        return Err(Error::Request(RequestError::NotFound {
+        Err(Error::Request(RequestError::NotFound {
             message: format!("trip type with id {trip_type_id} not found"),
-        }));
+        }))
     } else {
         Ok(Redirect::to("/trips/types/"))
     }

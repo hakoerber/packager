@@ -118,16 +118,16 @@ impl From<sqlx::Error> for Error {
                     match &*code {
                         // SQLITE_CONSTRAINT_FOREIGNKEY
                         "787" => Error::Query(QueryError::ReferenceNotFound {
-                            description: format!("foreign key reference not found"),
+                            description: "foreign key reference not found".to_string(),
                         }),
                         // SQLITE_CONSTRAINT_UNIQUE
                         "2067" => Error::Query(QueryError::Duplicate {
-                            description: format!("item with unique constraint already exists",),
+                            description: "item with unique constraint already exists".to_string(),
                         }),
                         _ => Error::Database(DatabaseError::Sql {
                             description: format!(
                                 "got error with unknown code: {}",
-                                sqlite_error.to_string()
+                                sqlite_error
                             ),
                         }),
                     }
@@ -135,13 +135,13 @@ impl From<sqlx::Error> for Error {
                     Error::Database(DatabaseError::Sql {
                         description: format!(
                             "got error without code: {}",
-                            sqlite_error.to_string()
+                            sqlite_error
                         ),
                     })
                 }
             }
             _ => Error::Database(DatabaseError::Sql {
-                description: format!("got unknown error: {}", value.to_string()),
+                description: format!("got unknown error: {}", value),
             }),
         }
     }

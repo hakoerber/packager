@@ -13,7 +13,7 @@ mod html;
 mod routes;
 use routes::*;
 
-fn get_referer<'a>(headers: &'a HeaderMap) -> Result<&'a str, Error> {
+fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
     headers
         .get("referer")
         .ok_or(Error::Request(RequestError::RefererNotFound))?

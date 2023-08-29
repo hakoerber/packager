@@ -92,7 +92,7 @@ impl IntoResponse for Error {
                 ),
                 models::Error::Query(error) => match error {
                     models::QueryError::NotFound { description } => {
-                        (StatusCode::NOT_FOUND, view::ErrorPage::build(&description))
+                        (StatusCode::NOT_FOUND, view::ErrorPage::build(description))
                     }
                     _ => (
                         StatusCode::BAD_REQUEST,

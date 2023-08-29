@@ -29,7 +29,7 @@ impl Inventory {
         .collect::<Result<Vec<Category>, Error>>()?;
 
         for category in &mut categories {
-            category.populate_items(&ctx, &pool).await?;
+            category.populate_items(ctx, pool).await?;
         }
 
         Ok(Self { categories })
