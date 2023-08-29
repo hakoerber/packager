@@ -80,7 +80,7 @@ fn get_jaeger_layer<
     config: OpenTelemetryConfig,
     shutdown_functions: &mut Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>>,
 ) -> Option<impl tracing_subscriber::Layer<T>> {
-    let opentelemetry_layer = match config {
+    match config {
         OpenTelemetryConfig::Enabled => {
             global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
             // Sets up the machinery needed to export data to Jaeger
@@ -116,8 +116,7 @@ fn get_jaeger_layer<
             Some(opentelemetry_layer)
         }
         OpenTelemetryConfig::Disabled => None,
-    };
-    opentelemetry_layer
+    }
 }
 
 pub async fn init<Func, T>(

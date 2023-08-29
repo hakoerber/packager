@@ -42,7 +42,7 @@ pub async fn authorize<B>(
                         message: e.to_string(),
                     })),
                     Ok(username) => {
-                        match models::user::User::find_by_name(&state.database_pool, &username)
+                        match models::user::User::find_by_name(&state.database_pool, username)
                             .await?
                         {
                             Some(user) => Ok(Ok(user)),

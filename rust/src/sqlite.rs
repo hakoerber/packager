@@ -144,7 +144,7 @@ macro_rules! query_all {
         {
             use tracing::Instrument as _;
             async {
-                crate::sqlite::sqlx_query($class, $query, &[]);
+                $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
                     $struct_row,
                     $query,
@@ -170,7 +170,7 @@ macro_rules! query_one {
         {
             use tracing::Instrument as _;
             async {
-                crate::sqlite::sqlx_query($class, $query, &[]);
+                $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<Option<$struct_into>, Error> = sqlx::query_as!(
                     $struct_row,
                     $query,
@@ -194,7 +194,7 @@ macro_rules! query_exists {
         {
             use tracing::Instrument as _;
             async {
-                crate::sqlite::sqlx_query($class, $query, &[]);
+                $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: bool = sqlx::query!(
                     $query,
                     $( $args )*
@@ -216,7 +216,7 @@ macro_rules! execute {
         {
             use tracing::Instrument as _;
             async {
-                crate::sqlite::sqlx_query($class, $query, &[]);
+                $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
                     $query,
                     $( $args )*
@@ -237,7 +237,7 @@ macro_rules! execute_returning {
         {
             use tracing::Instrument as _;
             async {
-                crate::sqlite::sqlx_query($class, $query, &[]);
+                $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<$t, Error> = sqlx::query!(
                     $query,
                     $( $args )*
@@ -261,7 +261,7 @@ macro_rules! execute_returning_uuid {
         {
             use tracing::Instrument as _;
             async {
-                crate::sqlite::sqlx_query($class, $query, &[]);
+                $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<Uuid, Error> = sqlx::query!(
                     $query,
                     $( $args )*
