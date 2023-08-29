@@ -5,6 +5,9 @@ use axum::{
     Router,
 };
 
+use tower_http::trace;
+use tracing::Level;
+
 use crate::{AppState, Error, RequestError, TopLevelPage};
 
 use super::auth;
@@ -123,4 +126,9 @@ pub fn router(state: AppState) -> Router {
             })
         })
         .with_state(state)
+        .layer(
+            trace::TraceLayer::new_for_http()
+                .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
+        )
 }

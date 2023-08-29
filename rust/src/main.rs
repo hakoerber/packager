@@ -79,7 +79,10 @@ async fn main() -> MainResult {
     match args.command {
         Command::Serve(serve_args) => {
             tracing_subscriber::fmt()
-                .with_max_level(tracing::Level::DEBUG)
+                // .with_max_level(tracing::Level::DEBUG)
+                // .with_target(false)
+                .with_env_filter("none,packager=debug,request=debug,sqlx=debug")
+                .compact()
                 .init();
 
             if let Err(e) = sqlite::migrate(&args.database_url).await {

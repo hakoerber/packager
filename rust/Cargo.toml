@@ -11,6 +11,9 @@ path = "src/main.rs"
 opt-level = 0
 lto = "off"
 
+[dependencies.log]
+version = "0.4"
+
 [dependencies.clap]
 version = "4"
 features = ["derive"]
@@ -30,11 +33,16 @@ features = ["full"]
 [dependencies.tower]
 version = "0.4"
 
+[dependencies.tower-http]
+version = "0.4"
+features = ["trace"]
+
 [dependencies.tracing]
 version = "0.1"
 
 [dependencies.tracing-subscriber]
 version = "0.3"
+features = ["json", "env-filter"]
 
 [dependencies.maud]
 version = "0.25"
