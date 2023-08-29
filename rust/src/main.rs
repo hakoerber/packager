@@ -9,6 +9,8 @@ use axum::{
     Form, Router,
 };
 
+use maud::html;
+
 use std::str::FromStr;
 
 use serde_variant::to_variant_name;
@@ -128,12 +130,25 @@ async fn main() -> Result<(), sqlx::Error> {
             "/trip/:id/edit/:attribute/submit",
             post(trip_edit_attribute),
         )
-        .route("/trip/:id/items/:id/pick", get(trip_item_set_pick))
-        .route("/trip/:id/items/:id/unpick", get(trip_item_set_unpick))
-        .route("/trip/:id/items/:id/pack", get(trip_item_set_pack))
-        .route("/trip/:id/items/:id/unpack", get(trip_item_set_unpack))
+        .route(
+            "/trip/:id/items/:id/pick",
+            get(trip_item_set_pick).post(trip_item_set_pick_htmx),
+        )
+        .route(
+            "/trip/:id/items/:id/unpick",
+            get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
+        )
+        .route(
+            "/trip/:id/items/:id/pack",
+            get(trip_item_set_pack).post(trip_item_set_pack_htmx),
+        )
+        .route(
+            "/trip/:id/items/:id/unpack",
+            get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
+        )
         .route("/inventory/", get(inventory_inactive))
         .route("/inventory/category/", post(inventory_category_create))
+        .route("/inventory/item/:id/", get(inventory_item))
         .route("/inventory/item/", post(inventory_item_create))
         .route(
             "/inventory/item/name/validate",
@@ -1007,6 +1022,14 @@ async fn trip_item_set_pick(
     )?
 }
 
+async fn trip_item_set_pick_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, true).await?;
+    Ok((StatusCode::OK, trip_row(&state, trip_id, item_id).await?))
+}
+
 async fn trip_item_set_unpick(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -1031,6 +1054,51 @@ async fn trip_item_set_unpick(
             ))
         },
     )?
+}
+
+async fn trip_row(
+    state: &AppState,
+    trip_id: Uuid,
+    item_id: Uuid,
+) -> Result<Markup, (StatusCode, Markup)> {
+    let item: TripItem = TripItem::find(&state.database_pool, trip_id, item_id)
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::BAD_REQUEST,
+                ErrorPage::build(&error.to_string()),
+            )
+        })?
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                ErrorPage::build(&format!(
+                    "item with id {} not found for trip {}",
+                    item_id, trip_id
+                )),
+            )
+        })?;
+
+    Ok(components::trip::TripItemListRow::build(
+        trip_id,
+        &item,
+        Item::get_category_max_weight(&state.database_pool, item.item.category_id)
+            .await
+            .map_err(|error| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    ErrorPage::build(&error.to_string()),
+                )
+            })?,
+    ))
+}
+
+async fn trip_item_set_unpick_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, false).await?;
+    Ok((StatusCode::OK, trip_row(&state, trip_id, item_id).await?))
 }
 
 async fn trip_item_set_pack(
@@ -1059,6 +1127,14 @@ async fn trip_item_set_pack(
     )?
 }
 
+async fn trip_item_set_pack_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?;
+    Ok((StatusCode::OK, trip_row(&state, trip_id, item_id).await?))
+}
+
 async fn trip_item_set_unpack(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -1083,6 +1159,14 @@ async fn trip_item_set_unpack(
             ))
         },
     )?
+}
+
+async fn trip_item_set_unpack_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?;
+    Ok((StatusCode::OK, trip_row(&state, trip_id, item_id).await?))
 }
 
 #[derive(Deserialize)]
@@ -1338,4 +1422,60 @@ async fn trips_types_edit_name(
     } else {
         Ok(Redirect::to("/trips/types/"))
     }
+}
+
+async fn inventory_item(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    let id_param = id.to_string();
+    let item: models::InventoryItem = query_as!(
+        DbInventoryItemRow,
+        "SELECT
+                item.id AS id,
+                item.name AS name,
+                item.description AS description,
+                weight,
+                category.id AS category_id,
+                category.name AS category_name,
+                category.description AS category_description,
+                product.id AS product_id,
+                product.name AS product_name,
+                product.description AS product_description,
+                product.comment AS product_comment
+            FROM inventory_items AS item
+            INNER JOIN inventory_items_categories as category
+                ON item.category_id = category.id
+            LEFT JOIN inventory_products AS product
+                ON item.product_id = product.id
+            WHERE item.id = ?",
+        id_param,
+    )
+    .fetch_one(&state.database_pool)
+    .map_ok(|row| row.try_into())
+    .await
+    .map_err(|e: sqlx::Error| match e {
+        sqlx::Error::RowNotFound => (
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("item with id {} not found", id)),
+        ),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        ),
+    })?
+    .map_err(|e: Error| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorPage::build(&e.to_string()),
+        )
+    })?;
+
+    Ok((
+        StatusCode::OK,
+        Root::build(
+            &components::InventoryItem::build(&state.client_state, &item),
+            &TopLevelPage::Inventory,
+        ),
+    ))
 }

@@ -224,6 +224,79 @@ pub struct TripItem {
     pub new: bool,
 }
 
+pub struct DbTripsItemsRow {
+    picked: bool,
+    packed: bool,
+    new: bool,
+    id: String,
+    name: String,
+    weight: i64,
+    description: Option<String>,
+    category_id: String,
+}
+
+impl TryFrom<DbTripsItemsRow> for TripItem {
+    type Error = Error;
+
+    fn try_from(row: DbTripsItemsRow) -> Result<Self, Self::Error> {
+        Ok(TripItem {
+            picked: row.picked,
+            packed: row.packed,
+            new: row.new,
+            item: Item {
+                id: Uuid::try_parse(&row.id)?,
+                name: row.name,
+                description: row.description,
+                weight: row.weight,
+                category_id: Uuid::try_parse(&row.category_id)?,
+            },
+        })
+    }
+}
+
+impl TripItem {
+    pub async fn find(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+        item_id: Uuid,
+    ) -> Result<Option<Self>, Error> {
+        let item_id_param = item_id.to_string();
+        let trip_id_param = trip_id.to_string();
+        let item: Result<Result<TripItem, Error>, sqlx::Error> = sqlx::query_as!(
+            DbTripsItemsRow,
+            "
+                SELECT
+                    t_item.item_id AS id,
+                    t_item.pick AS picked,
+                    t_item.pack AS packed,
+                    t_item.new AS new,
+                    i_item.name AS name,
+                    i_item.description AS description,
+                    i_item.weight AS weight,
+                    i_item.category_id AS category_id
+                FROM trips_items AS t_item
+                INNER JOIN inventory_items AS i_item
+                    ON i_item.id = t_item.item_id
+                WHERE t_item.item_id = ?
+                AND t_item.trip_id = ?
+            ",
+            item_id_param,
+            trip_id_param,
+        )
+        .fetch_one(pool)
+        .map_ok(|row| row.try_into())
+        .await;
+
+        match item {
+            Err(e) => match e {
+                sqlx::Error::RowNotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+            Ok(v) => Ok(Some(v?)),
+        }
+    }
+}
+
 pub struct DbTripRow {
     pub id: String,
     pub name: String,
@@ -652,7 +725,13 @@ impl Item {
         let id_param = id.to_string();
         let item: Result<Result<Item, Error>, sqlx::Error> = sqlx::query_as!(
             DbInventoryItemsRow,
-            "SELECT * FROM inventory_items AS item
+            "SELECT
+                id,
+                name,
+                weight,
+                description,
+                category_id
+            FROM inventory_items AS item
             WHERE item.id = ?",
             id_param,
         )
@@ -705,6 +784,69 @@ impl Item {
             Ok(v) => Ok(Some(v?)),
         }
     }
+
+    pub async fn get_category_max_weight(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+    ) -> Result<i64, Error> {
+        let id_param = id.to_string();
+        let weight: Result<i64, sqlx::Error> = sqlx::query!(
+            "
+                SELECT COALESCE(MAX(i_item.weight), 0) as weight
+                FROM inventory_items_categories as category
+                INNER JOIN inventory_items as i_item
+                    ON i_item.category_id = category.id
+                WHERE category_id = (
+                    SELECT category_id
+                    FROM inventory_items
+                    WHERE inventory_items.id = ?
+                )
+            ",
+            id_param
+        )
+        .fetch_one(pool)
+        .map_ok(|row| {
+            // convert to i64 because that the default integer type, but looks
+            // like COALESCE return i32?
+            //
+            // We can be certain that the row exists, as we COALESCE it
+            row.weight.unwrap() as i64
+        })
+        .await;
+
+        Ok(weight?)
+    }
+
+    pub async fn _get_category_total_picked_weight(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        category_id: Uuid,
+    ) -> Result<i64, Error> {
+        let category_id_param = category_id.to_string();
+        let weight: Result<i64, sqlx::Error> = sqlx::query!(
+            "
+                SELECT COALESCE(SUM(i_item.weight), 0) as weight
+                FROM inventory_items_categories as category
+                INNER JOIN inventory_items as i_item
+                    ON i_item.category_id = category.id
+                INNER JOIN trips_items as t_item
+                    ON i_item.id = t_item.item_id
+                WHERE category_id = ?
+                AND t_item.pick = 1
+            ",
+            category_id_param
+        )
+        .fetch_one(pool)
+        .map_ok(|row| {
+            // convert to i64 because that the default integer type, but looks
+            // like COALESCE return i32?
+            //
+            // We can be certain that the row exists, as we COALESCE it
+            row.weight.unwrap() as i64
+        })
+        .await;
+
+        Ok(weight?)
+    }
 }
 
 pub struct DbTripsTypesRow {
@@ -730,6 +872,66 @@ impl TryFrom<DbTripsTypesRow> for TripsType {
         Ok(TripsType {
             id: Uuid::try_parse(&row.id)?,
             name: row.name,
+        })
+    }
+}
+
+pub struct Product {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub comment: Option<String>,
+}
+
+pub struct InventoryItem {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub weight: i64,
+    pub category: Category,
+    pub product: Option<Product>,
+}
+
+pub struct DbInventoryItemRow {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub weight: i64,
+    pub category_id: String,
+    pub category_name: String,
+    pub category_description: Option<String>,
+    pub product_id: Option<String>,
+    pub product_name: Option<String>,
+    pub product_description: Option<String>,
+    pub product_comment: Option<String>,
+}
+
+impl TryFrom<DbInventoryItemRow> for InventoryItem {
+    type Error = Error;
+
+    fn try_from(row: DbInventoryItemRow) -> Result<Self, Self::Error> {
+        Ok(InventoryItem {
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            description: row.description,
+            weight: row.weight,
+            category: Category {
+                id: Uuid::try_parse(&row.category_id)?,
+                name: row.category_name,
+                description: row.category_description,
+                items: None,
+            },
+            product: row
+                .product_id
+                .map(|id| -> Result<Product, Error> {
+                    Ok(Product {
+                        id: Uuid::try_parse(&id)?,
+                        name: row.product_name.unwrap(),
+                        description: row.product_description,
+                        comment: row.product_comment,
+                    })
+                })
+                .transpose()?,
         })
     }
 }

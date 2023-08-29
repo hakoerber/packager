@@ -48,7 +48,7 @@ impl TypeList {
                                         name="new-value"
                                         form="edit-trip-type"
                                         value=(trip_type.name)
-                                    ;
+                                    {}
                                 }
                                 div
                                     ."flex"
@@ -66,7 +66,7 @@ impl TypeList {
                                             ."mdi-cancel"
                                             ."text-xl"
                                             ."m-auto"
-                                        ;
+                                        {}
                                     }
                                     button
                                         type="submit"
@@ -79,7 +79,7 @@ impl TypeList {
                                             ."mdi"
                                             ."mdi-content-save"
                                             ."text-xl"
-                                        ;
+                                        {}
                                     }
                                 }
                             } @else {
@@ -105,7 +105,8 @@ impl TypeList {
                                             ."m-auto"
                                             ."mdi"
                                             ."mdi-pencil"
-                                            ."text-xl";
+                                            ."text-xl"
+                                        {}
                                     }
                                 }
                             }

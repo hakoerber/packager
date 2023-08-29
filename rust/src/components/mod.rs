@@ -27,8 +27,8 @@ impl Root {
                     script src="https://unpkg.com/alpinejs@3.12.1" defer {}
                     script src="https://cdn.tailwindcss.com" {}
                     script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js" defer {}
-                    link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css";
-                    link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg";
+                    link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css" {}
+                    link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg" {}
                     script { (PreEscaped(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js")))) }
                 }
                 body
@@ -53,7 +53,7 @@ impl Root {
                             ."items-center"
                             ."gap-3"
                         {
-                            img ."h-12" src="/assets/luggage.svg";
+                            img ."h-12" src="/assets/luggage.svg" {}
                             a #home href="/" { "Packager" }
                         }
                         nav

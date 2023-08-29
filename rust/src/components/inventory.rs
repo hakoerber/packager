@@ -1,5 +1,6 @@
 use maud::{html, Markup, PreEscaped};
 
+use crate::models;
 use crate::models::*;
 use crate::ClientState;
 use uuid::{uuid, Uuid};
@@ -221,7 +222,8 @@ impl InventoryItemList {
                                                     ."m-auto"
                                                     ."mdi"
                                                     ."mdi-content-save"
-                                                    ."text-xl";
+                                                    ."text-xl"
+                                                {}
                                             }
                                         }
                                         td
@@ -243,7 +245,8 @@ impl InventoryItemList {
                                                     ."m-auto"
                                                     ."mdi"
                                                     ."mdi-cancel"
-                                                    ."text-xl";
+                                                    ."text-xl"
+                                                {}
                                             }
                                         }
                                     }
@@ -282,7 +285,7 @@ impl InventoryItemList {
                                                     ."w-full"
                                                     href=(format!("?edit_item={id}", id = item.id))
                                                 {
-                                                    span ."m-auto" ."mdi" ."mdi-pencil" ."text-xl";
+                                                    span ."m-auto" ."mdi" ."mdi-pencil" ."text-xl" {}
                                                 }
                                         }
                                         td
@@ -299,7 +302,7 @@ impl InventoryItemList {
                                                 ."w-full"
                                                 href=(format!("/inventory/item/{id}/delete", id = item.id))
                                             {
-                                                span ."m-auto" ."mdi" ."mdi-delete" ."text-xl";
+                                                span ."m-auto" ."mdi" ."mdi-delete" ."text-xl" {}
                                             }
                                         }
                                     }
@@ -348,7 +351,7 @@ impl InventoryNewItemFormName {
                     ."focus:bg-white"
                     ."focus:border-purple-500"[!error]
                     value=[value]
-                ;
+                {}
                 @if error {
                     div
                         ."col-start-2"
@@ -544,6 +547,48 @@ impl InventoryNewCategoryForm {
                         ."mx-auto"
                         ."w-full" {
                     }
+                }
+            }
+        )
+    }
+}
+
+pub struct InventoryItem;
+
+impl InventoryItem {
+    pub fn build(_state: &ClientState, item: &models::InventoryItem) -> Markup {
+        html!(
+            div ."p-8" {
+                table
+                    ."table"
+                    ."table-auto"
+                    ."border-collapse"
+                    ."border-spacing-0"
+                    ."border"
+                    ."w-full"
+                {
+                    tbody {
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                            td ."border" ."p-2" { "Name" }
+                            td ."border" ."p-2" { (item.name) }
+                        }
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                            td ."border" ."p-2" { "Description" }
+                            td ."border" ."p-2" { (item.description.clone().unwrap_or("".to_string())) }
+                        }
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                            td ."border" ."p-2" { "Weight" }
+                            td ."border" ."p-2" { (item.weight.to_string()) }
+                        }
+                        tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" ."h-full" {
+                            td ."border" ."p-2" { "Category" }
+                            td ."border" ."p-2" { (item.category.name) }
+                        }
+                    }
+                }
+                @match item.product {
+                    Some(ref product) => p { "this item is part of product" (product.name) },
+                    None => p { "this item is not part of a product" },
                 }
             }
         )

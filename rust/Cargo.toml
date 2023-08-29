@@ -3,6 +3,10 @@ name = "packager"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+opt-level = 0
+lto = "off"
+
 [dependencies.clap]
 version = "4.3.0"
 features = ["derive"]

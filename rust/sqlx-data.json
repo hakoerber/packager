@@ -120,6 +120,48 @@
     },
     "query": "INSERT INTO trips_to_trips_types\n        (trip_id, trip_type_id) VALUES (?, ?)"
   },
+  "53c45b9447118c8b448df6836e68a38ff78d0b7f4d5344a1e5064d31e70396b3": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "weight",
+          "ordinal": 2,
+          "type_info": "Int64"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "category_id",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT\n                id,\n                name,\n                weight,\n                description,\n                category_id\n            FROM inventory_items AS item\n            WHERE item.id = ?"
+  },
   "68304c19a0bee12c0b3ce9740d53389620b20e47973b41975678dbd13bd30c7f": {
     "describe": {
       "columns": [],
@@ -344,6 +386,24 @@
     },
     "query": "INSERT INTO trips\n            (id, name, date_start, date_end, state)\n        VALUES\n            (?, ?, ?, ?, ?)"
   },
+  "9c4c2eb24747c3d8157ad17bacbe074d906d2891e8c68160becd8e10d045cfbc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "weight",
+          "ordinal": 0,
+          "type_info": "Int"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT COALESCE(MAX(i_item.weight), 0) as weight\n                FROM inventory_items_categories as category\n                INNER JOIN inventory_items as i_item\n                    ON i_item.category_id = category.id\n                WHERE category_id = (\n                    SELECT category_id\n                    FROM inventory_items\n                    WHERE inventory_items.id = ?\n                )\n            "
+  },
   "a81bcbeb11260e3b4363e19c26b71b489e326b08bfacb6e11b4c4fc068dc7806": {
     "describe": {
       "columns": [
@@ -384,7 +444,17 @@
     },
     "query": "DELETE FROM inventory_items\n        WHERE id = ?"
   },
-  "b916db63913aa222cef4552dffdcda0f26f16612fbb4c1e839bfd0162888fdc3": {
+  "ded3be1c8894a64e3b5f749461db7261d9224abb8a54da980db8262733d08205": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "INSERT INTO trips_types\n            (id, name)\n        VALUES\n            (?, ?)"
+  },
+  "efcf56aacc622556fc10220edb57ea69822eed50cdf9ef54bc48a7fb04d4ee9a": {
     "describe": {
       "columns": [
         {
@@ -411,6 +481,36 @@
           "name": "category_id",
           "ordinal": 4,
           "type_info": "Text"
+        },
+        {
+          "name": "category_name",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "category_description",
+          "ordinal": 6,
+          "type_info": "Text"
+        },
+        {
+          "name": "product_id",
+          "ordinal": 7,
+          "type_info": "Text"
+        },
+        {
+          "name": "product_name",
+          "ordinal": 8,
+          "type_info": "Text"
+        },
+        {
+          "name": "product_description",
+          "ordinal": 9,
+          "type_info": "Text"
+        },
+        {
+          "name": "product_comment",
+          "ordinal": 10,
+          "type_info": "Text"
         }
       ],
       "nullable": [
@@ -418,23 +518,19 @@
         false,
         true,
         false,
-        false
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true
       ],
       "parameters": {
         "Right": 1
       }
     },
-    "query": "SELECT * FROM inventory_items AS item\n            WHERE item.id = ?"
-  },
-  "ded3be1c8894a64e3b5f749461db7261d9224abb8a54da980db8262733d08205": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 2
-      }
-    },
-    "query": "INSERT INTO trips_types\n            (id, name)\n        VALUES\n            (?, ?)"
+    "query": "SELECT\n                item.id AS id,\n                item.name AS name,\n                item.description AS description,\n                weight,\n                category.id AS category_id,\n                category.name AS category_name,\n                category.description AS category_description,\n                product.id AS product_id,\n                product.name AS product_name,\n                product.description AS product_description,\n                product.comment AS product_comment\n            FROM inventory_items AS item\n            INNER JOIN inventory_items_categories as category\n                ON item.category_id = category.id\n            LEFT JOIN inventory_products AS product\n                ON item.product_id = product.id\n            WHERE item.id = ?"
   },
   "f2038d75ff5ff10d4baeb30b9dc4cc1c991da1facdb1f05e16f271372eee0c7a": {
     "describe": {
@@ -523,6 +619,84 @@
       }
     },
     "query": "\n                SELECT\n                    category.id as category_id,\n                    category.name as category_name,\n                    category.description AS category_description,\n                    inner.trip_id AS trip_id,\n                    inner.item_id AS item_id,\n                    inner.item_name AS item_name,\n                    inner.item_description AS item_description,\n                    inner.item_weight AS item_weight,\n                    inner.item_is_picked AS item_is_picked,\n                    inner.item_is_packed AS item_is_packed,\n                    inner.item_is_new AS item_is_new\n                FROM inventory_items_categories AS category\n                    LEFT JOIN (\n                        SELECT\n                            trip.trip_id AS trip_id,\n                            category.id as category_id,\n                            category.name as category_name,\n                            category.description as category_description,\n                            item.id as item_id,\n                            item.name as item_name,\n                            item.description as item_description,\n                            item.weight as item_weight,\n                            trip.pick as item_is_picked,\n                            trip.pack as item_is_packed,\n                            trip.new as item_is_new\n                        FROM trips_items as trip\n                        INNER JOIN inventory_items as item\n                            ON item.id = trip.item_id\n                        INNER JOIN inventory_items_categories as category\n                            ON category.id = item.category_id\n                        WHERE trip.trip_id = ?\n                    ) AS inner\n                    ON inner.category_id = category.id\n            "
+  },
+  "f3fd58ae5e462c354d76fcfce1e86ffcdab80d507cc6599adebcdaea8bb2bc6f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "picked",
+          "ordinal": 1,
+          "type_info": "Bool"
+        },
+        {
+          "name": "packed",
+          "ordinal": 2,
+          "type_info": "Bool"
+        },
+        {
+          "name": "new",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "name",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "weight",
+          "ordinal": 6,
+          "type_info": "Int64"
+        },
+        {
+          "name": "category_id",
+          "ordinal": 7,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "\n                SELECT\n                    t_item.item_id AS id,\n                    t_item.pick AS picked,\n                    t_item.pack AS packed,\n                    t_item.new AS new,\n                    i_item.name AS name,\n                    i_item.description AS description,\n                    i_item.weight AS weight,\n                    i_item.category_id AS category_id\n                FROM trips_items AS t_item\n                INNER JOIN inventory_items AS i_item\n                    ON i_item.id = t_item.item_id\n                WHERE t_item.item_id = ?\n                AND t_item.trip_id = ?\n            "
+  },
+  "f9d080a5b8710c7d6a497bb1f5cf4839ad1589fd7d6a06d3faf1163d6981d8a0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "weight",
+          "ordinal": 0,
+          "type_info": "Int"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "\n                SELECT COALESCE(SUM(i_item.weight), 0) as weight\n                FROM inventory_items_categories as category\n                INNER JOIN inventory_items as i_item\n                    ON i_item.category_id = category.id\n                INNER JOIN trips_items as t_item\n                    ON i_item.id = t_item.item_id\n                WHERE category_id = ?\n                AND t_item.pick = 1\n            "
   },
   "ff260eef6f95a3c1f8e2f822808ac250925dc0971b9bddd9015b8b24643357c9": {
     "describe": {

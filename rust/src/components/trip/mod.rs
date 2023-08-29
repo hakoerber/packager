@@ -237,7 +237,7 @@ impl Trip {
                                     name="new-value"
                                     form="edit-trip"
                                     value=(trip.name)
-                                ;
+                                {}
                                 a
                                     href="."
                                     ."bg-red-200"
@@ -250,7 +250,7 @@ impl Trip {
                                         ."mdi-cancel"
                                         ."text-xl"
                                         ."m-auto"
-                                    ;
+                                    {}
                                 }
                                 button
                                     type="submit"
@@ -263,7 +263,7 @@ impl Trip {
                                         ."mdi"
                                         ."mdi-content-save"
                                         ."text-xl"
-                                    ;
+                                    {}
                                 }
                             }
                         }
@@ -277,7 +277,7 @@ impl Trip {
                                     ."mdi-pencil"
                                     ."text-xl"
                                     ."opacity-50"
-                                ;
+                                {}
                             }
                         }
                     }
@@ -308,10 +308,9 @@ impl TripInfoRow {
                     name="edit-trip"
                     id="edit-trip"
                     action=(format!("edit/{key}/submit", key=(to_variant_name(&attribute_key).unwrap()) ))
-                    htmx-push-url="true"
                     target="_self"
                     method="post"
-                ;
+                {}
             }
             tr .h-full {
                 @if edit {
@@ -324,7 +323,7 @@ impl TripInfoRow {
                                 name="new-value"
                                 form="edit-trip"
                                 value=(value.map_or(String::new(), |v| v.to_string()))
-                            ;
+                            {}
                         }
                     }
                     td
@@ -347,7 +346,8 @@ impl TripInfoRow {
                                 ."m-auto"
                                 ."mdi"
                                 ."mdi-cancel"
-                                ."text-xl";
+                                ."text-xl"
+                            {}
                         }
                     }
                     td
@@ -370,7 +370,8 @@ impl TripInfoRow {
                                 ."m-auto"
                                 ."mdi"
                                 ."mdi-content-save"
-                                ."text-xl";
+                                ."text-xl"
+                            {}
                         }
                     }
                 } @else {
@@ -395,7 +396,8 @@ impl TripInfoRow {
                                 ."m-auto"
                                 ."mdi"
                                 ."mdi-pencil"
-                                ."text-xl";
+                                ."text-xl"
+                            {}
                         }
                     }
                 }
@@ -493,7 +495,8 @@ impl TripInfo {
                                             ."m-auto"
                                             ."mdi"
                                             ."mdi-step-backward"
-                                            ."text-xl";
+                                            ."text-xl"
+                                        {}
                                     }
                                 }
                             }
@@ -525,7 +528,8 @@ impl TripInfo {
                                             ."m-auto"
                                             ."mdi"
                                             ."mdi-step-forward"
-                                            ."text-xl";
+                                            ."text-xl"
+                                        {}
                                     }
                                 }
                             }
@@ -658,7 +662,7 @@ impl TripComment {
                     action="comment/submit"
                     target="_self"
                     method="post"
-                    ;
+                {}
 
                 // https://stackoverflow.com/a/48460773
                 textarea
@@ -689,7 +693,7 @@ impl TripComment {
                     ."gap-2"
                     ."items-center"
                 {
-                    span ."mdi" ."mdi-content-save" ."text-xl";
+                    span ."mdi" ."mdi-content-save" ."text-xl" {}
                     span { "Save" }
                 }
             }
@@ -735,6 +739,105 @@ impl TripItems {
     }
 }
 
+pub struct TripCategoryListRow;
+
+impl TripCategoryListRow {
+    pub fn build(
+        category: &TripCategory,
+        active: bool,
+        has_new_items: bool,
+        biggest_category_weight: i64,
+    ) -> Markup {
+        html!(
+            tr
+                id={"category-" (category.category.id)}
+                ."h-10"
+                ."hover:bg-purple-100"
+                ."m-3"
+                ."h-full"
+                ."outline"[active]
+                ."outline-2"[active]
+                ."outline-indigo-300"[active]
+            {
+
+                td
+
+                    ."border"
+                    ."m-0"
+
+                {
+                    div
+                        ."p-0"
+                        ."flex"
+                        ."flex-row"
+                        ."items-center"
+                        ."group"
+                    {
+                        a
+                            id="select-category"
+                            href=(
+                                format!(
+                                    "?category={id}",
+                                    id=category.category.id
+                                )
+                            )
+                            ."inline-block"
+                            ."p-2"
+                            ."m-0"
+                            ."w-full"
+                            ."grow"
+                            ."font-bold"[active]
+                        {
+                            (category.category.name.clone())
+                        }
+                        @if has_new_items {
+                            div
+                                ."mr-2"
+                                ."flex"
+                                ."flex-row"
+                                ."items-center"
+                            {
+                                p
+                                    ."hidden"
+                                    ."group-hover:inline"
+                                    ."text-sm"
+                                    ."text-gray-500"
+                                    ."grow"
+                                {
+                                    "new items"
+                                }
+                                span
+                                    ."mdi"
+                                    ."mdi-exclamation-thick"
+                                    ."text-xl"
+                                    ."text-yellow-400"
+                                    ."grow-0"
+                                {}
+                            }
+                        }
+                    }
+                }
+                td ."border" ."m-0" ."p-2" style="position:relative;" {
+                    p {
+                        (category.total_picked_weight().to_string())
+                    }
+                    div ."bg-blue-600" ."h-1.5"
+                        style=(
+                            format!(
+                                "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
+                                width=(
+                                    (category.total_picked_weight() as f64)
+                                    / (biggest_category_weight as f64)
+                                    * 100.0
+                                )
+                            )
+                        ) {}
+                }
+            }
+        )
+    }
+}
+
 pub struct TripCategoryList;
 
 impl TripCategoryList {
@@ -771,90 +874,7 @@ impl TripCategoryList {
                     @for category in trip.categories() {
                         @let has_new_items = category.items.as_ref().unwrap().iter().any(|item| item.new);
                         @let active = state.active_category_id.map_or(false, |id| category.category.id == id);
-                        tr
-                            ."h-10"
-                            ."hover:bg-purple-100"
-                            ."m-3"
-                            ."h-full"
-                            ."outline"[active]
-                            ."outline-2"[active]
-                            ."outline-indigo-300"[active]
-                        {
-
-                            td
-
-                                ."border"
-                                ."m-0"
-
-                            {
-                                div
-                                    ."p-0"
-                                    ."flex"
-                                    ."flex-row"
-                                    ."items-center"
-                                    ."group"
-                                {
-                                    a
-                                        id="select-category"
-                                        href=(
-                                            format!(
-                                                "?category={id}",
-                                                id=category.category.id
-                                            )
-                                        )
-                                        ."inline-block"
-                                        ."p-2"
-                                        ."m-0"
-                                        ."w-full"
-                                        ."grow"
-                                        ."font-bold"[active]
-                                    {
-                                        (category.category.name.clone())
-                                    }
-                                    @if has_new_items {
-                                        div
-                                            ."mr-2"
-                                            ."flex"
-                                            ."flex-row"
-                                            ."items-center"
-                                        {
-                                            p
-                                                ."hidden"
-                                                ."group-hover:inline"
-                                                ."text-sm"
-                                                ."text-gray-500"
-                                                ."grow"
-                                            {
-                                                "new items"
-                                            }
-                                            span
-                                                ."mdi"
-                                                ."mdi-exclamation-thick"
-                                                ."text-xl"
-                                                ."text-yellow-400"
-                                                ."grow-0"
-                                            ;
-                                        }
-                                    }
-                                }
-                            }
-                            td ."border" ."m-0" ."p-2" style="position:relative;" {
-                                p {
-                                    (category.total_picked_weight().to_string())
-                                }
-                                div ."bg-blue-600" ."h-1.5"
-                                    style=(
-                                        format!(
-                                            "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
-                                            width=(
-                                                (category.total_picked_weight() as f64)
-                                                / (biggest_category_weight as f64)
-                                                * 100.0
-                                            )
-                                        )
-                                    ) {}
-                            }
-                        }
+                        (TripCategoryListRow::build(category, active, has_new_items, biggest_category_weight))
                     }
                     tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
                         td ."border" ."p-0" ."m-0" {
@@ -894,7 +914,7 @@ impl TripItemList {
                 table
                     ."table"
                     ."table-auto"
-                    .table-fixed
+                    ."table-fixed"
                     ."border-collapse"
                     ."border-spacing-0"
                     ."border"
@@ -910,88 +930,153 @@ impl TripItemList {
                     }
                     tbody {
                         @for item in items {
-                            tr ."h-10" ."even:bg-gray-100" ."hover:bg-purple-100" {
-                                td {
-                                    a
-                                        href={
-                                            "/trip/" (trip.id)
-                                            "/items/" (item.item.id)
-                                            "/" (if item.picked { "unpick" } else { "pick" }) }
-                                        ."inline-block"
-                                        ."p-2"
-                                        ."m-0"
-                                        ."w-full"
-                                        ."justify-center"
-                                        ."content-center"
-                                        ."flex"
-                                    {
-                                        input
-                                            type="checkbox"
-                                            checked[item.picked]
-                                            autocomplete="off"
-                                        ;
-                                    }
-                                }
-                                td {
-                                    a
-                                        href={
-                                            "/trip/" (trip.id)
-                                            "/items/" (item.item.id)
-                                            "/" (if item.packed { "unpack" } else { "pack" }) }
-                                        ."inline-block"
-                                        ."p-2"
-                                        ."m-0"
-                                        ."w-full"
-                                        ."justify-center"
-                                        ."content-center"
-                                        ."flex"
-                                    {
-                                        input
-                                            type="checkbox"
-                                            checked[item.packed]
-                                            autocomplete="off"
-                                        ;
-                                    }
-                                }
-                                td ."border" ."p-0" {
-                                    div
-                                        ."flex"
-                                        ."flex-row"
-                                        ."items-center"
-                                    {
-                                        a
-                                            ."p-2" ."w-full" ."inline-block"
-                                            href=(
-                                                format!("/inventory/item/{id}/", id=item.item.id)
-                                            )
-                                        {
-                                            (item.item.name.clone())
-                                        }
-                                        @if item.new {
-                                            div ."mr-2" {
-                                                span
-                                                    ."mdi"
-                                                    ."mdi-exclamation-thick"
-                                                    ."text-xl"
-                                                    ."text-yellow-400"
-                                                    ."grow-0"
-                                                ;
-                                            }
-                                        }
-                                    }
-                                }
-                                td ."border" ."p-2" style="position:relative;" {
-                                    p { (item.item.weight.to_string()) }
-                                    div ."bg-blue-600" ."h-1.5" style=(format!("
-                                    width: {width}%;
-                                    position:absolute;
-                                    left:0;
-                                    bottom:0;
-                                    right:0;", width=((item.item.weight as f64) / (biggest_item_weight as f64) * 100.0))) {}
-                                }
+                            (TripItemListRow::build(trip.id, item, biggest_item_weight))
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+pub struct TripItemListRow;
+
+impl TripItemListRow {
+    pub fn build(trip_id: Uuid, item: &models::TripItem, biggest_item_weight: i64) -> Markup {
+        html!(
+            tr ."h-10" {
+                td
+                    ."border"
+                    ."p-0"
+                {
+                    a
+                        href={
+                            "/trip/" (trip_id)
+                            "/items/" (item.item.id)
+                            "/" (if item.picked { "unpick" } else { "pick" }) }
+                        hx-post={
+                            "/trip/" (trip_id)
+                            "/items/" (item.item.id)
+                            "/" (if item.picked { "unpick" } else { "pick" }) }
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        ."inline-block"
+                        ."p-2"
+                        ."m-0"
+                        ."w-full"
+                        ."justify-center"
+                        ."content-center"
+                        ."flex"
+                        ."bg-green-200"[item.picked]
+                        ."hover:bg-green-100"[!item.picked]
+                        ."hover:bg-red-100"[item.picked]
+                    {
+                        @if item.picked {
+                            span
+                                ."mdi"
+                                ."mdi-clipboard-text-outline"
+                                ."text-2xl"
+                            {}
+                        } @else {
+                            span
+                                ."mdi"
+                                ."mdi-clipboard-text-off-outline"
+                                ."text-2xl"
+                            {}
+                        }
+                    }
+                }
+                td
+                    ."border"
+                    ."p-0"
+                {
+                    @if item.picked {
+                        a
+                            href={
+                                "/trip/" (trip_id)
+                                "/items/" (item.item.id)
+                                "/" (if item.packed { "unpack" } else { "pack" }) }
+                            hx-post={
+                                "/trip/" (trip_id)
+                                "/items/" (item.item.id)
+                                "/" (if item.packed { "unpack" } else { "pack" }) }
+                            hx-target="closest tr"
+                            hx-swap="outerHTML"
+                            ."inline-block"
+                            ."p-2"
+                            ."m-0"
+                            ."w-full"
+                            ."justify-center"
+                            ."content-center"
+                            ."flex"
+                            ."bg-green-200"[item.packed]
+                            ."hover:bg-green-100"[!item.packed]
+                            ."hover:bg-red-100"[item.packed]
+                        {
+                            @if item.packed {
+                                span
+                                    ."mdi"
+                                    ."mdi-bag-personal-outline"
+                                    ."text-2xl"
+                                {}
+                            } @else {
+                                span
+                                    ."mdi"
+                                    ."mdi-bag-personal-off-outline"
+                                    ."text-2xl"
+                                {}
+                            }
+                        }
+                    } @else {
+                        div
+                            ."flex"
+                            ."justify-center"
+                            ."items-center"
+                        {
+                            span
+                                ."mdi"
+                                ."mdi-bag-personal-outline"
+                                ."text-2xl"
+                                ."text-gray-300"
+                            {}
+                        }
+                    }
+                }
+                td ."border" ."p-0" {
+                    div
+                        ."flex"
+                        ."flex-row"
+                        ."items-center"
+                    {
+                        a
+                            ."p-2" ."w-full" ."inline-block"
+                            href=(
+                                format!("/inventory/item/{id}/", id=item.item.id)
+                            )
+                        {
+                            (item.item.name.clone())
+                        }
+                        @if item.new {
+                            div ."mr-2" {
+                                span
+                                    ."mdi"
+                                    ."mdi-exclamation-thick"
+                                    ."text-xl"
+                                    ."text-yellow-400"
+                                    ."grow-0"
+                                {}
                             }
                         }
                     }
+                }
+                td ."border" ."p-2" style="position:relative;" {
+                    p { (item.item.weight.to_string()) }
+                    div ."bg-blue-600" ."h-1.5" style=(format!("
+                    width: {width}%;
+                    position:absolute;
+                    left:0;
+                    bottom:0;
+                    right:0;", width=((item.item.weight as f64) / (biggest_item_weight as f64) * 100.0))) {}
                 }
             }
         )
