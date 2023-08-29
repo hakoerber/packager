@@ -54,6 +54,10 @@ fn random_name() -> String {
     s
 }
 
+fn random_number(range: std::ops::Range<usize>) -> usize {
+    range.choose(&mut rand::thread_rng()).unwrap()
+}
+
 async fn run_test<T, R>(inner: T) -> Result<(), TestError>
 where
     T: FnOnce(WebDriver) -> R,
@@ -72,8 +76,8 @@ where
             println!("[sub] starting prepare script {script}");
             let handle_prepare = Command::new(script)
                 .stdin(Stdio::null())
-                // .stdout(Stdio::null())
-                // .stderr(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .output()?;
 
             assert!(handle_prepare.status.success());
@@ -86,8 +90,8 @@ where
             println!("[sub] starting script {script}");
             let handle = Command::new("geckodriver")
                 .stdin(Stdio::null())
-                // .stdout(Stdio::null())
-                // .stderr(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .spawn()?;
             println!("[sub] geckodriver started");
             handle
@@ -109,8 +113,8 @@ where
             let handle = Command::new(script)
                 .arg(PORT.to_string())
                 .stdin(Stdio::null())
-                // .stdout(Stdio::null())
-                // .stderr(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .spawn()?;
             println!("[sub] app started");
             handle
@@ -171,6 +175,13 @@ where
     // call the actual function
     println!("calling test function");
     let result = inner(driver).await;
+
+    if let Err(ref e) = result {
+        println!("test failed, leaving browser open");
+        println!("test error: {:?}", e);
+        println!("[hit enter to finish]");
+        std::io::stdin().read_line(&mut String::new())?;
+    }
     // let result: Result<(), TestError> = Ok(());
     println!("test function done");
 
@@ -204,7 +215,7 @@ macro_rules! check_eq {
     ($left:expr, $right:expr) => {
         if ($left != $right) {
             return Err(TestError::CheckError {
-                message: format!("line {}: {:?} != {:?}", line!(), $right, $left),
+                message: format!("line {}: {:?} != {:?}", line!(), $left, $right),
             });
         }
     };
@@ -212,8 +223,8 @@ macro_rules! check_eq {
 
 async fn check_table(
     table: &WebElement,
-    head: &Vec<impl AsRef<str>>,
-    body: &Vec<Vec<impl AsRef<str>>>,
+    head: &Vec<Option<impl AsRef<str>>>,
+    body: &Vec<Vec<Option<impl AsRef<str>>>>,
 ) -> Result<(), TestError> {
     let table_head = table
         .find(By::Tag("thead"))
@@ -224,7 +235,9 @@ async fn check_table(
     check_eq!(table_head.len(), head.len());
 
     for (i, h) in table_head.iter().enumerate() {
-        check_eq!(h.text().await?, head[i].as_ref());
+        if let Some(e) = &head[i] {
+            check_eq!(h.text().await?, e.as_ref());
+        }
     }
 
     let table_rows = table
@@ -241,7 +254,9 @@ async fn check_table(
         check_eq!(columns.len(), body[row_i].len());
 
         for (column_i, column) in columns.iter().enumerate() {
-            check_eq!(column.text().await?, body[row_i][column_i].as_ref());
+            if let Some(e) = &body[row_i][column_i] {
+                check_eq!(column.text().await?, e.as_ref());
+            }
         }
     }
     Ok(())
@@ -292,8 +307,8 @@ async fn test() -> Result<(), TestError> {
 
             check_table(
                 &category_list,
-                &vec!["Name", "Weight"],
-                &vec![vec!["Sum", "0"]],
+                &vec![Some("Name"), Some("Weight")],
+                &vec![vec![Some("Sum"), Some("0")]],
             )
             .await?;
 
@@ -307,9 +322,9 @@ async fn test() -> Result<(), TestError> {
 
             // insert a few categories
 
-            let mut rows = vec![vec!["Sum".to_string(), "0".to_string()]];
+            let mut rows = vec![vec![Some("Sum".to_string()), Some("0".to_string())]];
 
-            let iterations = 3;
+            let iterations = random_number(1..5);
 
             for i in 0..iterations {
                 let new_category_form = driver.find(By::Id("new-category")).await?;
@@ -333,9 +348,9 @@ async fn test() -> Result<(), TestError> {
 
                 let category_list = driver.find(By::Id("category-list")).await?;
 
-                rows.insert(i, vec![category_name, "0".to_string()]);
+                rows.insert(i, vec![Some(category_name), Some("0".to_string())]);
 
-                check_table(&category_list, &vec!["Name", "Weight"], &rows).await?;
+                check_table(&category_list, &vec![Some("Name"), Some("Weight")], &rows).await?;
             }
 
             // select one of the new categories and check that it's empty
@@ -347,9 +362,13 @@ async fn test() -> Result<(), TestError> {
                 .find_all(By::Tag("tr"))
                 .await?;
 
-            let id = { 0..iterations }.choose(&mut rand::thread_rng()).unwrap();
+            let id = random_number(0..iterations);
 
             let category_link = &table_rows[id].find_all(By::Tag("td")).await?[0];
+
+            let category_name = category_link.text().await?;
+
+            println!("==================================== name of new category: {category_name}");
 
             check_eq!(category_link.is_clickable().await?, true);
             category_link.click().await?;
@@ -363,7 +382,124 @@ async fn test() -> Result<(), TestError> {
                     .to_lowercase()
                     .contains("empty"),
                 true
-            )
+            );
+
+            // now, add an item to the category.
+
+            // check that the preselected category is ours
+            let new_item_form = driver.find(By::Id("new-item")).await?;
+
+            let new_item_input_name = new_item_form
+                .find(By::Css("input[name='new-item-name']"))
+                .await?;
+
+            check_eq!(new_item_input_name.value().await?, Some(String::new()));
+
+            let new_item_input_weight = new_item_form
+                .find(By::Css("input[name='new-item-weight']"))
+                .await?;
+
+            check_eq!(new_item_input_weight.value().await?, Some(String::new()));
+
+            let new_item_input_category = new_item_form
+                .find(By::Css("select[name='new-item-category-id']"))
+                .await?;
+
+            check_eq!(
+                thirtyfour::components::SelectElement::new(&new_item_input_category)
+                    .await?
+                    .first_selected_option()
+                    .await?
+                    .text()
+                    .await?,
+                category_name.clone()
+            );
+
+            let new_item_form_submit = new_item_form.find(By::Css("input[type='submit']")).await?;
+
+            check_eq!(new_item_form_submit.is_clickable().await?, !js_enabled);
+
+            // add a few items
+            let iterations = random_number(1..5);
+
+            let mut rows = vec![];
+
+            let mut weights = vec![];
+
+            for _i in 0..iterations {
+                let new_item_form = driver.find(By::Id("new-item")).await?;
+
+                let item_name = random_name();
+                let item_weight = random_number(0..1500);
+                weights.push(item_weight);
+
+                let new_item_name_input = new_item_form
+                    .find(By::Css("input[name='new-item-name']"))
+                    .await?;
+
+                check_eq!(new_item_name_input.value().await?, Some(String::new()));
+
+                new_item_name_input.send_keys(&item_name).await?;
+
+                let new_item_weight_input = new_item_form
+                    .find(By::Css("input[name='new-item-weight']"))
+                    .await?;
+
+                check_eq!(new_item_weight_input.value().await?, Some(String::new()));
+
+                new_item_weight_input
+                    .send_keys(item_weight.to_string())
+                    .await?;
+
+                let new_item_form_submit =
+                    new_item_form.find(By::Css("input[type='submit']")).await?;
+
+                check_eq!(new_item_form_submit.is_clickable().await?, true);
+                new_item_form_submit.click().await?;
+
+                let item_list = driver.find(By::Id("items")).await?;
+
+                rows.push(vec![
+                    Some(item_name),
+                    Some(item_weight.to_string()),
+                    None,
+                    None,
+                ]);
+
+                check_table(
+                    &item_list,
+                    &vec![Some("Name"), Some("Weight"), None, None],
+                    &rows,
+                )
+                .await?;
+
+                // check that the sum of weights is still correct
+
+                let category_list = driver.find(By::Id("category-list")).await?;
+
+                let table_rows = category_list
+                    .find(By::Tag("tbody"))
+                    .await?
+                    .find_all(By::Tag("tr"))
+                    .await?;
+
+                let mut found = false;
+                for row in &table_rows {
+                    let cols = row.find_all(By::Tag("td")).await?;
+                    if cols[0].text().await? == category_name {
+                        check_eq!(
+                            cols[1].text().await?,
+                            weights.iter().sum::<usize>().to_string()
+                        )
+                    }
+                    found = true;
+                }
+                if !found {
+                    return Err(TestError::CheckError {
+                        message: "did not find a (formerly existing?) category".to_string(),
+                    });
+                }
+            }
         }
 
         Ok(())
