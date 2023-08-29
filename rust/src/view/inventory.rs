@@ -7,11 +7,11 @@ use uuid::Uuid;
 pub struct Inventory;
 
 impl Inventory {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory",
-    //     fields(component = "Inventory")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory",
+        fields(component = "Inventory")
+    )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -42,11 +42,11 @@ impl Inventory {
 pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_category_list",
-    //     fields(component = "InventoryCategoryList")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_category_list",
+        fields(component = "InventoryCategoryList")
+    )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -153,11 +153,11 @@ impl InventoryCategoryList {
 pub struct InventoryItemList;
 
 impl InventoryItemList {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_item_list",
-    //     fields(component = "InventoryItemList")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_item_list",
+        fields(component = "InventoryItemList")
+    )]
     pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         html!(
@@ -333,11 +333,11 @@ impl InventoryItemList {
 pub struct InventoryNewItemFormName;
 
 impl InventoryNewItemFormName {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_new_item_form_name",
-    //     fields(component = "InventoryNewItemFormName")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_new_item_form_name",
+        fields(component = "InventoryNewItemFormName")
+    )]
     pub fn build(value: Option<&str>, error: bool) -> Markup {
         html!(
             div
@@ -385,11 +385,11 @@ impl InventoryNewItemFormName {
 pub struct InventoryNewItemFormWeight;
 
 impl InventoryNewItemFormWeight {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_new_item_form_weight",
-    //     fields(component = "InventoryNewItemFormWeight")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_new_item_form_weight",
+        fields(component = "InventoryNewItemFormWeight")
+    )]
     pub fn build() -> Markup {
         html!(
             div
@@ -432,11 +432,11 @@ impl InventoryNewItemFormWeight {
 pub struct InventoryNewItemFormCategory;
 
 impl InventoryNewItemFormCategory {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_new_item_form_category",
-    //     fields(component = "InventoryNewItemFormCategory")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_new_item_form_category",
+        fields(component = "InventoryNewItemFormCategory")
+    )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -477,11 +477,11 @@ impl InventoryNewItemFormCategory {
 pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_new_item_form",
-    //     fields(component = "InventoryNewItemForm")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_new_item_form",
+        fields(component = "InventoryNewItemForm")
+    )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -528,11 +528,11 @@ impl InventoryNewItemForm {
 pub struct InventoryNewCategoryForm;
 
 impl InventoryNewCategoryForm {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_new_category_form",
-    //     fields(component = "InventoryNewCategoryForm")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_new_category_form",
+        fields(component = "InventoryNewCategoryForm")
+    )]
     pub fn build() -> Markup {
         html!(
             form
@@ -587,11 +587,11 @@ impl InventoryNewCategoryForm {
 pub struct InventoryItem;
 
 impl InventoryItem {
-    // #[tracing::instrument(
-    //     target = "packager::html::build",
-    //     name = "build_inventory_item",
-    //     fields(component = "InventoryItem")
-    // )]
+    #[tracing::instrument(
+        target = "packager::html::build",
+        name = "build_inventory_item",
+        fields(component = "InventoryItem")
+    )]
     pub fn build(_state: &ClientState, item: &models::inventory::InventoryItem) -> Markup {
         html!(
             div ."p-8" {

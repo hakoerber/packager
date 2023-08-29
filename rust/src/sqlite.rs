@@ -10,7 +10,7 @@ use std::str::FromStr as _;
 
 use crate::StartError;
 
-//#[tracing::instrument]
+#[tracing::instrument]
 pub async fn init_database_pool(url: &str) -> Result<Pool<Sqlite>, StartError> {
     Ok(SqlitePoolOptions::new()
         .max_connections(5)
@@ -23,7 +23,7 @@ pub async fn init_database_pool(url: &str) -> Result<Pool<Sqlite>, StartError> {
         .await?)
 }
 
-//#[tracing::instrument]
+#[tracing::instrument]
 pub async fn migrate(url: &str) -> Result<(), StartError> {
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
@@ -35,7 +35,7 @@ pub async fn migrate(url: &str) -> Result<(), StartError> {
         .await?;
 
     async { sqlx::migrate!().run(&pool).await }
-        // .instrument(tracing::info_span!("packager::query", "migration"))
+        .instrument(tracing::info_span!("packager::query", "migration"))
         .await?;
 
     Ok(())

@@ -3,7 +3,7 @@ use maud::{html, Markup};
 pub struct Home;
 
 impl Home {
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub fn build() -> Markup {
         html!(
             div

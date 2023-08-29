@@ -11,7 +11,7 @@ pub struct Inventory {
 }
 
 impl Inventory {
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn load(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
         let user_id = ctx.user.id.to_string();
         let categories = async {
@@ -38,7 +38,7 @@ impl Inventory {
 
             Ok::<_, Error>(categories)
         }
-        // .instrument(tracing::info_span!("packager::query", "query"))
+        .instrument(tracing::info_span!("packager::query", "query"))
         .await?;
 
         Ok(Self { categories })
@@ -73,7 +73,7 @@ impl TryFrom<DbCategoryRow> for Category {
 }
 
 impl Category {
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn _find(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -100,7 +100,7 @@ impl Category {
         .transpose()
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -124,19 +124,19 @@ impl Category {
         Ok(id)
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub fn items(&self) -> &Vec<Item> {
         self.items
             .as_ref()
             .expect("you need to call populate_items()")
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub fn total_weight(&self) -> i64 {
         self.items().iter().map(|item| item.weight).sum()
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn populate_items(
         &mut self,
         ctx: &Context,
@@ -234,7 +234,7 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 }
 
 impl InventoryItem {
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -274,7 +274,7 @@ impl InventoryItem {
         .transpose()
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn name_exists(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -296,7 +296,7 @@ impl InventoryItem {
         .is_some())
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn delete(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -318,7 +318,7 @@ impl InventoryItem {
         Ok(results.rows_affected() != 0)
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn update(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -350,7 +350,7 @@ impl InventoryItem {
         .await??)
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -381,7 +381,7 @@ impl InventoryItem {
         Ok(id)
     }
 
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn get_category_max_weight(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -446,7 +446,7 @@ impl TryFrom<DbInventoryItemsRow> for Item {
 }
 
 impl Item {
-    //#[tracing::instrument]
+    #[tracing::instrument]
     pub async fn _get_category_total_picked_weight(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
