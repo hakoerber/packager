@@ -39,9 +39,6 @@ use std::net::SocketAddr;
 mod components;
 mod models;
 
-use crate::components::*;
-use crate::models::*;
-
 #[derive(Clone)]
 pub struct AppState {
     database_pool: Pool<Sqlite>,
@@ -63,7 +60,7 @@ struct Args {
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
-    pub trip_edit_attribute: Option<TripAttribute>,
+    pub trip_edit_attribute: Option<models::TripAttribute>,
     pub trip_type_edit: Option<Uuid>,
 }
 
@@ -88,14 +85,14 @@ enum HtmxEvents {
     TripItemEdited,
 }
 
-impl Into<HeaderValue> for HtmxEvents {
-    fn into(self) -> HeaderValue {
-        HeaderValue::from_static(self.to_str())
+impl From<HtmxEvents> for HeaderValue {
+    fn from(val: HtmxEvents) -> Self {
+        HeaderValue::from_static(val.to_str())
     }
 }
 
 impl HtmxEvents {
-    fn to_str(self) -> &'static str {
+    fn to_str(&self) -> &'static str {
         match self {
             Self::TripItemEdited => "TripItemEdited",
         }
@@ -107,11 +104,11 @@ enum HtmxResponseHeaders {
     PushUrl,
 }
 
-impl Into<HeaderName> for HtmxResponseHeaders {
-    fn into(self) -> HeaderName {
-        match self {
-            Self::Trigger => HeaderName::from_static("hx-trigger"),
-            Self::PushUrl => HeaderName::from_static("hx-push-url"),
+impl From<HtmxResponseHeaders> for HeaderName {
+    fn from(val: HtmxResponseHeaders) -> Self {
+        match val {
+            HtmxResponseHeaders::Trigger => HeaderName::from_static("hx-trigger"),
+            HtmxResponseHeaders::PushUrl => HeaderName::from_static("hx-push-url"),
         }
     }
 }
@@ -120,10 +117,10 @@ enum HtmxRequestHeaders {
     HtmxRequest,
 }
 
-impl Into<HeaderName> for HtmxRequestHeaders {
-    fn into(self) -> HeaderName {
-        match self {
-            Self::HtmxRequest => HeaderName::from_static("hx-request"),
+impl From<HtmxRequestHeaders> for HeaderName {
+    fn from(val: HtmxRequestHeaders) -> Self {
+        match val {
+            HtmxRequestHeaders::HtmxRequest => HeaderName::from_static("hx-request"),
         }
     }
 }
@@ -233,7 +230,10 @@ async fn main() -> Result<(), sqlx::Error> {
 async fn root() -> (StatusCode, Markup) {
     (
         StatusCode::OK,
-        Root::build(&Home::build(), &TopLevelPage::None),
+        components::Root::build(
+            &components::home::Home::build(),
+            &components::TopLevelPage::None,
+        ),
     )
 }
 
@@ -255,11 +255,11 @@ async fn inventory_active(
         .map_err(|error| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?;
 
-    let active_category: Option<&Category> = state
+    let active_category: Option<&models::Category> = state
         .client_state
         .active_category_id
         .map(|id| {
@@ -269,20 +269,22 @@ async fn inventory_active(
                 .find(|category| category.id == id)
                 .ok_or((
                     StatusCode::NOT_FOUND,
-                    ErrorPage::build(&format!("a category with id {id} does not exist")),
+                    components::ErrorPage::build(&format!(
+                        "a category with id {id} does not exist"
+                    )),
                 ))
         })
         .transpose()?;
 
     Ok((
         StatusCode::OK,
-        Root::build(
-            &components::Inventory::build(
+        components::Root::build(
+            &components::inventory::Inventory::build(
                 active_category,
                 &inventory.categories,
                 state.client_state.edit_item,
             ),
-            &TopLevelPage::Inventory,
+            &components::TopLevelPage::Inventory,
         ),
     ))
 }
@@ -299,19 +301,19 @@ async fn inventory_inactive(
         .map_err(|error| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?;
 
     Ok((
         StatusCode::OK,
-        Root::build(
-            &components::Inventory::build(
+        components::Root::build(
+            &components::inventory::Inventory::build(
                 None,
                 &inventory.categories,
                 state.client_state.edit_item,
             ),
-            &TopLevelPage::Inventory,
+            &components::TopLevelPage::Inventory,
         ),
     ))
 }
@@ -324,14 +326,14 @@ async fn inventory_inactive(
 
 //     Ok((
 //         StatusCode::OK,
-//         Root::build(
-//             &components::Inventory::build(state.client_state, categories).map_err(|e| match e {
+//         components::Root::build(
+//             &components::inventory::Inventory::build(state.client_state, categories).map_err(|e| match e {
 //                 Error::NotFound { description } => {
-//                     (StatusCode::NOT_FOUND, ErrorPage::build(&description))
+//                     (StatusCode::NOT_FOUND, components::ErrorPage::build(&description))
 //                 }
 //                 _ => (
 //                     StatusCode::INTERNAL_SERVER_ERROR,
-//                     ErrorPage::build(&e.to_string()),
+//                     components::ErrorPage::build(&e.to_string()),
 //                 ),
 //             })?,
 //             &TopLevelPage::Inventory,
@@ -376,7 +378,7 @@ async fn inventory_item_validate_name(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?
     .into_iter()
@@ -386,13 +388,16 @@ async fn inventory_item_validate_name(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?;
 
     Ok((
         StatusCode::OK,
-        InventoryNewItemFormName::build(Some(&new_item.name), !results.is_empty()),
+        components::inventory::InventoryNewItemFormName::build(
+            Some(&new_item.name),
+            !results.is_empty(),
+        ),
     ))
 }
 
@@ -404,7 +409,7 @@ async fn inventory_item_create(
     if new_item.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            ErrorPage::build("name cannot be empty"),
+            components::ErrorPage::build("name cannot be empty"),
         ));
     }
 
@@ -434,7 +439,7 @@ async fn inventory_item_create(
                         // SQLITE_CONSTRAINT_FOREIGNKEY
                         (
                             StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!(
+                            components::ErrorPage::build(&format!(
                                 "category {id} not found",
                                 id = new_item.category_id
                             )),
@@ -444,7 +449,7 @@ async fn inventory_item_create(
                         // SQLITE_CONSTRAINT_UNIQUE
                         (
                             StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!(
+                            components::ErrorPage::build(&format!(
                                 "item with name \"{name}\" already exists in category {id}",
                                 name = new_item.name,
                                 id = new_item.category_id
@@ -453,7 +458,7 @@ async fn inventory_item_create(
                     }
                     _ => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        ErrorPage::build(&format!(
+                        components::ErrorPage::build(&format!(
                             "got error with unknown code: {}",
                             sqlite_error.to_string()
                         )),
@@ -462,7 +467,7 @@ async fn inventory_item_create(
             } else {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    ErrorPage::build(&format!(
+                    components::ErrorPage::build(&format!(
                         "got error without code: {}",
                         sqlite_error.to_string()
                     )),
@@ -471,7 +476,7 @@ async fn inventory_item_create(
         }
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
+            components::ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
         ),
     })?;
 
@@ -481,20 +486,20 @@ async fn inventory_item_create(
             .map_err(|error| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    ErrorPage::build(&error.to_string()),
+                    components::ErrorPage::build(&error.to_string()),
                 )
             })?;
 
         // it's impossible to NOT find the item here, as we literally just added
         // it. but good error handling never hurts
-        let active_category: Option<&Category> = Some(
+        let active_category: Option<&models::Category> = Some(
             inventory
                 .categories
                 .iter()
                 .find(|category| category.id == new_item.category_id)
                 .ok_or((
                     StatusCode::NOT_FOUND,
-                    ErrorPage::build(&format!(
+                    components::ErrorPage::build(&format!(
                         "a category with id {id} was inserted but does not exist, this is a bug"
                     )),
                 ))?,
@@ -502,7 +507,7 @@ async fn inventory_item_create(
 
         Ok((
             StatusCode::OK,
-            components::Inventory::build(
+            components::inventory::Inventory::build(
                 active_category,
                 &inventory.categories,
                 state.client_state.edit_item,
@@ -645,18 +650,18 @@ async fn inventory_item_edit(
     if edit_item.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            ErrorPage::build("name cannot be empty"),
+            components::ErrorPage::build("name cannot be empty"),
         ));
     }
 
-    let id = Item::update(
+    let id = models::Item::update(
         &state.database_pool,
         id,
         &edit_item.name,
         i64::try_from(edit_item.weight).map_err(|e| {
             (
                 StatusCode::UNPROCESSABLE_ENTITY,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?,
     )
@@ -664,12 +669,12 @@ async fn inventory_item_edit(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?
     .ok_or((
         StatusCode::NOT_FOUND,
-        ErrorPage::build(&format!("item with id {id} not found", id = id)),
+        components::ErrorPage::build(&format!("item with id {id} not found", id = id)),
     ))?;
 
     Ok(Redirect::to(&format!("/inventory/category/{id}/", id = id)))
@@ -679,7 +684,7 @@ async fn inventory_item_cancel(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, (StatusCode, String)> {
-    let id = Item::find(&state.database_pool, id)
+    let id = models::Item::find(&state.database_pool, id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((
@@ -718,13 +723,13 @@ async fn trip_create(
     let id_param = id.to_string();
     let date_start = new_trip
         .date_start
-        .format(DATE_FORMAT)
+        .format(models::DATE_FORMAT)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     let date_end = new_trip
         .date_end
-        .format(DATE_FORMAT)
+        .format(models::DATE_FORMAT)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    let trip_state = TripState::new();
+    let trip_state = models::TripState::new();
     query!(
         "INSERT INTO trips
             (id, name, date_start, date_end, state)
@@ -778,7 +783,7 @@ async fn trips(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     let trips: Vec<models::Trip> = query_as!(
-        DbTripRow,
+        models::DbTripRow,
         "SELECT
             id,
             name,
@@ -800,7 +805,7 @@ async fn trips(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?
     .into_iter()
@@ -810,19 +815,22 @@ async fn trips(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?;
 
     Ok((
         StatusCode::OK,
-        Root::build(&TripManager::build(trips), &TopLevelPage::Trips),
+        components::Root::build(
+            &components::trip::TripManager::build(trips),
+            &components::TopLevelPage::Trips,
+        ),
     ))
 }
 
 #[derive(Debug, Deserialize)]
 struct TripQuery {
-    edit: Option<TripAttribute>,
+    edit: Option<models::TripAttribute>,
     category: Option<Uuid>,
 }
 
@@ -836,7 +844,7 @@ async fn trip(
 
     let id_param = id.to_string();
     let mut trip: models::Trip = query_as!(
-        DbTripRow,
+        models::DbTripRow,
         "SELECT
                 id,
                 name,
@@ -857,17 +865,17 @@ async fn trip(
     .map_err(|e: sqlx::Error| match e {
         sqlx::Error::RowNotFound => (
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {} not found", id)),
+            components::ErrorPage::build(&format!("trip with id {} not found", id)),
         ),
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         ),
     })?
-    .map_err(|e: Error| {
+    .map_err(|e: models::Error| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?;
 
@@ -876,7 +884,7 @@ async fn trip(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?;
 
@@ -885,7 +893,7 @@ async fn trip(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?;
 
@@ -894,11 +902,11 @@ async fn trip(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?;
 
-    let active_category: Option<&TripCategory> = state
+    let active_category: Option<&models::TripCategory> = state
         .client_state
         .active_category_id
         .map(|id| {
@@ -907,20 +915,22 @@ async fn trip(
                 .find(|category| category.category.id == id)
                 .ok_or((
                     StatusCode::NOT_FOUND,
-                    ErrorPage::build(&format!("an active category with id {id} does not exist")),
+                    components::ErrorPage::build(&format!(
+                        "an active category with id {id} does not exist"
+                    )),
                 ))
         })
         .transpose()?;
 
     Ok((
         StatusCode::OK,
-        Root::build(
-            &components::Trip::build(
+        components::Root::build(
+            &components::trip::Trip::build(
                 &trip,
                 state.client_state.trip_edit_attribute,
                 active_category,
             ),
-            &TopLevelPage::Trips,
+            &components::TopLevelPage::Trips,
         ),
     ))
 }
@@ -941,12 +951,19 @@ async fn trip_type_remove(
     )
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     if results.rows_affected() == 0 {
         Err((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("type {type_id} is not active for trip {trip_id}")),
+            components::ErrorPage::build(&format!(
+                "type {type_id} is not active for trip {trip_id}"
+            )),
         ))
     } else {
         Ok(Redirect::to(&format!("/trips/{trip_id}/")))
@@ -979,21 +996,24 @@ async fn trip_type_add(
                             // TODO: this is not perfect, as both foreign keys
                             // may be responsible for the error. how can we tell
                             // which one?
-                            ErrorPage::build(&format!("invalid id: {}", code.to_string())),
+                            components::ErrorPage::build(&format!(
+                                "invalid id: {}",
+                                code.to_string()
+                            )),
                         )
                     }
                     "2067" => {
                         // SQLITE_CONSTRAINT_UNIQUE
                         (
                             StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!(
+                            components::ErrorPage::build(&format!(
                                 "type {type_id} is already active for trip {trip_id}"
                             )),
                         )
                     }
                     _ => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        ErrorPage::build(&format!(
+                        components::ErrorPage::build(&format!(
                             "got error with unknown code: {}",
                             sqlite_error.to_string()
                         )),
@@ -1002,7 +1022,7 @@ async fn trip_type_add(
             } else {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    ErrorPage::build(&format!(
+                    components::ErrorPage::build(&format!(
                         "got error without code: {}",
                         sqlite_error.to_string()
                     )),
@@ -1011,7 +1031,7 @@ async fn trip_type_add(
         }
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
+            components::ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
         ),
     })?;
 
@@ -1039,12 +1059,17 @@ async fn trip_comment_set(
     )
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     if result.rows_affected() == 0 {
         Err((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
+            components::ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
         ))
     } else {
         Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)))
@@ -1059,14 +1084,14 @@ struct TripUpdate {
 
 async fn trip_edit_attribute(
     State(state): State<AppState>,
-    Path((trip_id, attribute)): Path<(Uuid, TripAttribute)>,
+    Path((trip_id, attribute)): Path<(Uuid, models::TripAttribute)>,
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    if let TripAttribute::Name = attribute {
+    if attribute == models::TripAttribute::Name {
         if trip_update.new_value.is_empty() {
             return Err((
                 StatusCode::UNPROCESSABLE_ENTITY,
-                ErrorPage::build("name cannot be empty"),
+                components::ErrorPage::build("name cannot be empty"),
             ));
         }
     }
@@ -1080,12 +1105,17 @@ async fn trip_edit_attribute(
     .bind(trip_id.to_string())
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     if result.rows_affected() == 0 {
         Err((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
+            components::ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
         ))
     } else {
         Ok(Redirect::to(&format!("/trips/{trip_id}/")))
@@ -1096,7 +1126,7 @@ async fn trip_item_set_state(
     state: &AppState,
     trip_id: Uuid,
     item_id: Uuid,
-    key: TripItemStateKey,
+    key: models::TripItemStateKey,
     value: bool,
 ) -> Result<(), (StatusCode, Markup)> {
     let result = query(&format!(
@@ -1111,12 +1141,17 @@ async fn trip_item_set_state(
     .bind(item_id.to_string())
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     if result.rows_affected() == 0 {
         Err((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!(
+            components::ErrorPage::build(&format!(
                 "trip with id {trip_id} or item with id {item_id} not found"
             )),
         ))
@@ -1130,18 +1165,18 @@ async fn trip_row(
     trip_id: Uuid,
     item_id: Uuid,
 ) -> Result<Markup, (StatusCode, Markup)> {
-    let item: TripItem = TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
         .await
         .map_err(|error| {
             (
                 StatusCode::BAD_REQUEST,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?
         .ok_or_else(|| {
             (
                 StatusCode::NOT_FOUND,
-                ErrorPage::build(&format!(
+                components::ErrorPage::build(&format!(
                     "item with id {} not found for trip {}",
                     item_id, trip_id
                 )),
@@ -1151,28 +1186,28 @@ async fn trip_row(
     let item_row = components::trip::TripItemListRow::build(
         trip_id,
         &item,
-        Item::get_category_max_weight(&state.database_pool, item.item.category_id)
+        models::Item::get_category_max_weight(&state.database_pool, item.item.category_id)
             .await
             .map_err(|error| {
                 (
                     StatusCode::BAD_REQUEST,
-                    ErrorPage::build(&error.to_string()),
+                    components::ErrorPage::build(&error.to_string()),
                 )
             })?,
     );
 
-    let category = TripCategory::find(&state.database_pool, trip_id, item.item.category_id)
+    let category = models::TripCategory::find(&state.database_pool, trip_id, item.item.category_id)
         .map_err(|error| {
             (
                 StatusCode::BAD_REQUEST,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })
         .await?
         .ok_or_else(|| {
             (
                 StatusCode::NOT_FOUND,
-                ErrorPage::build(&format!(
+                components::ErrorPage::build(&format!(
                     "category with id {} not found",
                     item.item.category_id
                 )),
@@ -1191,32 +1226,48 @@ async fn trip_item_set_pick(
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, true).await?).map(
-        |_| -> Result<Redirect, (StatusCode, Markup)> {
-            Ok(Redirect::to(
-                headers
-                    .get("referer")
-                    .ok_or((
+    Ok(trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pick,
+        true,
+    )
+    .await?)
+    .map(|_| -> Result<Redirect, (StatusCode, Markup)> {
+        Ok(Redirect::to(
+            headers
+                .get("referer")
+                .ok_or((
+                    StatusCode::BAD_REQUEST,
+                    components::ErrorPage::build("no referer header found"),
+                ))?
+                .to_str()
+                .map_err(|e| {
+                    (
                         StatusCode::BAD_REQUEST,
-                        ErrorPage::build("no referer header found"),
-                    ))?
-                    .to_str()
-                    .map_err(|e| {
-                        (
-                            StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
-                        )
-                    })?,
-            ))
-        },
-    )?
+                        components::ErrorPage::build(&format!(
+                            "referer could not be converted: {}",
+                            e
+                        )),
+                    )
+                })?,
+        ))
+    })?
 }
 
 async fn trip_item_set_pick_htmx(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, HeaderMap, Markup), (StatusCode, Markup)> {
-    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, true).await?;
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pick,
+        true,
+    )
+    .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
         HtmxResponseHeaders::Trigger.into(),
@@ -1234,32 +1285,48 @@ async fn trip_item_set_unpick(
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, false).await?).map(
-        |_| -> Result<Redirect, (StatusCode, Markup)> {
-            Ok(Redirect::to(
-                headers
-                    .get("referer")
-                    .ok_or((
+    Ok(trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pick,
+        false,
+    )
+    .await?)
+    .map(|_| -> Result<Redirect, (StatusCode, Markup)> {
+        Ok(Redirect::to(
+            headers
+                .get("referer")
+                .ok_or((
+                    StatusCode::BAD_REQUEST,
+                    components::ErrorPage::build("no referer header found"),
+                ))?
+                .to_str()
+                .map_err(|e| {
+                    (
                         StatusCode::BAD_REQUEST,
-                        ErrorPage::build("no referer header found"),
-                    ))?
-                    .to_str()
-                    .map_err(|e| {
-                        (
-                            StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
-                        )
-                    })?,
-            ))
-        },
-    )?
+                        components::ErrorPage::build(&format!(
+                            "referer could not be converted: {}",
+                            e
+                        )),
+                    )
+                })?,
+        ))
+    })?
 }
 
 async fn trip_item_set_unpick_htmx(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, HeaderMap, Markup), (StatusCode, Markup)> {
-    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pick, false).await?;
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pick,
+        false,
+    )
+    .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
         HtmxResponseHeaders::Trigger.into(),
@@ -1277,32 +1344,48 @@ async fn trip_item_set_pack(
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?).map(
-        |_| -> Result<Redirect, (StatusCode, Markup)> {
-            Ok(Redirect::to(
-                headers
-                    .get("referer")
-                    .ok_or((
+    Ok(trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pack,
+        true,
+    )
+    .await?)
+    .map(|_| -> Result<Redirect, (StatusCode, Markup)> {
+        Ok(Redirect::to(
+            headers
+                .get("referer")
+                .ok_or((
+                    StatusCode::BAD_REQUEST,
+                    components::ErrorPage::build("no referer header found"),
+                ))?
+                .to_str()
+                .map_err(|e| {
+                    (
                         StatusCode::BAD_REQUEST,
-                        ErrorPage::build("no referer header found"),
-                    ))?
-                    .to_str()
-                    .map_err(|e| {
-                        (
-                            StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
-                        )
-                    })?,
-            ))
-        },
-    )?
+                        components::ErrorPage::build(&format!(
+                            "referer could not be converted: {}",
+                            e
+                        )),
+                    )
+                })?,
+        ))
+    })?
 }
 
 async fn trip_item_set_pack_htmx(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, HeaderMap, Markup), (StatusCode, Markup)> {
-    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?;
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pack,
+        true,
+    )
+    .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
         HtmxResponseHeaders::Trigger.into(),
@@ -1320,32 +1403,48 @@ async fn trip_item_set_unpack(
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, (StatusCode, Markup)> {
-    Ok(trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?).map(
-        |_| -> Result<Redirect, (StatusCode, Markup)> {
-            Ok(Redirect::to(
-                headers
-                    .get("referer")
-                    .ok_or((
+    Ok(trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pack,
+        false,
+    )
+    .await?)
+    .map(|_| -> Result<Redirect, (StatusCode, Markup)> {
+        Ok(Redirect::to(
+            headers
+                .get("referer")
+                .ok_or((
+                    StatusCode::BAD_REQUEST,
+                    components::ErrorPage::build("no referer header found"),
+                ))?
+                .to_str()
+                .map_err(|e| {
+                    (
                         StatusCode::BAD_REQUEST,
-                        ErrorPage::build("no referer header found"),
-                    ))?
-                    .to_str()
-                    .map_err(|e| {
-                        (
-                            StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!("referer could not be converted: {}", e)),
-                        )
-                    })?,
-            ))
-        },
-    )?
+                        components::ErrorPage::build(&format!(
+                            "referer could not be converted: {}",
+                            e
+                        )),
+                    )
+                })?,
+        ))
+    })?
 }
 
 async fn trip_item_set_unpack_htmx(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, HeaderMap, Markup), (StatusCode, Markup)> {
-    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?;
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pack,
+        false,
+    )
+    .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
         HtmxResponseHeaders::Trigger.into(),
@@ -1367,12 +1466,12 @@ async fn trip_total_weight_htmx(
         .map_err(|error| {
             (
                 StatusCode::BAD_REQUEST,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?
         .ok_or((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {trip_id} not found")),
+            components::ErrorPage::build(&format!("trip with id {trip_id} not found")),
         ))?;
     Ok((
         StatusCode::OK,
@@ -1393,7 +1492,7 @@ async fn inventory_category_create(
     if new_category.name.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            ErrorPage::build("name cannot be empty"),
+            components::ErrorPage::build("name cannot be empty"),
         ));
     }
 
@@ -1417,7 +1516,7 @@ async fn inventory_category_create(
                         // SQLITE_CONSTRAINT_UNIQUE
                         (
                             StatusCode::BAD_REQUEST,
-                            ErrorPage::build(&format!(
+                            components::ErrorPage::build(&format!(
                                 "category with name \"{name}\" already exists",
                                 name = new_category.name
                             )),
@@ -1425,7 +1524,7 @@ async fn inventory_category_create(
                     }
                     _ => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        ErrorPage::build(&format!(
+                        components::ErrorPage::build(&format!(
                             "got error with unknown code: {}",
                             sqlite_error.to_string()
                         )),
@@ -1434,7 +1533,7 @@ async fn inventory_category_create(
             } else {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    ErrorPage::build(&format!(
+                    components::ErrorPage::build(&format!(
                         "got error without code: {}",
                         sqlite_error.to_string()
                     )),
@@ -1443,7 +1542,7 @@ async fn inventory_category_create(
         }
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
+            components::ErrorPage::build(&format!("got unknown error: {}", e.to_string())),
         ),
     })
     .await?;
@@ -1454,7 +1553,7 @@ async fn inventory_category_create(
 async fn trip_state_set(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((trip_id, new_state)): Path<(Uuid, TripState)>,
+    Path((trip_id, new_state)): Path<(Uuid, models::TripState)>,
 ) -> Result<impl IntoResponse, (StatusCode, Markup)> {
     let trip_id = trip_id.to_string();
     let result = query!(
@@ -1466,23 +1565,28 @@ async fn trip_state_set(
     )
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     if result.rows_affected() == 0 {
-        Err((
+        return Err((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
-        ))
+            components::ErrorPage::build(&format!("trip with id {id} not found", id = trip_id)),
+        ));
+    }
+
+    if is_htmx(&headers) {
+        Ok((
+            StatusCode::OK,
+            components::trip::TripInfoStateRow::build(&new_state),
+        )
+            .into_response())
     } else {
-        if is_htmx(&headers) {
-            Ok((
-                StatusCode::OK,
-                components::trip::TripInfoStateRow::build(&new_state),
-            )
-                .into_response())
-        } else {
-            Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)).into_response())
-        }
+        Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)).into_response())
     }
 }
 
@@ -1505,7 +1609,7 @@ async fn trips_types(
     state.client_state.trip_type_edit = trip_type_query.edit;
 
     let trip_types: Vec<models::TripsType> = query_as!(
-        DbTripsTypesRow,
+        models::DbTripsTypesRow,
         "SELECT
             id,
             name
@@ -1520,7 +1624,7 @@ async fn trips_types(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?
     .into_iter()
@@ -1530,15 +1634,15 @@ async fn trips_types(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?;
 
     Ok((
         StatusCode::OK,
-        Root::build(
-            &components::trip::TypeList::build(&state.client_state, trip_types),
-            &TopLevelPage::Trips,
+        components::Root::build(
+            &components::trip::types::TypeList::build(&state.client_state, trip_types),
+            &components::TopLevelPage::Trips,
         ),
     ))
 }
@@ -1622,7 +1726,7 @@ async fn trips_types_edit_name(
     if trip_update.new_value.is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            ErrorPage::build("name cannot be empty"),
+            components::ErrorPage::build("name cannot be empty"),
         ));
     }
 
@@ -1636,12 +1740,17 @@ async fn trips_types_edit_name(
     )
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, ErrorPage::build(&e.to_string())))?;
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            components::ErrorPage::build(&e.to_string()),
+        )
+    })?;
 
     if result.rows_affected() == 0 {
         Err((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!(
+            components::ErrorPage::build(&format!(
                 "tript type with id {id} not found",
                 id = trip_type_id
             )),
@@ -1657,7 +1766,7 @@ async fn inventory_item(
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
     let id_param = id.to_string();
     let item: models::InventoryItem = query_as!(
-        DbInventoryItemRow,
+        models::DbInventoryItemRow,
         "SELECT
                 item.id AS id,
                 item.name AS name,
@@ -1684,25 +1793,25 @@ async fn inventory_item(
     .map_err(|e: sqlx::Error| match e {
         sqlx::Error::RowNotFound => (
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("item with id {} not found", id)),
+            components::ErrorPage::build(&format!("item with id {} not found", id)),
         ),
         _ => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         ),
     })?
-    .map_err(|e: Error| {
+    .map_err(|e: models::Error| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorPage::build(&e.to_string()),
+            components::ErrorPage::build(&e.to_string()),
         )
     })?;
 
     Ok((
         StatusCode::OK,
-        Root::build(
-            &components::InventoryItem::build(&state.client_state, &item),
-            &TopLevelPage::Inventory,
+        components::Root::build(
+            &components::inventory::InventoryItem::build(&state.client_state, &item),
+            &components::TopLevelPage::Inventory,
         ),
     ))
 }
@@ -1716,12 +1825,12 @@ async fn trip_category_select(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?
         .ok_or((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {trip_id} not found")),
+            components::ErrorPage::build(&format!("trip with id {trip_id} not found")),
         ))?;
 
     trip.load_categories(&state.database_pool)
@@ -1729,7 +1838,7 @@ async fn trip_category_select(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?;
 
@@ -1739,7 +1848,7 @@ async fn trip_category_select(
         .find(|c| c.category.id == category_id)
         .ok_or((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("category with id {category_id} not found")),
+            components::ErrorPage::build(&format!("category with id {category_id} not found")),
         ))?;
 
     let mut headers = HeaderMap::new();
@@ -1751,7 +1860,7 @@ async fn trip_category_select(
     Ok((
         StatusCode::OK,
         headers,
-        components::trip::TripItems::build(Some(&active_category), &trip),
+        components::trip::TripItems::build(Some(active_category), &trip),
     ))
 }
 
@@ -1764,18 +1873,20 @@ async fn inventory_category_select(
         .map_err(|error| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?;
 
-    let active_category: Option<&Category> = Some(
+    let active_category: Option<&models::Category> = Some(
         inventory
             .categories
             .iter()
             .find(|category| category.id == category_id)
             .ok_or((
                 StatusCode::NOT_FOUND,
-                ErrorPage::build(&format!("a category with id {category_id} not found")),
+                components::ErrorPage::build(&format!(
+                    "a category with id {category_id} not found"
+                )),
             ))?,
     );
 
@@ -1790,7 +1901,7 @@ async fn inventory_category_select(
     Ok((
         StatusCode::OK,
         headers,
-        components::Inventory::build(
+        components::inventory::Inventory::build(
             active_category,
             &inventory.categories,
             state.client_state.edit_item,
@@ -1807,12 +1918,12 @@ async fn trip_packagelist(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?
         .ok_or((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("trip with id {trip_id} not found")),
+            components::ErrorPage::build(&format!("trip with id {trip_id} not found")),
         ))?;
 
     trip.load_categories(&state.database_pool)
@@ -1820,15 +1931,15 @@ async fn trip_packagelist(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&e.to_string()),
+                components::ErrorPage::build(&e.to_string()),
             )
         })?;
 
     Ok((
         StatusCode::OK,
-        Root::build(
-            &components::packagelist::TripPackageList::build(&trip),
-            &TopLevelPage::None,
+        components::Root::build(
+            &components::trip::packagelist::TripPackageList::build(&trip),
+            &components::TopLevelPage::None,
         ),
     ))
 }
@@ -1837,24 +1948,31 @@ async fn trip_item_packagelist_set_pack_htmx(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?;
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pack,
+        true,
+    )
+    .await?;
 
     let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
         .await
         .map_err(|error| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?
         .ok_or((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("an item with id {item_id} does not exist")),
+            components::ErrorPage::build(&format!("an item with id {item_id} does not exist")),
         ))?;
 
     Ok((
         StatusCode::OK,
-        components::packagelist::TripPackageListRow::build(trip_id, &item),
+        components::trip::packagelist::TripPackageListRow::build(trip_id, &item),
     ))
 }
 
@@ -1862,7 +1980,14 @@ async fn trip_item_packagelist_set_unpack_htmx(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
-    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?;
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::TripItemStateKey::Pack,
+        false,
+    )
+    .await?;
 
     // note that this cannot fail due to a missing item, as trip_item_set_state would already
     // return 404. but error handling cannot hurt ;)
@@ -1871,16 +1996,16 @@ async fn trip_item_packagelist_set_unpack_htmx(
         .map_err(|error| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorPage::build(&error.to_string()),
+                components::ErrorPage::build(&error.to_string()),
             )
         })?
         .ok_or((
             StatusCode::NOT_FOUND,
-            ErrorPage::build(&format!("an item with id {item_id} does not exist")),
+            components::ErrorPage::build(&format!("an item with id {item_id} does not exist")),
         ))?;
 
     Ok((
         StatusCode::OK,
-        components::packagelist::TripPackageListRow::build(trip_id, &item),
+        components::trip::packagelist::TripPackageListRow::build(trip_id, &item),
     ))
 }

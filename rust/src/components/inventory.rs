@@ -1,7 +1,6 @@
 use maud::{html, Markup, PreEscaped};
 
 use crate::models;
-use crate::models::*;
 use crate::ClientState;
 use uuid::{uuid, Uuid};
 
@@ -9,8 +8,8 @@ pub struct Inventory;
 
 impl Inventory {
     pub fn build(
-        active_category: Option<&Category>,
-        categories: &Vec<Category>,
+        active_category: Option<&models::Category>,
+        categories: &Vec<models::Category>,
         edit_item_id: Option<Uuid>,
     ) -> Markup {
         html!(
@@ -26,7 +25,7 @@ impl Inventory {
                         @if let Some(active_category) = active_category {
                             (InventoryItemList::build(edit_item_id, active_category.items()))
                         }
-                        (InventoryNewItemForm::build(active_category, &categories))
+                        (InventoryNewItemForm::build(active_category, categories))
                     }
                 }
             }
@@ -37,10 +36,13 @@ impl Inventory {
 pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
-    pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
+    pub fn build(
+        active_category: Option<&models::Category>,
+        categories: &Vec<models::Category>,
+    ) -> Markup {
         let biggest_category_weight: i64 = categories
             .iter()
-            .map(Category::total_weight)
+            .map(models::Category::total_weight)
             .max()
             .unwrap_or(1);
 
@@ -127,7 +129,7 @@ impl InventoryCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(Category::total_weight).sum::<i64>().to_string())
+                                (categories.iter().map(models::Category::total_weight).sum::<i64>().to_string())
                             }
                         }
                     }
@@ -140,7 +142,7 @@ impl InventoryCategoryList {
 pub struct InventoryItemList;
 
 impl InventoryItemList {
-    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<Item>) -> Markup {
+    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         html!(
             div #items {
@@ -411,7 +413,10 @@ impl InventoryNewItemFormWeight {
 pub struct InventoryNewItemFormCategory;
 
 impl InventoryNewItemFormCategory {
-    pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
+    pub fn build(
+        active_category: Option<&models::Category>,
+        categories: &Vec<models::Category>,
+    ) -> Markup {
         html!(
             div
                 ."grid"
@@ -449,7 +454,10 @@ impl InventoryNewItemFormCategory {
 pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
-    pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
+    pub fn build(
+        active_category: Option<&models::Category>,
+        categories: &Vec<models::Category>,
+    ) -> Markup {
         html!(
             form
                 x-data="{

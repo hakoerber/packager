@@ -4,10 +4,6 @@ pub mod home;
 pub mod inventory;
 pub mod trip;
 
-pub use home::*;
-pub use inventory::*;
-pub use trip::*;
-
 pub struct Root;
 
 #[derive(PartialEq, Eq)]

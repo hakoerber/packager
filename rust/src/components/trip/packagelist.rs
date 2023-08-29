@@ -126,7 +126,7 @@ impl TripPackageListCategoryBlock {
                         ."flex-col"
                     {
                         @for item in category.items.as_ref().unwrap() {
-                            (TripPackageListRow::build(trip.id, &item))
+                            (TripPackageListRow::build(trip.id, item))
                         }
                     }
                 }
@@ -189,7 +189,7 @@ impl TripPackageList {
                     ."gap-5"
                 {
                     @for category in trip.categories() {
-                        (TripPackageListCategoryBlock::build(trip, &category))
+                        (TripPackageListCategoryBlock::build(trip, category))
                     }
                 }
             }
