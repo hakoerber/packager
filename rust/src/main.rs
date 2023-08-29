@@ -192,6 +192,7 @@ async fn main() -> Result<(), StartError> {
                 })
             }),
         )
+        .route("/debug", get(debug))
         .nest(
             (&TopLevelPage::Trips.path()).into(),
             Router::new()
@@ -288,6 +289,17 @@ async fn main() -> Result<(), StartError> {
 
 async fn root() -> impl IntoResponse {
     view::Root::build(&view::home::Home::build(), None)
+}
+
+async fn debug(headers: HeaderMap) -> impl IntoResponse {
+    let out = {
+        let mut out = String::new();
+        for (key, value) in headers.iter() {
+            out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));
+        }
+        out
+    };
+    out
 }
 
 #[derive(Deserialize, Default)]
