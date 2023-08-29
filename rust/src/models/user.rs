@@ -42,7 +42,7 @@ impl User {
         name: &str,
     ) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::User,
             },
@@ -62,7 +62,7 @@ pub async fn create(pool: &sqlite::Pool, user: NewUser<'_>) -> Result<Uuid, Erro
     let id_param = id.to_string();
 
     crate::execute!(
-        sqlite::QueryClassification {
+        &sqlite::QueryClassification {
             query_type: sqlite::QueryType::Insert,
             component: sqlite::Component::User,
         },

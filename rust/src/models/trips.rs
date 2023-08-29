@@ -197,7 +197,7 @@ impl TripCategory {
         }
 
         let mut rows = crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -329,7 +329,7 @@ impl TripItem {
         let item_id_param = item_id.to_string();
         let trip_id_param = trip_id.to_string();
         crate::query_one!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -376,7 +376,7 @@ impl TripItem {
         let result = match key {
             TripItemStateKey::Pick => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Inventory,
                     },
@@ -395,7 +395,7 @@ impl TripItem {
             }
             TripItemStateKey::Pack => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Inventory,
                     },
@@ -414,7 +414,7 @@ impl TripItem {
             }
             TripItemStateKey::Ready => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Inventory,
                     },
@@ -509,7 +509,7 @@ impl Trip {
     pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Trip>, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -542,7 +542,7 @@ impl Trip {
         let trip_id_param = trip_id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -579,7 +579,7 @@ impl Trip {
         let type_id_param = type_id.to_string();
 
         let results = crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Delete,
                 component: sqlite::Component::Trips,
             },
@@ -615,7 +615,7 @@ impl Trip {
         let type_id_param = type_id.to_string();
 
         crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Trips,
             },
@@ -650,7 +650,7 @@ impl Trip {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
         let result = crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Update,
                 component: sqlite::Component::Trips,
             },
@@ -677,7 +677,7 @@ impl Trip {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
         let result = crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Update,
                 component: sqlite::Component::Trips,
             },
@@ -707,7 +707,7 @@ impl Trip {
         let result = match attribute {
             TripAttribute::Name => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Trips,
                     },
@@ -724,7 +724,7 @@ impl Trip {
 
             TripAttribute::DateStart => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Trips,
                     },
@@ -740,7 +740,7 @@ impl Trip {
             }
             TripAttribute::DateEnd => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Trips,
                     },
@@ -756,7 +756,7 @@ impl Trip {
             }
             TripAttribute::Location => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Trips,
                     },
@@ -772,7 +772,7 @@ impl Trip {
             }
             TripAttribute::TempMin => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Trips,
                     },
@@ -788,7 +788,7 @@ impl Trip {
             }
             TripAttribute::TempMax => {
                 crate::execute!(
-                    sqlite::QueryClassification {
+                    &sqlite::QueryClassification {
                         query_type: sqlite::QueryType::Update,
                         component: sqlite::Component::Trips,
                     },
@@ -828,7 +828,7 @@ impl Trip {
         let trip_state = TripState::new();
 
         crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Trips,
             },
@@ -858,7 +858,7 @@ impl Trip {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = trip_id.to_string();
         let weight = crate::execute_returning!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -946,7 +946,7 @@ impl Trip {
         let user_id = ctx.user.id.to_string();
         let id = self.id.to_string();
         let types = crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -1014,7 +1014,7 @@ impl Trip {
         }
 
         let unsynced_items: Vec<Uuid> = crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -1044,7 +1044,7 @@ impl Trip {
         for unsynced_item in &unsynced_items {
             let item_id = unsynced_item.to_string();
             crate::execute!(
-                sqlite::QueryClassification {
+                &sqlite::QueryClassification {
                     query_type: sqlite::QueryType::Insert,
                     component: sqlite::Component::Trips,
                 },
@@ -1148,7 +1148,7 @@ impl Trip {
         }
 
         let rows = crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -1296,7 +1296,7 @@ impl TripsType {
     pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Self>, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
             },
@@ -1319,7 +1319,7 @@ impl TripsType {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Trips,
             },
@@ -1348,7 +1348,7 @@ impl TripsType {
         let id_param = id.to_string();
 
         let result = crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Update,
                 component: sqlite::Component::Trips,
             },

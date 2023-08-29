@@ -57,11 +57,13 @@ impl AuthError {
     pub fn trace(&self) {
         match self {
             Self::AuthenticationUserNotFound { username } => {
-                tracing::info!(username, "auth failed, user not found")
+                tracing::info!(username, "auth failed, user not found");
             }
-            Self::AuthenticationHeaderMissing => tracing::info!("auth failed, auth header missing"),
+            Self::AuthenticationHeaderMissing => {
+                tracing::info!("auth failed, auth header missing");
+            }
             Self::AuthenticationHeaderInvalid { message } => {
-                tracing::info!(message, "auth failed, auth header invalid")
+                tracing::info!(message, "auth failed, auth header invalid");
             }
         }
     }

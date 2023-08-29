@@ -14,7 +14,7 @@ impl Inventory {
         let user_id = ctx.user.id.to_string();
 
         let mut categories = crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },
@@ -76,7 +76,7 @@ impl Category {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },
@@ -103,7 +103,7 @@ impl Category {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Inventory,
             },
@@ -142,7 +142,7 @@ impl Category {
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
         let items = crate::query_all!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },
@@ -238,7 +238,7 @@ impl InventoryItem {
         let user_id = ctx.user.id.to_string();
 
         crate::query_one!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },
@@ -279,7 +279,7 @@ impl InventoryItem {
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_exists!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },
@@ -300,7 +300,7 @@ impl InventoryItem {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         let results = crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Delete,
                 component: sqlite::Component::Inventory,
             },
@@ -330,7 +330,7 @@ impl InventoryItem {
 
         let id_param = id.to_string();
         crate::execute_returning_uuid!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Update,
                 component: sqlite::Component::Inventory,
             },
@@ -366,7 +366,7 @@ impl InventoryItem {
         let category_id_param = category_id.to_string();
 
         crate::execute!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Inventory,
             },
@@ -396,7 +396,7 @@ impl InventoryItem {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         let weight = crate::execute_returning!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },
@@ -462,7 +462,7 @@ impl Item {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         crate::execute_returning!(
-            sqlite::QueryClassification {
+            &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Inventory,
             },

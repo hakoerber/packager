@@ -111,7 +111,7 @@ pub struct QueryClassification {
 }
 
 pub fn sqlx_query(
-    classification: QueryClassification,
+    classification: &QueryClassification,
     query: &str,
     labels: &[(&'static str, String)],
 ) {
