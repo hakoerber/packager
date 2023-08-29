@@ -91,6 +91,7 @@ impl std::convert::TryFrom<&str> for TripState {
 pub enum TripItemStateKey {
     Pick,
     Pack,
+    Ready,
 }
 
 impl fmt::Display for TripItemStateKey {
@@ -101,6 +102,7 @@ impl fmt::Display for TripItemStateKey {
             match self {
                 Self::Pick => "pick",
                 Self::Pack => "pack",
+                Self::Ready => "ready",
             },
         )
     }
@@ -146,6 +148,7 @@ impl TripCategory {
                     inner.item_weight AS item_weight,
                     inner.item_is_picked AS item_is_picked,
                     inner.item_is_packed AS item_is_packed,
+                    inner.item_is_ready AS item_is_ready,
                     inner.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
                     LEFT JOIN (
@@ -160,6 +163,7 @@ impl TripCategory {
                             item.weight as item_weight,
                             trip.pick as item_is_picked,
                             trip.pack as item_is_packed,
+                            trip.ready as item_is_ready,
                             trip.new as item_is_new
                         FROM trips_items as trip
                         INNER JOIN inventory_items as item
@@ -209,6 +213,7 @@ impl TripCategory {
                         },
                         picked: row.item_is_picked.unwrap(),
                         packed: row.item_is_packed.unwrap(),
+                        ready: row.item_is_ready.unwrap(),
                         new: row.item_is_new.unwrap(),
                     };
 
@@ -237,18 +242,20 @@ pub struct TripItem {
     pub item: inventory::Item,
     pub picked: bool,
     pub packed: bool,
+    pub ready: bool,
     pub new: bool,
 }
 
-pub(crate) struct DbTripsItemsRow {
-    pub(crate) picked: bool,
-    pub(crate) packed: bool,
-    pub(crate) new: bool,
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) weight: i64,
-    pub(crate) description: Option<String>,
-    pub(crate) category_id: String,
+pub struct DbTripsItemsRow {
+    pub picked: bool,
+    pub packed: bool,
+    pub ready: bool,
+    pub new: bool,
+    pub id: String,
+    pub name: String,
+    pub weight: i64,
+    pub description: Option<String>,
+    pub category_id: String,
 }
 
 impl TryFrom<DbTripsItemsRow> for TripItem {
@@ -258,6 +265,7 @@ impl TryFrom<DbTripsItemsRow> for TripItem {
         Ok(TripItem {
             picked: row.picked,
             packed: row.packed,
+            ready: row.ready,
             new: row.new,
             item: inventory::Item {
                 id: Uuid::try_parse(&row.id)?,
@@ -285,6 +293,7 @@ impl TripItem {
                     t_item.item_id AS id,
                     t_item.pick AS picked,
                     t_item.pack AS packed,
+                    t_item.ready AS ready,
                     t_item.new AS new,
                     i_item.name AS name,
                     i_item.description AS description,
@@ -738,12 +747,14 @@ impl Trip {
                         trip_id,
                         pick,
                         pack,
+                        ready,
                         new
                     )
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ",
                 item_id,
                 trip_id,
+                false,
                 false,
                 false,
                 mark_as_new,
@@ -775,6 +786,7 @@ impl Trip {
                     inner.item_weight AS item_weight,
                     inner.item_is_picked AS item_is_picked,
                     inner.item_is_packed AS item_is_packed,
+                    inner.item_is_ready AS item_is_ready,
                     inner.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
                     LEFT JOIN (
@@ -789,6 +801,7 @@ impl Trip {
                             item.weight as item_weight,
                             trip.pick as item_is_picked,
                             trip.pack as item_is_packed,
+                            trip.ready as item_is_ready,
                             trip.new as item_is_new
                         FROM trips_items as trip
                         INNER JOIN inventory_items as item
@@ -832,6 +845,7 @@ impl Trip {
                         },
                         picked: row.item_is_picked.unwrap(),
                         packed: row.item_is_packed.unwrap(),
+                        ready: row.item_is_ready.unwrap(),
                         new: row.item_is_new.unwrap(),
                     };
 

@@ -1034,6 +1034,7 @@ impl TripItemList {
                         tr ."h-10" {
                             th ."border" ."p-2" {}
                             th ."border" ."p-2" {}
+                            th ."border" ."p-2" {}
                             th ."border" ."p-2" ."w-1/2" { "Name" }
                             th ."border" ."p-2" ."w-1/4" { "Weight" }
                         }
@@ -1095,6 +1096,61 @@ impl TripItemListRow {
                                 ."mdi"
                                 ."mdi-clipboard-text-off-outline"
                                 ."text-2xl"
+                            {}
+                        }
+                    }
+                }
+                td
+                    ."border"
+                    ."p-0"
+                {
+                    @if item.picked {
+                        a
+                            href={
+                                "/trips/" (trip_id)
+                                "/items/" (item.item.id)
+                                "/" (if item.ready { "unready" } else { "ready" }) }
+                            hx-post={
+                                "/trips/" (trip_id)
+                                "/items/" (item.item.id)
+                                "/" (if item.ready { "unready" } else { "ready" }) }
+                            hx-target="closest tr"
+                            hx-swap="outerHTML"
+                            ."inline-block"
+                            ."p-2"
+                            ."m-0"
+                            ."w-full"
+                            ."justify-center"
+                            ."content-center"
+                            ."flex"
+                            ."bg-green-200"[item.ready]
+                            ."hover:bg-green-100"[!item.ready]
+                        {
+                            @if item.ready {
+                                span
+                                    ."mdi"
+                                    ."mdi-wardrobe-outline"
+                                    ."text-2xl"
+                                {}
+                            } @else {
+                                span
+                                    ."mdi"
+                                    ."mdi-map-marker-question-outline"
+                                    ."text-2xl"
+                                {}
+                            }
+                        }
+                    } @else {
+                        div
+                            ."flex"
+                            ."justify-center"
+                            ."items-center"
+                        {
+                            span
+                                ."mdi"
+                                ."mdi-wardrobe-outline"
+                                ."text-2xl"
+                                ."text-gray-300"
                             {}
                         }
                     }

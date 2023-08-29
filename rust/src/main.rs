@@ -230,6 +230,14 @@ async fn main() -> Result<(), StartError> {
                 .route(
                     "/:id/items/:id/unpack",
                     get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
+                )
+                .route(
+                    "/:id/items/:id/ready",
+                    get(trip_item_set_ready).post(trip_item_set_ready_htmx),
+                )
+                .route(
+                    "/:id/items/:id/unready",
+                    get(trip_item_set_unready).post(trip_item_set_unready_htmx),
                 ),
         )
         .nest(
@@ -845,6 +853,82 @@ async fn trip_item_set_unpack_htmx(
         trip_id,
         item_id,
         models::trips::TripItemStateKey::Pack,
+        false,
+    )
+    .await?;
+    let mut headers = HeaderMap::new();
+    headers.insert::<HeaderName>(
+        HtmxResponseHeaders::Trigger.into(),
+        HtmxEvents::TripItemEdited.into(),
+    );
+    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+}
+
+async fn trip_item_set_ready(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Redirect, Error> {
+    Ok::<_, Error>(
+        trip_item_set_state(
+            &state,
+            trip_id,
+            item_id,
+            models::trips::TripItemStateKey::Ready,
+            true,
+        )
+        .await?,
+    )
+    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+}
+
+async fn trip_item_set_ready_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, Error> {
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::trips::TripItemStateKey::Ready,
+        true,
+    )
+    .await?;
+    let mut headers = HeaderMap::new();
+    headers.insert::<HeaderName>(
+        HtmxResponseHeaders::Trigger.into(),
+        HtmxEvents::TripItemEdited.into(),
+    );
+    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+}
+
+async fn trip_item_set_unready(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Redirect, Error> {
+    Ok::<_, Error>(
+        trip_item_set_state(
+            &state,
+            trip_id,
+            item_id,
+            models::trips::TripItemStateKey::Ready,
+            false,
+        )
+        .await?,
+    )
+    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+}
+
+async fn trip_item_set_unready_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, Error> {
+    trip_item_set_state(
+        &state,
+        trip_id,
+        item_id,
+        models::trips::TripItemStateKey::Ready,
         false,
     )
     .await?;
