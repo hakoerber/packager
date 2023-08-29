@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
+#[derive(Debug)]
 pub enum RequestError {
     EmptyFormElement { name: String },
     RefererNotFound,
@@ -17,6 +18,8 @@ pub enum RequestError {
     AuthenticationHeaderMissing,
     AuthenticationHeaderInvalid { message: String },
 }
+
+impl std::error::Error for RequestError {}
 
 impl fmt::Display for RequestError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -36,16 +39,21 @@ impl fmt::Display for RequestError {
     }
 }
 
+#[derive(Debug)]
 pub enum Error {
     Model(models::Error),
     Request(RequestError),
 }
+
+impl std::error::Error for Error {}
 
 #[derive(Debug)]
 pub enum StartError {
     DatabaseInitError { message: String },
     DatabaseMigrationError { message: String },
 }
+
+impl std::error::Error for StartError {}
 
 impl fmt::Display for StartError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -59,8 +67,6 @@ impl fmt::Display for StartError {
         }
     }
 }
-
-impl std::error::Error for StartError {}
 
 impl From<sqlx::Error> for StartError {
     fn from(value: sqlx::Error) -> Self {

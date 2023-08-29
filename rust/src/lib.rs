@@ -1,32 +1,23 @@
-use axum::{extract::State, http::header::HeaderValue, middleware::Next, response::IntoResponse};
-
-use hyper::Request;
-
 use uuid::Uuid;
 
 use std::fmt;
 
+pub mod auth;
 pub mod error;
+pub mod htmx;
 pub mod models;
 pub mod routing;
 pub mod sqlite;
 
-mod html;
 mod view;
 
 pub use error::{Error, RequestError, StartError};
 
 #[derive(Clone)]
-pub enum AuthConfig {
-    Enabled,
-    Disabled { assume_user: String },
-}
-
-#[derive(Clone)]
 pub struct AppState {
     pub database_pool: sqlite::Pool<sqlite::Sqlite>,
     pub client_state: ClientState,
-    pub auth_config: AuthConfig,
+    pub auth_config: auth::AuthConfig,
 }
 
 #[derive(Clone)]
@@ -109,67 +100,4 @@ impl TopLevelPage {
             Self::Trips => "Trips",
         }
     }
-}
-
-enum HtmxEvents {
-    TripItemEdited,
-}
-
-impl From<HtmxEvents> for HeaderValue {
-    fn from(val: HtmxEvents) -> Self {
-        HeaderValue::from_static(val.to_str())
-    }
-}
-
-impl HtmxEvents {
-    fn to_str(&self) -> &'static str {
-        match self {
-            Self::TripItemEdited => "TripItemEdited",
-        }
-    }
-}
-
-async fn authorize<B>(
-    State(state): State<AppState>,
-    mut request: Request<B>,
-    next: Next<B>,
-) -> Result<impl IntoResponse, Error> {
-    let current_user = match state.auth_config {
-        AuthConfig::Disabled { assume_user } => {
-            match models::user::User::find_by_name(&state.database_pool, &assume_user).await? {
-                Some(user) => user,
-                None => {
-                    return Err(Error::Request(RequestError::AuthenticationUserNotFound {
-                        username: assume_user,
-                    }))
-                }
-            }
-        }
-        AuthConfig::Enabled => {
-            let Some(username) = request.headers().get("x-auth-username") else {
-                return Err(Error::Request(RequestError::AuthenticationHeaderMissing));
-            };
-
-            let username = username
-                .to_str()
-                .map_err(|error| {
-                    Error::Request(RequestError::AuthenticationHeaderInvalid {
-                        message: error.to_string(),
-                    })
-                })?
-                .to_string();
-
-            match models::user::User::find_by_name(&state.database_pool, &username).await? {
-                Some(user) => user,
-                None => {
-                    return Err(Error::Request(RequestError::AuthenticationUserNotFound {
-                        username,
-                    }))
-                }
-            }
-        }
-    };
-
-    request.extensions_mut().insert(current_user);
-    Ok(next.run(request).await)
 }

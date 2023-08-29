@@ -1,47 +1,17 @@
 use axum::{
-    http::header::{HeaderMap, HeaderName},
+    http::header::HeaderMap,
     middleware,
     routing::{get, post},
     Router,
 };
 
-use crate::{authorize, AppState, Error, RequestError, TopLevelPage};
+use crate::{AppState, Error, RequestError, TopLevelPage};
 
+use super::auth;
+
+mod html;
 mod routes;
 use routes::*;
-
-enum HtmxResponseHeaders {
-    Trigger,
-    PushUrl,
-}
-
-impl From<HtmxResponseHeaders> for HeaderName {
-    fn from(val: HtmxResponseHeaders) -> Self {
-        match val {
-            HtmxResponseHeaders::Trigger => HeaderName::from_static("hx-trigger"),
-            HtmxResponseHeaders::PushUrl => HeaderName::from_static("hx-push-url"),
-        }
-    }
-}
-
-enum HtmxRequestHeaders {
-    HtmxRequest,
-}
-
-impl From<HtmxRequestHeaders> for HeaderName {
-    fn from(val: HtmxRequestHeaders) -> Self {
-        match val {
-            HtmxRequestHeaders::HtmxRequest => HeaderName::from_static("hx-request"),
-        }
-    }
-}
-
-fn is_htmx(headers: &HeaderMap) -> bool {
-    headers
-        .get::<HeaderName>(HtmxRequestHeaders::HtmxRequest.into())
-        .map(|value| value == "true")
-        .unwrap_or(false)
-}
 
 fn get_referer<'a>(headers: &'a HeaderMap) -> Result<&'a str, Error> {
     headers
@@ -142,7 +112,10 @@ pub fn router(state: AppState) -> Router {
                         .route("/item/:id/edit", post(inventory_item_edit))
                         .route("/item/name/validate", post(inventory_item_validate_name)),
                 )
-                .layer(middleware::from_fn_with_state(state.clone(), authorize)),
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth::authorize,
+                )),
         )
         .fallback(|| async {
             Error::Request(RequestError::NotFound {

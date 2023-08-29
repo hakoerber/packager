@@ -1,4 +1,4 @@
-use packager::{routing, sqlite, AppState, AuthConfig, ClientState, StartError};
+use packager::{auth, routing, sqlite, AppState, ClientState, StartError};
 
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
@@ -33,9 +33,9 @@ async fn main() -> Result<(), StartError> {
         database_pool,
         client_state: ClientState::new(),
         auth_config: if let Some(assume_user) = args.disable_auth_and_assume_user {
-            AuthConfig::Disabled { assume_user }
+            auth::AuthConfig::Disabled { assume_user }
         } else {
-            AuthConfig::Enabled
+            auth::AuthConfig::Enabled
         },
     };
 

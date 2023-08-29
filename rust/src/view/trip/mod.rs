@@ -1,5 +1,5 @@
+use crate::htmx;
 use crate::models;
-use crate::HtmxEvents;
 
 use maud::{html, Markup, PreEscaped};
 use uuid::Uuid;
@@ -479,7 +479,7 @@ impl TripInfoTotalWeightRow {
         html!(
             span
                 hx-trigger={
-                    (HtmxEvents::TripItemEdited.to_str()) " from:body"
+                    (htmx::Event::TripItemEdited.to_str()) " from:body"
                 }
                 hx-get={"/trips/" (trip_id) "/total_weight"}
             {

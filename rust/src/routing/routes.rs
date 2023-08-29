@@ -8,11 +8,12 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::htmx;
 use crate::models;
 use crate::view;
-use crate::{html, AppState, Context, Error, HtmxEvents, RequestError, TopLevelPage};
+use crate::{AppState, Context, Error, RequestError, TopLevelPage};
 
-use super::{get_referer, is_htmx, HtmxResponseHeaders};
+use super::{get_referer, html};
 
 #[derive(Deserialize, Default)]
 pub struct InventoryQuery {
@@ -210,7 +211,7 @@ pub async fn inventory_item_create(
     )
     .await?;
 
-    if is_htmx(&headers) {
+    if htmx::is_htmx(&headers) {
         let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
 
         // it's impossible to NOT find the item here, as we literally just added
@@ -521,8 +522,8 @@ pub async fn trip_item_set_pick_htmx(
     .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::Trigger.into(),
-        HtmxEvents::TripItemEdited.into(),
+        htmx::ResponseHeaders::Trigger.into(),
+        htmx::Event::TripItemEdited.into(),
     );
     Ok((headers, trip_row(&state, trip_id, item_id).await?))
 }
@@ -559,8 +560,8 @@ pub async fn trip_item_set_unpick_htmx(
     .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::Trigger.into(),
-        HtmxEvents::TripItemEdited.into(),
+        htmx::ResponseHeaders::Trigger.into(),
+        htmx::Event::TripItemEdited.into(),
     );
     Ok((headers, trip_row(&state, trip_id, item_id).await?))
 }
@@ -597,8 +598,8 @@ pub async fn trip_item_set_pack_htmx(
     .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::Trigger.into(),
-        HtmxEvents::TripItemEdited.into(),
+        htmx::ResponseHeaders::Trigger.into(),
+        htmx::Event::TripItemEdited.into(),
     );
     Ok((headers, trip_row(&state, trip_id, item_id).await?))
 }
@@ -635,8 +636,8 @@ pub async fn trip_item_set_unpack_htmx(
     .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::Trigger.into(),
-        HtmxEvents::TripItemEdited.into(),
+        htmx::ResponseHeaders::Trigger.into(),
+        htmx::Event::TripItemEdited.into(),
     );
     Ok((headers, trip_row(&state, trip_id, item_id).await?))
 }
@@ -673,8 +674,8 @@ pub async fn trip_item_set_ready_htmx(
     .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::Trigger.into(),
-        HtmxEvents::TripItemEdited.into(),
+        htmx::ResponseHeaders::Trigger.into(),
+        htmx::Event::TripItemEdited.into(),
     );
     Ok((headers, trip_row(&state, trip_id, item_id).await?))
 }
@@ -711,8 +712,8 @@ pub async fn trip_item_set_unready_htmx(
     .await?;
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::Trigger.into(),
-        HtmxEvents::TripItemEdited.into(),
+        htmx::ResponseHeaders::Trigger.into(),
+        htmx::Event::TripItemEdited.into(),
     );
     Ok((headers, trip_row(&state, trip_id, item_id).await?))
 }
@@ -758,7 +759,7 @@ pub async fn trip_state_set(
         }));
     }
 
-    if is_htmx(&headers) {
+    if htmx::is_htmx(&headers) {
         Ok(view::trip::TripInfoStateRow::build(&new_state).into_response())
     } else {
         Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)).into_response())
@@ -861,7 +862,7 @@ pub async fn trip_category_select(
 
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::PushUrl.into(),
+        htmx::ResponseHeaders::PushUrl.into(),
         format!("?={category_id}").parse().unwrap(),
     );
 
@@ -889,7 +890,7 @@ pub async fn inventory_category_select(
 
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
-        HtmxResponseHeaders::PushUrl.into(),
+        htmx::ResponseHeaders::PushUrl.into(),
         format!("/inventory/category/{category_id}/")
             .parse()
             .unwrap(),
