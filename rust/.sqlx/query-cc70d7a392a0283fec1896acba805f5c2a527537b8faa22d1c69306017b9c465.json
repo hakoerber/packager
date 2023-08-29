@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT\n                    CAST(IFNULL(SUM(i_item.weight), 0) AS INTEGER) AS total_weight\n                FROM trips AS trip\n                INNER JOIN trips_items AS t_item\n                    ON t_item.trip_id = trip.id\n                INNER JOIN inventory_items AS i_item\n                    ON t_item.item_id = i_item.id\n                WHERE\n                    trip.id = ?\n                AND t_item.pick = true\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "total_weight",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cc70d7a392a0283fec1896acba805f5c2a527537b8faa22d1c69306017b9c465"
+}

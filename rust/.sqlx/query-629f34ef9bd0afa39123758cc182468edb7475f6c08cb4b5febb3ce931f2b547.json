@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                    item.id AS id,\n                    item.name AS name,\n                    item.description AS description,\n                    weight,\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    category.description AS category_description,\n                    product.id AS product_id,\n                    product.name AS product_name,\n                    product.description AS product_description,\n                    product.comment AS product_comment\n                FROM inventory_items AS item\n                INNER JOIN inventory_items_categories as category\n                    ON item.category_id = category.id\n                LEFT JOIN inventory_products AS product\n                    ON item.product_id = product.id\n                WHERE item.id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "weight",
+        "ordinal": 3,
+        "type_info": "Int64"
+      },
+      {
+        "name": "category_id",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_name",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_description",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "product_id",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "product_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "product_description",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "product_comment",
+        "ordinal": 10,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "629f34ef9bd0afa39123758cc182468edb7475f6c08cb4b5febb3ce931f2b547"
+}

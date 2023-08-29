@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT COALESCE(SUM(i_item.weight), 0) as weight\n                FROM inventory_items_categories as category\n                INNER JOIN inventory_items as i_item\n                    ON i_item.category_id = category.id\n                INNER JOIN trips_items as t_item\n                    ON i_item.id = t_item.item_id\n                WHERE category_id = ?\n                AND t_item.pick = 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "weight",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f9d080a5b8710c7d6a497bb1f5cf4839ad1589fd7d6a06d3faf1163d6981d8a0"
+}

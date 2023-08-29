@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE trips_types\n            SET name = ?\n            WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "92ca05be21a4c05bf26f8a1655bbb8d9f1ece322abff5395ecacde3f6e28fdf7"
+}

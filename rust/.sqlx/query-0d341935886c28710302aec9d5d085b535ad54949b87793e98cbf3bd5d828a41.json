@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE inventory_items AS item\n            SET\n                name = ?,\n                weight = ?\n            WHERE item.id = ?\n            RETURNING inventory_items.category_id AS id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0d341935886c28710302aec9d5d085b535ad54949b87793e98cbf3bd5d828a41"
+}
