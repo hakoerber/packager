@@ -60,10 +60,10 @@ features = ["trace", "request-id"]
 version = "0.1"
 
 [dependencies.tracing-attributes]
-version = "=0.2.0"
+version = "0.1"
 
 [patch.crates-io]
-tracing-attributes = { git = "https://github.com/miwig/tracing", branch = "master" }
+tracing-attributes = { path = "./tracing/tracing-attributes" }
 
 [dependencies.tracing-subscriber]
 version = "0.3"

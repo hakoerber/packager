@@ -36,7 +36,7 @@ fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
         })
 }
 
-//#[tracing::instrument]
+#[tracing::instrument]
 async fn simple_handler(State(state): State<AppState>) -> &'static str {
     use tracing::Instrument;
     let pool = async {
@@ -55,7 +55,7 @@ async fn simple_handler(State(state): State<AppState>) -> &'static str {
             .await
             .unwrap()
     }
-    .instrument(tracing::warn_span!("init_pool"))
+    // .instrument(tracing::warn_span!("init_pool"))
     .await;
 
     tracing::warn!("test event");
@@ -66,7 +66,7 @@ async fn simple_handler(State(state): State<AppState>) -> &'static str {
             .await
             .unwrap()
     }
-    .instrument(tracing::warn_span!("test_span"))
+    // .instrument(tracing::warn_span!("test_span"))
     .await;
     "ok"
 }
