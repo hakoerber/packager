@@ -1,4 +1,5 @@
 use super::Error;
+use crate::Context;
 
 use futures::{TryFutureExt, TryStreamExt};
 use uuid::Uuid;
@@ -8,10 +9,17 @@ pub struct Inventory {
 }
 
 impl Inventory {
-    pub async fn load(pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
+    pub async fn load(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
+        let user_id = ctx.user.id.to_string();
         let mut categories = sqlx::query_as!(
             DbCategoryRow,
-            "SELECT id,name,description FROM inventory_items_categories"
+            "SELECT 
+                id,
+                name,
+                description 
+            FROM inventory_items_categories 
+            WHERE user_id = ?",
+            user_id,
         )
         .fetch(pool)
         .map_ok(|row: DbCategoryRow| row.try_into())
@@ -21,7 +29,7 @@ impl Inventory {
         .collect::<Result<Vec<Category>, Error>>()?;
 
         for category in &mut categories {
-            category.populate_items(pool).await?;
+            category.populate_items(&ctx, &pool).await?;
         }
 
         Ok(Self { categories })
@@ -57,10 +65,12 @@ impl TryFrom<DbCategoryRow> for Category {
 
 impl Category {
     pub async fn _find(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
     ) -> Result<Option<Category>, Error> {
         let id_param = id.to_string();
+        let user_id = ctx.user.id.to_string();
         sqlx::query_as!(
             DbCategoryRow,
             "SELECT
@@ -68,8 +78,11 @@ impl Category {
                 name,
                 description
             FROM inventory_items_categories AS category
-            WHERE category.id = ?",
+            WHERE 
+                category.id = ?
+                AND category.user_id = ?",
             id_param,
+            user_id,
         )
         .fetch_optional(pool)
         .await?
@@ -77,16 +90,22 @@ impl Category {
         .transpose()
     }
 
-    pub async fn save(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        name: &str,
+    ) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
+        let user_id = ctx.user.id.to_string();
         sqlx::query!(
             "INSERT INTO inventory_items_categories
-                (id, name)
+                (id, name, user_id)
             VALUES
-                (?, ?)",
+                (?, ?, ?)",
             id_param,
             name,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -104,8 +123,13 @@ impl Category {
         self.items().iter().map(|item| item.weight).sum()
     }
 
-    pub async fn populate_items(&mut self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), Error> {
+    pub async fn populate_items(
+        &mut self,
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
         let id = self.id.to_string();
+        let user_id = ctx.user.id.to_string();
         let items = sqlx::query_as!(
             DbInventoryItemsRow,
             "SELECT
@@ -115,8 +139,11 @@ impl Category {
                 description,
                 category_id
             FROM inventory_items
-            WHERE category_id = ?",
-            id
+            WHERE 
+                category_id = ?
+                AND user_id = ?",
+            id,
+            user_id,
         )
         .fetch(pool)
         .map_ok(|row| row.try_into())
@@ -191,8 +218,13 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 }
 
 impl InventoryItem {
-    pub async fn find(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<Option<Self>, Error> {
+    pub async fn find(
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+    ) -> Result<Option<Self>, Error> {
         let id_param = id.to_string();
+        let user_id = ctx.user.id.to_string();
 
         sqlx::query_as!(
             DbInventoryItemRow,
@@ -213,8 +245,11 @@ impl InventoryItem {
                     ON item.category_id = category.id
                 LEFT JOIN inventory_products AS product
                     ON item.product_id = product.id
-                WHERE item.id = ?",
+                WHERE 
+                    item.id = ?
+                    AND item.user_id = ?",
             id_param,
+            user_id,
         )
         .fetch_optional(pool)
         .await?
@@ -222,12 +257,20 @@ impl InventoryItem {
         .transpose()
     }
 
-    pub async fn name_exists(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<bool, Error> {
+    pub async fn name_exists(
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        name: &str,
+    ) -> Result<bool, Error> {
+        let user_id = ctx.user.id.to_string();
         Ok(sqlx::query!(
             "SELECT id
             FROM inventory_items
-            WHERE name = ?",
+            WHERE 
+                name = ?
+                AND user_id = ?",
             name,
+            user_id
         )
         .fetch_optional(pool)
         .await?
@@ -235,12 +278,20 @@ impl InventoryItem {
         .is_some())
     }
 
-    pub async fn delete(pool: &sqlx::Pool<sqlx::Sqlite>, id: Uuid) -> Result<bool, Error> {
+    pub async fn delete(
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        id: Uuid,
+    ) -> Result<bool, Error> {
         let id_param = id.to_string();
+        let user_id = ctx.user.id.to_string();
         let results = sqlx::query!(
             "DELETE FROM inventory_items
-            WHERE id = ?",
-            id_param
+            WHERE 
+                id = ?
+                AND user_id = ?",
+            id_param,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -249,11 +300,13 @@ impl InventoryItem {
     }
 
     pub async fn update(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         name: &str,
         weight: u32,
     ) -> Result<Uuid, Error> {
+        let user_id = ctx.user.id.to_string();
         let weight = i64::try_from(weight).unwrap();
 
         let id_param = id.to_string();
@@ -262,12 +315,15 @@ impl InventoryItem {
             SET
                 name = ?,
                 weight = ?
-            WHERE item.id = ?
+            WHERE 
+                item.id = ?
+                AND item.user_id = ?
             RETURNING inventory_items.category_id AS id
             ",
             name,
             weight,
             id_param,
+            user_id,
         )
         .fetch_one(pool)
         .map_ok(|row| Uuid::try_parse(&row.id))
@@ -275,6 +331,7 @@ impl InventoryItem {
     }
 
     pub async fn save(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         name: &str,
         category_id: Uuid,
@@ -282,18 +339,20 @@ impl InventoryItem {
     ) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
+        let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
 
         sqlx::query!(
             "INSERT INTO inventory_items
-                (id, name, description, weight, category_id)
+                (id, name, description, weight, category_id, user_id)
             VALUES
-                (?, ?, ?, ?, ?)",
+                (?, ?, ?, ?, ?, ?)",
             id_param,
             name,
             "",
             weight,
-            category_id_param
+            category_id_param,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -302,9 +361,11 @@ impl InventoryItem {
     }
 
     pub async fn get_category_max_weight(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         category_id: Uuid,
     ) -> Result<i64, Error> {
+        let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         let weight = sqlx::query!(
             "
@@ -312,9 +373,12 @@ impl InventoryItem {
                 FROM inventory_items_categories as category
                 INNER JOIN inventory_items as i_item
                     ON i_item.category_id = category.id
-                WHERE category_id = ?
+                WHERE 
+                    category_id = ?
+                    AND category.user_id = ?
             ",
-            category_id_param
+            category_id_param,
+            user_id,
         )
         .fetch_one(pool)
         .map_ok(|row| {
@@ -361,9 +425,11 @@ impl TryFrom<DbInventoryItemsRow> for Item {
 
 impl Item {
     pub async fn _get_category_total_picked_weight(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         category_id: Uuid,
     ) -> Result<i64, Error> {
+        let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         Ok(sqlx::query!(
             "
@@ -373,10 +439,13 @@ impl Item {
                     ON i_item.category_id = category.id
                 INNER JOIN trips_items as t_item
                     ON i_item.id = t_item.item_id
-                WHERE category_id = ?
-                AND t_item.pick = 1
+                WHERE 
+                    category_id = ?
+                    AND category.user_id = ?
+                    AND t_item.pick = 1
             ",
-            category_id_param
+            category_id_param,
+            user_id,
         )
         .fetch_one(pool)
         .map_ok(|row| {

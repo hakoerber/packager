@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                    item.id AS id,\n                    item.name AS name,\n                    item.description AS description,\n                    weight,\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    category.description AS category_description,\n                    product.id AS product_id,\n                    product.name AS product_name,\n                    product.description AS product_description,\n                    product.comment AS product_comment\n                FROM inventory_items AS item\n                INNER JOIN inventory_items_categories as category\n                    ON item.category_id = category.id\n                LEFT JOIN inventory_products AS product\n                    ON item.product_id = product.id\n                WHERE item.id = ?",
+  "query": "SELECT\n                    item.id AS id,\n                    item.name AS name,\n                    item.description AS description,\n                    weight,\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    category.description AS category_description,\n                    product.id AS product_id,\n                    product.name AS product_name,\n                    product.description AS product_description,\n                    product.comment AS product_comment\n                FROM inventory_items AS item\n                INNER JOIN inventory_items_categories as category\n                    ON item.category_id = category.id\n                LEFT JOIN inventory_products AS product\n                    ON item.product_id = product.id\n                WHERE \n                    item.id = ?\n                    AND item.user_id = ?",
   "describe": {
     "columns": [
       {
@@ -60,7 +60,7 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false,
@@ -76,5 +76,5 @@
       true
     ]
   },
-  "hash": "629f34ef9bd0afa39123758cc182468edb7475f6c08cb4b5febb3ce931f2b547"
+  "hash": "b4d2e5f57ee95dd449ab0d69450d471d9fd80b9fc943436185dcd25c7402271e"
 }

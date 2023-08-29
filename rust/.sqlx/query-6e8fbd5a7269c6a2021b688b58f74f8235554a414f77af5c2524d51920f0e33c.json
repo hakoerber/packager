@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id,name,description FROM inventory_items_categories",
+  "query": "SELECT \n                id,\n                name,\n                description \n            FROM inventory_items_categories \n            WHERE user_id = ?",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,7 @@
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false,
@@ -28,5 +28,5 @@
       true
     ]
   },
-  "hash": "a81bcbeb11260e3b4363e19c26b71b489e326b08bfacb6e11b4c4fc068dc7806"
+  "hash": "6e8fbd5a7269c6a2021b688b58f74f8235554a414f77af5c2524d51920f0e33c"
 }

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM inventory_items\n            WHERE \n                id = ?\n                AND user_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "ec968e7d97f30547cca37cb1834a054e1ba4ea5461e202cf329b929953c00894"
+}

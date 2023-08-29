@@ -128,10 +128,11 @@ pub async fn inventory_active(
     Path(id): Path<Uuid>,
     Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = Some(id);
 
-    let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
+    let inventory = models::inventory::Inventory::load(&ctx, &state.database_pool).await?;
 
     let active_category: Option<&models::inventory::Category> = state
         .client_state
@@ -148,7 +149,7 @@ pub async fn inventory_active(
         .transpose()?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::inventory::Inventory::build(
             active_category,
             &inventory.categories,
@@ -163,13 +164,14 @@ pub async fn inventory_inactive(
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = None;
 
-    let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
+    let inventory = models::inventory::Inventory::load(&ctx, &state.database_pool).await?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::inventory::Inventory::build(
             None,
             &inventory.categories,
@@ -180,11 +182,14 @@ pub async fn inventory_inactive(
 }
 
 pub async fn inventory_item_validate_name(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_item): Form<NewItemName>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     let exists =
-        models::inventory::InventoryItem::name_exists(&state.database_pool, &new_item.name).await?;
+        models::inventory::InventoryItem::name_exists(&ctx, &state.database_pool, &new_item.name)
+            .await?;
 
     Ok(view::inventory::InventoryNewItemFormName::build(
         Some(&new_item.name),
@@ -193,10 +198,12 @@ pub async fn inventory_item_validate_name(
 }
 
 pub async fn inventory_item_create(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     headers: HeaderMap,
     Form(new_item): Form<NewItem>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     if new_item.name.is_empty() {
         return Err(Error::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
@@ -204,6 +211,7 @@ pub async fn inventory_item_create(
     }
 
     let _new_id = models::inventory::InventoryItem::save(
+        &ctx,
         &state.database_pool,
         &new_item.name,
         new_item.category_id,
@@ -212,7 +220,7 @@ pub async fn inventory_item_create(
     .await?;
 
     if htmx::is_htmx(&headers) {
-        let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
+        let inventory = models::inventory::Inventory::load(&ctx, &state.database_pool).await?;
 
         // it's impossible to NOT find the item here, as we literally just added
         // it.
@@ -239,11 +247,13 @@ pub async fn inventory_item_create(
     }
 }
 pub async fn inventory_item_delete(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, Error> {
-    let deleted = models::inventory::InventoryItem::delete(&state.database_pool, id).await?;
+    let ctx = Context::build(current_user);
+    let deleted = models::inventory::InventoryItem::delete(&ctx, &state.database_pool, id).await?;
 
     if !deleted {
         Err(Error::Request(RequestError::NotFound {
@@ -255,10 +265,12 @@ pub async fn inventory_item_delete(
 }
 
 pub async fn inventory_item_edit(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Form(edit_item): Form<EditItem>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     if edit_item.name.is_empty() {
         return Err(Error::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
@@ -266,6 +278,7 @@ pub async fn inventory_item_edit(
     }
 
     let id = models::inventory::InventoryItem::update(
+        &ctx,
         &state.database_pool,
         id,
         &edit_item.name,
@@ -277,10 +290,12 @@ pub async fn inventory_item_edit(
 }
 
 pub async fn inventory_item_cancel(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, Error> {
-    let id = models::inventory::InventoryItem::find(&state.database_pool, id)
+    let ctx = Context::build(current_user);
+    let id = models::inventory::InventoryItem::find(&ctx, &state.database_pool, id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("item with id {id} not found"),
@@ -453,6 +468,7 @@ pub async fn trip_item_set_state(
 }
 
 pub async fn trip_row(
+    ctx: &Context,
     state: &AppState,
     trip_id: Uuid,
     item_id: Uuid,
@@ -469,6 +485,7 @@ pub async fn trip_row(
         trip_id,
         &item,
         models::inventory::InventoryItem::get_category_max_weight(
+            &ctx,
             &state.database_pool,
             item.item.category_id,
         )
@@ -509,9 +526,11 @@ pub async fn trip_item_set_pick(
 }
 
 pub async fn trip_item_set_pick_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
         &state,
         trip_id,
@@ -525,7 +544,7 @@ pub async fn trip_item_set_pick_htmx(
         htmx::ResponseHeaders::Trigger.into(),
         htmx::Event::TripItemEdited.into(),
     );
-    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+    Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
 pub async fn trip_item_set_unpick(
@@ -547,9 +566,11 @@ pub async fn trip_item_set_unpick(
 }
 
 pub async fn trip_item_set_unpick_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
         &state,
         trip_id,
@@ -563,7 +584,7 @@ pub async fn trip_item_set_unpick_htmx(
         htmx::ResponseHeaders::Trigger.into(),
         htmx::Event::TripItemEdited.into(),
     );
-    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+    Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
 pub async fn trip_item_set_pack(
@@ -585,9 +606,11 @@ pub async fn trip_item_set_pack(
 }
 
 pub async fn trip_item_set_pack_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
         &state,
         trip_id,
@@ -601,7 +624,7 @@ pub async fn trip_item_set_pack_htmx(
         htmx::ResponseHeaders::Trigger.into(),
         htmx::Event::TripItemEdited.into(),
     );
-    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+    Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
 pub async fn trip_item_set_unpack(
@@ -623,9 +646,11 @@ pub async fn trip_item_set_unpack(
 }
 
 pub async fn trip_item_set_unpack_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
         &state,
         trip_id,
@@ -639,7 +664,7 @@ pub async fn trip_item_set_unpack_htmx(
         htmx::ResponseHeaders::Trigger.into(),
         htmx::Event::TripItemEdited.into(),
     );
-    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+    Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
 pub async fn trip_item_set_ready(
@@ -661,9 +686,11 @@ pub async fn trip_item_set_ready(
 }
 
 pub async fn trip_item_set_ready_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
         &state,
         trip_id,
@@ -677,7 +704,7 @@ pub async fn trip_item_set_ready_htmx(
         htmx::ResponseHeaders::Trigger.into(),
         htmx::Event::TripItemEdited.into(),
     );
-    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+    Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
 pub async fn trip_item_set_unready(
@@ -699,9 +726,11 @@ pub async fn trip_item_set_unready(
 }
 
 pub async fn trip_item_set_unready_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
         &state,
         trip_id,
@@ -715,7 +744,7 @@ pub async fn trip_item_set_unready_htmx(
         htmx::ResponseHeaders::Trigger.into(),
         htmx::Event::TripItemEdited.into(),
     );
-    Ok((headers, trip_row(&state, trip_id, item_id).await?))
+    Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
 pub async fn trip_total_weight_htmx(
@@ -731,9 +760,11 @@ pub async fn trip_total_weight_htmx(
 }
 
 pub async fn inventory_category_create(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_category): Form<NewCategory>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     if new_category.name.is_empty() {
         return Err(Error::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
@@ -741,7 +772,7 @@ pub async fn inventory_category_create(
     }
 
     let _new_id =
-        models::inventory::Category::save(&state.database_pool, &new_category.name).await?;
+        models::inventory::Category::save(&ctx, &state.database_pool, &new_category.name).await?;
 
     Ok(Redirect::to("/inventory/"))
 }
@@ -827,14 +858,15 @@ pub async fn inventory_item(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
-    let item = models::inventory::InventoryItem::find(&state.database_pool, id)
+    let ctx = Context::build(current_user);
+    let item = models::inventory::InventoryItem::find(&ctx, &state.database_pool, id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("inventory item with id {id} not found"),
         }))?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::inventory::InventoryItem::build(&state.client_state, &item),
         Some(&TopLevelPage::Inventory),
     ))
@@ -873,10 +905,12 @@ pub async fn trip_category_select(
 }
 
 pub async fn inventory_category_select(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(category_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
-    let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
+    let ctx = Context::build(current_user);
+    let inventory = models::inventory::Inventory::load(&ctx, &state.database_pool).await?;
 
     let active_category: Option<&models::inventory::Category> = Some(
         inventory
