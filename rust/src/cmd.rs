@@ -1,3 +1,4 @@
+use crate::{Error, StartError};
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(ValueEnum, Clone, Copy, Debug)]
@@ -8,9 +9,26 @@ pub enum BoolArg {
 
 impl From<BoolArg> for bool {
     fn from(arg: BoolArg) -> bool {
+        arg.bool()
+    }
+}
+
+impl BoolArg {
+    fn bool(self) -> bool {
+        match self {
+            Self::True => true,
+            Self::False => false,
+        }
+    }
+}
+
+// this is required because the required_if* functions match against the
+// *raw* value, before parsing is done
+impl From<BoolArg> for clap::builder::OsStr {
+    fn from(arg: BoolArg) -> clap::builder::OsStr {
         match arg {
-            BoolArg::True => true,
-            BoolArg::False => false,
+            BoolArg::True => "true".into(),
+            BoolArg::False => "false".into(),
         }
     }
 }
@@ -26,6 +44,15 @@ pub struct Args {
 
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_tokio_console: BoolArg,
+
+    #[arg(long, value_enum, default_value_t = BoolArg::False)]
+    pub enable_prometheus: BoolArg,
+
+    #[arg(long, value_enum, required_if_eq("enable_prometheus", BoolArg::True))]
+    pub prometheus_port: Option<u16>,
+
+    #[arg(long, value_enum, required_if_eq("enable_prometheus", BoolArg::True))]
+    pub prometheus_bind: Option<String>,
 
     #[command(subcommand)]
     pub command: Command,
@@ -66,4 +93,20 @@ pub struct UserCreate {
     pub username: String,
     #[arg(long)]
     pub fullname: String,
+}
+
+impl Args {
+    pub fn get() -> Result<Args, Error> {
+        let args = Args::parse();
+
+        if !args.enable_prometheus.bool()
+            && (args.prometheus_port.is_some() || args.prometheus_bind.is_some())
+        {
+            Err(Error::Start(StartError::CallError {
+                message: "do not set prometheus options when prometheus is not enabled".to_string(),
+            }))
+        } else {
+            Ok(args)
+        }
+    }
 }

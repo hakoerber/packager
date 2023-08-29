@@ -104,3 +104,7 @@ features = ["derive"]
 
 [dependencies.serde_variant]
 version = "0.1"
+
+[dependencies]
+axum-prometheus = "0.4"
+

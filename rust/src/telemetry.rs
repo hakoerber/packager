@@ -4,10 +4,13 @@ use std::io;
 use std::pin::Pin;
 use std::time::Duration;
 
+use axum::routing::get;
 use axum::Router;
 use http::Request;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::Span;
+
+use axum_prometheus::{Handle, MakeDefaultHandle, PrometheusMetricLayerBuilder};
 
 use tracing::Instrument;
 use tracing_subscriber::{
@@ -18,6 +21,8 @@ use tracing_subscriber::{
     registry::Registry,
 };
 use uuid::Uuid;
+
+use crate::{Error, StartError};
 
 use opentelemetry::{global, runtime::Tokio};
 
@@ -226,4 +231,34 @@ pub fn init_request_tracing(router: Router) -> Router {
                 },
             ),
     )
+}
+
+pub fn prometheus_server(
+    router: Router,
+    addr: std::net::SocketAddr,
+) -> (Router, impl Future<Output = Result<(), Error>>) {
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
+        .with_prefix(env!("CARGO_PKG_NAME"))
+        .with_metrics_from_fn(|| Handle::make_default_handle())
+        .build_pair();
+
+    let app = Router::new().route("/metrics", get(|| async move { metric_handle.render() }));
+
+    let task = async move {
+        if let Err(e) = axum::Server::try_bind(&addr)
+            .map_err(|e| {
+                Error::Start(StartError::BindError {
+                    message: e.to_string(),
+                    addr,
+                })
+            })?
+            .serve(app.into_make_service())
+            .await
+        {
+            return Err(<hyper::Error as Into<Error>>::into(e));
+        }
+        Ok(())
+    };
+
+    (router.layer(prometheus_layer), task)
 }

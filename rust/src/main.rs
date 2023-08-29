@@ -3,9 +3,9 @@ use std::pin::Pin;
 use std::process::ExitCode;
 use std::str::FromStr;
 
-use packager::{auth, cmd, models, routing, sqlite, telemetry, AppState, ClientState, Error};
-
-use clap::Parser;
+use packager::{
+    auth, cmd, models, routing, sqlite, telemetry, AppState, ClientState, Error, StartError,
+};
 
 struct MainResult(Result<(), Error>);
 
@@ -27,9 +27,19 @@ impl From<Error> for MainResult {
     }
 }
 
+impl From<tokio::task::JoinError> for MainResult {
+    fn from(error: tokio::task::JoinError) -> Self {
+        Self(Err(error.into()))
+    }
+}
+
 #[tokio::main]
 async fn main() -> MainResult {
-    let args = cmd::Args::parse();
+    let args = match cmd::Args::get() {
+        Ok(args) => args,
+        Err(e) => return e.into(),
+    };
+
     telemetry::init_tracing(
         if args.enable_opentelemetry.into() {
             telemetry::OpenTelemetryConfig::Enabled
@@ -72,26 +82,68 @@ async fn main() -> MainResult {
                         let app = routing::router(state);
                         let app = telemetry::init_request_tracing(app);
 
-                        let addr = SocketAddr::from((
-                            IpAddr::from_str(&serve_args.bind)
-                                .map_err(|error| {
-                                    format!(
-                                        "error parsing bind address {}: {}",
-                                        &serve_args.bind, error
-                                    )
-                                })
-                                .unwrap(),
-                            serve_args.port,
-                        ));
-                        tracing::debug!("listening on {}", addr);
-                        if let Err(e) = axum::Server::try_bind(&addr)
-                            .map_err(|error| format!("error binding to {}: {}", addr, error))
-                            .unwrap()
-                            .serve(app.into_make_service())
+                        let mut join_set = tokio::task::JoinSet::new();
+
+                        let app = if args.enable_prometheus.into() {
+                            // we `require_if()` prometheus port & bind when `enable_prometheus` is set, so
+                            // this cannot fail
+
+                            let bind = args.prometheus_bind.unwrap();
+                            let port = args.prometheus_port.unwrap();
+
+                            let ip = IpAddr::from_str(&bind);
+
+                            let addr = match ip {
+                                Err(e) => return <_ as Into<Error>>::into((bind, e)).into(),
+                                Ok(ip) => SocketAddr::from((ip, port)),
+                            };
+
+                            let (app, task) = telemetry::prometheus_server(app, addr);
+                            join_set.spawn(task);
+                            app
+                        } else {
+                            app
+                        };
+
+                        join_set.spawn(async move {
+                            let addr = SocketAddr::from((
+                                IpAddr::from_str(&serve_args.bind)
+                                    .map_err(|e| (serve_args.bind, e))?,
+                                serve_args.port,
+                            ));
+
+                            tracing::debug!("listening on {}", addr);
+
+                            if let Err(e) = axum::Server::try_bind(&addr)
+                                .map_err(|e| {
+                                    Error::Start(StartError::BindError {
+                                        addr,
+                                        message: e.to_string(),
+                                    })
+                                })?
+                                .serve(app.into_make_service())
+                                .await
+                            {
+                                return Err(<hyper::Error as Into<Error>>::into(e));
+                            }
+                            Ok(())
+                        });
+
+                        // now we wait for all tasks. none of them are supposed to finish
+
+                        // EXPECT: join_set cannot be empty as it will always at least contain the main_handle
+                        let result = join_set
+                            .join_next()
                             .await
-                        {
-                            return <hyper::Error as Into<Error>>::into(e).into();
-                        }
+                            .expect("join_set is empty, this is a bug");
+
+                        // EXPECT: We never expect a JoinError, as all threads run infinitely
+                        let result = result.expect("thread panicked");
+
+                        // If we get an Ok(()), something weird happened
+                        let result = result.expect_err("thread ran to completion");
+
+                        return result.into();
                     }
                     cmd::Command::Admin(admin_command) => match admin_command {
                         cmd::Admin::User(cmd) => match cmd {

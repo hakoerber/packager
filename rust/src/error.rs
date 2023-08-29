@@ -1,4 +1,5 @@
 use std::fmt;
+use std::net::SocketAddr;
 
 use crate::models;
 use crate::view;
@@ -49,6 +50,7 @@ pub enum Error {
     Request(RequestError),
     Start(StartError),
     Command(CommandError),
+    Exec(tokio::task::JoinError),
 }
 
 impl std::error::Error for Error {}
@@ -60,6 +62,7 @@ impl fmt::Display for Error {
             Self::Request(request_error) => write!(f, "Request error: {request_error}"),
             Self::Start(start_error) => write!(f, "{start_error}"),
             Self::Command(command_error) => write!(f, "{command_error}"),
+            Self::Exec(join_error) => write!(f, "{join_error}"),
         }
     }
 }
@@ -79,6 +82,22 @@ impl From<StartError> for Error {
 impl From<hyper::Error> for Error {
     fn from(value: hyper::Error) -> Self {
         Self::Request(RequestError::Transport { inner: value })
+    }
+}
+
+impl From<tokio::task::JoinError> for Error {
+    fn from(value: tokio::task::JoinError) -> Self {
+        Self::Exec(value)
+    }
+}
+
+impl From<(String, std::net::AddrParseError)> for Error {
+    fn from(value: (String, std::net::AddrParseError)) -> Self {
+        let (input, error) = value;
+        Self::Start(StartError::AddrParse {
+            input,
+            message: error.to_string(),
+        })
     }
 }
 
@@ -139,6 +158,10 @@ impl IntoResponse for Error {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 view::ErrorPage::build(&command_error.to_string()),
             ),
+            Self::Exec(join_error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                view::ErrorPage::build(&join_error.to_string()),
+            ),
         }
         .into_response()
     }
@@ -146,8 +169,11 @@ impl IntoResponse for Error {
 
 #[derive(Debug)]
 pub enum StartError {
+    CallError { message: String },
     DatabaseInitError { message: String },
     DatabaseMigrationError { message: String },
+    AddrParse { input: String, message: String },
+    BindError { addr: SocketAddr, message: String },
 }
 
 impl std::error::Error for StartError {}
@@ -155,11 +181,20 @@ impl std::error::Error for StartError {}
 impl fmt::Display for StartError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::CallError { message } => {
+                write!(f, "invalid invocation: {message}")
+            }
             Self::DatabaseInitError { message } => {
                 write!(f, "database initialization error: {message}")
             }
             Self::DatabaseMigrationError { message } => {
                 write!(f, "database migration error: {message}")
+            }
+            Self::AddrParse { message, input } => {
+                write!(f, "error parsing \"{input}\": {message}")
+            }
+            Self::BindError { message, addr } => {
+                write!(f, "error binding network interface {addr}: {message}")
             }
         }
     }
