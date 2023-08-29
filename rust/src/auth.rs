@@ -5,12 +5,13 @@ use hyper::Request;
 use super::models;
 use super::{AppState, Error, RequestError};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Config {
     Enabled,
     Disabled { assume_user: String },
 }
 
+#[tracing::instrument(skip(state, request, next))]
 pub async fn authorize<B>(
     State(state): State<AppState>,
     mut request: Request<B>,

@@ -11,6 +11,14 @@ path = "src/main.rs"
 opt-level = 0
 lto = "off"
 
+[dependencies]
+opentelemetry = "0.20"
+tracing-opentelemetry = "0.20" 
+opentelemetry-jaeger = "0.19"
+
+[dependencies.http]
+version = "0.2"
+
 [dependencies.log]
 version = "0.4"
 
@@ -26,6 +34,9 @@ features = ["headers"]
 version = "1"
 features = ["macros", "rt-multi-thread", "tracing"]
 
+[dependencies.console-subscriber]
+version = "0.1"
+
 [dependencies.hyper]
 version = "0.14"
 features = ["full"]
@@ -35,7 +46,7 @@ version = "0.4"
 
 [dependencies.tower-http]
 version = "0.4"
-features = ["trace"]
+features = ["trace", "request-id"]
 
 [dependencies.tracing]
 version = "0.1"

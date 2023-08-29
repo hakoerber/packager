@@ -7,6 +7,7 @@ use uuid::Uuid;
 pub struct Inventory;
 
 impl Inventory {
+    #[tracing::instrument]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -36,6 +37,7 @@ impl Inventory {
 pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
+    #[tracing::instrument]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -142,6 +144,7 @@ impl InventoryCategoryList {
 pub struct InventoryItemList;
 
 impl InventoryItemList {
+    #[tracing::instrument]
     pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         html!(
@@ -317,6 +320,7 @@ impl InventoryItemList {
 pub struct InventoryNewItemFormName;
 
 impl InventoryNewItemFormName {
+    #[tracing::instrument]
     pub fn build(value: Option<&str>, error: bool) -> Markup {
         html!(
             div
@@ -364,6 +368,7 @@ impl InventoryNewItemFormName {
 pub struct InventoryNewItemFormWeight;
 
 impl InventoryNewItemFormWeight {
+    #[tracing::instrument]
     pub fn build() -> Markup {
         html!(
             div
@@ -406,6 +411,7 @@ impl InventoryNewItemFormWeight {
 pub struct InventoryNewItemFormCategory;
 
 impl InventoryNewItemFormCategory {
+    #[tracing::instrument]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -446,6 +452,7 @@ impl InventoryNewItemFormCategory {
 pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
+    #[tracing::instrument]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
@@ -492,6 +499,7 @@ impl InventoryNewItemForm {
 pub struct InventoryNewCategoryForm;
 
 impl InventoryNewCategoryForm {
+    #[tracing::instrument]
     pub fn build() -> Markup {
         html!(
             form
@@ -546,6 +554,7 @@ impl InventoryNewCategoryForm {
 pub struct InventoryItem;
 
 impl InventoryItem {
+    #[tracing::instrument]
     pub fn build(_state: &ClientState, item: &models::inventory::InventoryItem) -> Markup {
         html!(
             div ."p-8" {

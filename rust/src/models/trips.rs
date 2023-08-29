@@ -14,7 +14,7 @@ use serde_variant::to_variant_name;
 use time;
 use uuid::Uuid;
 
-#[derive(sqlx::Type, PartialEq, PartialOrd, Deserialize)]
+#[derive(sqlx::Type, PartialEq, PartialOrd, Deserialize, Debug)]
 pub enum TripState {
     Init,
     Planning,
@@ -118,6 +118,7 @@ pub struct TripCategory {
 }
 
 impl TripCategory {
+    #[tracing::instrument]
     pub fn total_picked_weight(&self) -> i64 {
         self.items
             .as_ref()
@@ -128,6 +129,7 @@ impl TripCategory {
             .sum()
     }
 
+    #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -288,6 +290,7 @@ impl TryFrom<DbTripsItemsRow> for TripItem {
 }
 
 impl TripItem {
+    #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -327,6 +330,7 @@ impl TripItem {
         .transpose()
     }
 
+    #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -391,6 +395,7 @@ impl TryFrom<DbTripRow> for Trip {
     }
 }
 
+#[derive(Debug)]
 pub struct Trip {
     pub id: Uuid,
     pub name: String,
@@ -426,6 +431,7 @@ pub(crate) struct DbTripWeightRow {
 }
 
 impl Trip {
+    #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Trip>, Error> {
         let user_id = ctx.user.id.to_string();
         sqlx::query_as!(
@@ -452,6 +458,7 @@ impl Trip {
         .collect::<Result<Vec<Trip>, Error>>()
     }
 
+    #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -482,6 +489,7 @@ impl Trip {
         .transpose()
     }
 
+    #[tracing::instrument]
     pub async fn trip_type_remove(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -512,6 +520,7 @@ impl Trip {
         Ok(results.rows_affected() != 0)
     }
 
+    #[tracing::instrument]
     pub async fn trip_type_add(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -545,6 +554,7 @@ impl Trip {
         Ok(())
     }
 
+    #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -567,6 +577,7 @@ impl Trip {
         Ok(result.rows_affected() != 0)
     }
 
+    #[tracing::instrument]
     pub async fn set_comment(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -589,6 +600,7 @@ impl Trip {
         Ok(result.rows_affected() != 0)
     }
 
+    #[tracing::instrument]
     pub async fn set_attribute(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -616,6 +628,7 @@ impl Trip {
         })
     }
 
+    #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -649,6 +662,7 @@ impl Trip {
         Ok(id)
     }
 
+    #[tracing::instrument]
     pub async fn find_total_picked_weight(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -680,18 +694,21 @@ impl Trip {
         Ok(weight)
     }
 
+    #[tracing::instrument]
     pub fn types(&self) -> &Vec<TripType> {
         self.types
             .as_ref()
             .expect("you need to call load_trips_types()")
     }
 
+    #[tracing::instrument]
     pub fn categories(&self) -> &Vec<TripCategory> {
         self.categories
             .as_ref()
             .expect("you need to call load_trips_types()")
     }
 
+    #[tracing::instrument]
     pub fn total_picked_weight(&self) -> i64 {
         self.categories()
             .iter()
@@ -707,6 +724,7 @@ impl Trip {
             .sum::<i64>()
     }
 
+    #[tracing::instrument]
     pub async fn load_trips_types(
         &mut self,
         ctx: &Context,
@@ -758,6 +776,7 @@ impl Trip {
         Ok(())
     }
 
+    #[tracing::instrument]
     pub async fn sync_trip_items_with_inventory(
         &mut self,
         ctx: &Context,
@@ -838,6 +857,7 @@ impl Trip {
         Ok(())
     }
 
+    #[tracing::instrument]
     pub async fn load_categories(
         &mut self,
         ctx: &Context,
@@ -955,6 +975,7 @@ impl Trip {
     }
 }
 
+#[derive(Debug)]
 pub struct TripType {
     pub id: Uuid,
     pub name: String,
@@ -962,6 +983,7 @@ pub struct TripType {
 }
 
 impl TripsType {
+    #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Self>, Error> {
         let user_id = ctx.user.id.to_string();
         sqlx::query_as!(
@@ -981,6 +1003,7 @@ impl TripsType {
         .collect::<Result<Vec<Self>, Error>>()
     }
 
+    #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -1004,6 +1027,7 @@ impl TripsType {
         Ok(id)
     }
 
+    #[tracing::instrument]
     pub async fn set_name(
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
@@ -1039,6 +1063,7 @@ pub enum TripTypeAttribute {
     Name,
 }
 
+#[derive(Debug)]
 pub struct TripsType {
     pub id: Uuid,
     pub name: String,

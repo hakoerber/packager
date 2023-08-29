@@ -8,19 +8,20 @@ pub mod htmx;
 pub mod models;
 pub mod routing;
 pub mod sqlite;
+pub mod telemetry;
 
 mod view;
 
 pub use error::{CommandError, Error, RequestError, StartError};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AppState {
     pub database_pool: sqlite::Pool<sqlite::Sqlite>,
     pub client_state: ClientState,
     pub auth_config: auth::Config,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Context {
     user: models::user::User,
 }
@@ -31,7 +32,7 @@ impl Context {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
@@ -70,7 +71,7 @@ impl<'a> From<&'a UriPath> for &'a str {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum TopLevelPage {
     Inventory,
     Trips,

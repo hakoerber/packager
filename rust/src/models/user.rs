@@ -8,6 +8,7 @@ pub struct User {
     pub fullname: String,
 }
 
+#[derive(Debug)]
 pub struct NewUser<'a> {
     pub username: &'a str,
     pub fullname: &'a str,
@@ -33,6 +34,7 @@ impl TryFrom<DbUserRow> for User {
 }
 
 impl User {
+    #[tracing::instrument]
     pub async fn find_by_name(
         pool: &sqlx::Pool<sqlx::Sqlite>,
         name: &str,
@@ -49,6 +51,7 @@ impl User {
     }
 }
 
+#[tracing::instrument]
 pub async fn create(pool: &sqlx::Pool<sqlx::Sqlite>, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
     let id_param = id.to_string();

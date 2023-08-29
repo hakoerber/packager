@@ -5,9 +5,6 @@ use axum::{
     Router,
 };
 
-use tower_http::trace;
-use tracing::Level;
-
 use crate::{AppState, Error, RequestError, TopLevelPage};
 
 use super::auth;
@@ -16,6 +13,7 @@ mod html;
 mod routes;
 use routes::*;
 
+#[tracing::instrument]
 fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
     headers
         .get("referer")
@@ -28,6 +26,7 @@ fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
         })
 }
 
+#[tracing::instrument]
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/favicon.svg", get(icon))
@@ -126,9 +125,4 @@ pub fn router(state: AppState) -> Router {
             })
         })
         .with_state(state)
-        .layer(
-            trace::TraceLayer::new_for_http()
-                .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
-                .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
-        )
 }

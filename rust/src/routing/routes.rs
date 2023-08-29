@@ -15,12 +15,12 @@ use crate::{AppState, Context, Error, RequestError, TopLevelPage};
 
 use super::{get_referer, html};
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Debug)]
 pub struct InventoryQuery {
     edit_item: Option<Uuid>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NewItem {
     #[serde(rename = "new-item-name")]
     name: String,
@@ -32,13 +32,13 @@ pub struct NewItem {
     category_id: Uuid,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NewItemName {
     #[serde(rename = "new-item-name")]
     name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct EditItem {
     #[serde(rename = "edit-item-name")]
     name: String,
@@ -46,7 +46,7 @@ pub struct EditItem {
     weight: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NewTrip {
     #[serde(rename = "new-trip-name")]
     name: String,
@@ -62,19 +62,19 @@ pub struct TripQuery {
     category: Option<Uuid>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct CommentUpdate {
     #[serde(rename = "new-comment")]
     new_comment: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct TripUpdate {
     #[serde(rename = "new-value")]
     new_value: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NewCategory {
     #[serde(rename = "new-category-name")]
     name: String,
@@ -85,18 +85,19 @@ pub struct TripTypeQuery {
     edit: Option<Uuid>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NewTripType {
     #[serde(rename = "new-trip-type-name")]
     name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct TripTypeUpdate {
     #[serde(rename = "new-value")]
     new_value: String,
 }
 
+#[tracing::instrument]
 pub async fn root(Extension(current_user): Extension<models::user::User>) -> impl IntoResponse {
     view::Root::build(
         &Context::build(current_user),
@@ -105,6 +106,7 @@ pub async fn root(Extension(current_user): Extension<models::user::User>) -> imp
     )
 }
 
+#[tracing::instrument]
 pub async fn icon() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "image/svg+xml")],
@@ -112,6 +114,7 @@ pub async fn icon() -> impl IntoResponse {
     )
 }
 
+#[tracing::instrument]
 pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
     let mut out = String::new();
     for (key, value) in headers.iter() {
@@ -120,6 +123,7 @@ pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
     out
 }
 
+#[tracing::instrument]
 pub async fn inventory_active(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
@@ -157,6 +161,7 @@ pub async fn inventory_active(
     ))
 }
 
+#[tracing::instrument]
 pub async fn inventory_inactive(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
@@ -179,6 +184,7 @@ pub async fn inventory_inactive(
     ))
 }
 
+#[tracing::instrument]
 pub async fn inventory_item_validate_name(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -195,6 +201,7 @@ pub async fn inventory_item_validate_name(
     ))
 }
 
+#[tracing::instrument]
 pub async fn inventory_item_create(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -244,6 +251,8 @@ pub async fn inventory_item_create(
         .into_response())
     }
 }
+
+#[tracing::instrument]
 pub async fn inventory_item_delete(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -262,6 +271,7 @@ pub async fn inventory_item_delete(
     }
 }
 
+#[tracing::instrument]
 pub async fn inventory_item_edit(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -287,6 +297,7 @@ pub async fn inventory_item_edit(
     Ok(Redirect::to(&format!("/inventory/category/{id}/")))
 }
 
+#[tracing::instrument]
 pub async fn inventory_item_cancel(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -305,6 +316,7 @@ pub async fn inventory_item_cancel(
     )))
 }
 
+#[tracing::instrument]
 pub async fn trip_create(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -329,6 +341,7 @@ pub async fn trip_create(
     Ok(Redirect::to(&format!("/trips/{new_id}/")))
 }
 
+#[tracing::instrument]
 pub async fn trips(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -343,6 +356,7 @@ pub async fn trips(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
@@ -390,6 +404,7 @@ pub async fn trip(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_type_remove(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -408,6 +423,7 @@ pub async fn trip_type_remove(
     }
 }
 
+#[tracing::instrument]
 pub async fn trip_type_add(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -419,6 +435,7 @@ pub async fn trip_type_add(
     Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
 
+#[tracing::instrument]
 pub async fn trip_comment_set(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -443,6 +460,7 @@ pub async fn trip_comment_set(
     }
 }
 
+#[tracing::instrument]
 pub async fn trip_edit_attribute(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -467,6 +485,7 @@ pub async fn trip_edit_attribute(
     Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_state(
     ctx: &Context,
     state: &AppState,
@@ -480,6 +499,7 @@ pub async fn trip_item_set_state(
     Ok(())
 }
 
+#[tracing::instrument]
 pub async fn trip_row(
     ctx: &Context,
     state: &AppState,
@@ -524,6 +544,7 @@ pub async fn trip_row(
     Ok(html::concat(&item_row, &category_row))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_pick(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -545,6 +566,7 @@ pub async fn trip_item_set_pick(
     .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_pick_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -568,6 +590,7 @@ pub async fn trip_item_set_pick_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_unpick(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -589,6 +612,7 @@ pub async fn trip_item_set_unpick(
     .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_unpick_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -612,6 +636,7 @@ pub async fn trip_item_set_unpick_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_pack(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -633,6 +658,7 @@ pub async fn trip_item_set_pack(
     .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_pack_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -656,6 +682,7 @@ pub async fn trip_item_set_pack_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_unpack(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -677,6 +704,7 @@ pub async fn trip_item_set_unpack(
     .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_unpack_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -700,6 +728,7 @@ pub async fn trip_item_set_unpack_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_ready(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -721,6 +750,7 @@ pub async fn trip_item_set_ready(
     .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_ready_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -744,6 +774,7 @@ pub async fn trip_item_set_ready_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_unready(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -765,6 +796,7 @@ pub async fn trip_item_set_unready(
     .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
+#[tracing::instrument]
 pub async fn trip_item_set_unready_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -788,6 +820,7 @@ pub async fn trip_item_set_unready_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
+#[tracing::instrument]
 pub async fn trip_total_weight_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -802,6 +835,7 @@ pub async fn trip_total_weight_htmx(
     ))
 }
 
+#[tracing::instrument]
 pub async fn inventory_category_create(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -820,6 +854,7 @@ pub async fn inventory_category_create(
     Ok(Redirect::to("/inventory/"))
 }
 
+#[tracing::instrument]
 pub async fn trip_state_set(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -842,6 +877,8 @@ pub async fn trip_state_set(
         Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
     }
 }
+
+#[tracing::instrument]
 pub async fn trips_types(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
@@ -859,6 +896,8 @@ pub async fn trips_types(
         Some(&TopLevelPage::Trips),
     ))
 }
+
+#[tracing::instrument]
 pub async fn trip_type_create(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -876,6 +915,8 @@ pub async fn trip_type_create(
 
     Ok(Redirect::to("/trips/types/"))
 }
+
+#[tracing::instrument]
 pub async fn trips_types_edit_name(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -906,6 +947,7 @@ pub async fn trips_types_edit_name(
     }
 }
 
+#[tracing::instrument]
 pub async fn inventory_item(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -925,6 +967,7 @@ pub async fn inventory_item(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_category_select(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -959,6 +1002,7 @@ pub async fn trip_category_select(
     ))
 }
 
+#[tracing::instrument]
 pub async fn inventory_category_select(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -995,6 +1039,7 @@ pub async fn inventory_category_select(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_packagelist(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -1016,6 +1061,7 @@ pub async fn trip_packagelist(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_packagelist_set_pack_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -1043,6 +1089,7 @@ pub async fn trip_item_packagelist_set_pack_htmx(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_packagelist_set_unpack_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -1072,6 +1119,7 @@ pub async fn trip_item_packagelist_set_unpack_htmx(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_packagelist_set_ready_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
@@ -1099,6 +1147,7 @@ pub async fn trip_item_packagelist_set_ready_htmx(
     ))
 }
 
+#[tracing::instrument]
 pub async fn trip_item_packagelist_set_unready_htmx(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,

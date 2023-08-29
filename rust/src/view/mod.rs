@@ -11,6 +11,7 @@ pub struct Root;
 use crate::TopLevelPage;
 
 impl Root {
+    #[tracing::instrument]
     pub fn build(context: &Context, body: &Markup, active_page: Option<&TopLevelPage>) -> Markup {
         let menu_item = |item: TopLevelPage, active_page: Option<&TopLevelPage>| {
             let active = active_page.map_or(false, |page| *page == item);
@@ -116,6 +117,7 @@ impl Root {
 pub struct ErrorPage;
 
 impl ErrorPage {
+    #[tracing::instrument]
     pub fn build(message: &str) -> Markup {
         html!(
             (DOCTYPE)
