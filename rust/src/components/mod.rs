@@ -1,4 +1,4 @@
-use maud::{html, Markup, DOCTYPE};
+use maud::{html, Markup, PreEscaped, DOCTYPE};
 
 pub mod home;
 pub mod inventory;
@@ -29,7 +29,7 @@ impl Root {
                     script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.js" defer {}
                     link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css";
                     link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg";
-                    script { (include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js"))) }
+                    script { (PreEscaped(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js")))) }
                 }
                 body
                     hx-boost="true"

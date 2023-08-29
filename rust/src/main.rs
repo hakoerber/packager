@@ -394,7 +394,38 @@ async fn inventory_item_delete(
     )
     .execute(&state.database_pool)
     .await
-    .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    .map_err(|error| match error {
+        sqlx::Error::Database(ref error) => {
+            let sqlite_error = error.downcast_ref::<SqliteError>();
+            if let Some(code) = sqlite_error.code() {
+                match &*code {
+                    "787" => {
+                        // SQLITE_CONSTRAINT_FOREIGNKEY
+                        (
+                            StatusCode::BAD_REQUEST,
+                            // TODO: this is not perfect, as both foreign keys
+                            // may be responsible for the error. how can we tell
+                            // which one?
+                            format!("item {} cannot be deleted because it's on use in trips. instead, archive it", code.to_string()),
+                        )
+                    }
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("got error with unknown code: {}", sqlite_error.to_string()),
+                    ),
+                }
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("got error without code: {}", sqlite_error.to_string()),
+                )
+            }
+        }
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("got unknown error: {}", error.to_string()),
+        ),
+    })?;
 
     if results.rows_affected() == 0 {
         Err((

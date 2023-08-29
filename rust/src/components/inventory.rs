@@ -323,9 +323,11 @@ impl InventoryNewItemFormName {
                 ."justify-items-center"
                 ."items-center"
                 hx-post="/inventory/item/name/validate"
-                hx-trigger="input delay:1s, every 5s"
+                hx-trigger="input delay:1s, loaded from:document"
+
                 hx-params="new-item-name"
                 hx-swap="outerHTML"
+                #abc
             {
                 label for="name" .font-bold { "Name" }
                 input
