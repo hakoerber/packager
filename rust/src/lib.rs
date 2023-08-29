@@ -3,6 +3,7 @@ use uuid::Uuid;
 use std::fmt;
 
 pub mod auth;
+pub mod cmd;
 pub mod error;
 pub mod htmx;
 pub mod models;

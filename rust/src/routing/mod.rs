@@ -1,9 +1,14 @@
 use axum::{
+    error_handling::HandleErrorLayer,
     http::header::HeaderMap,
+    http::StatusCode,
     middleware,
     routing::{get, post},
-    Router,
+    BoxError, Router,
 };
+
+use std::time::Duration;
+use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
 use crate::{AppState, Error, RequestError, TopLevelPage};
 
@@ -37,6 +42,13 @@ pub fn router(state: AppState) -> Router {
                 Error::Request(RequestError::NotFound {
                     message: "hi".to_string(),
                 })
+            }),
+        )
+        .route(
+            "/slow",
+            get(|| async {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                "Ok"
             }),
         )
         .route("/debug", get(debug))
@@ -119,6 +131,15 @@ pub fn router(state: AppState) -> Router {
                     auth::authorize,
                 )),
         )
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|_: BoxError| async {
+                    tracing::warn!("request timeout");
+                    StatusCode::REQUEST_TIMEOUT
+                }))
+                .layer(TimeoutLayer::new(Duration::from_millis(500))),
+        )
+        // .propagate_x_request_id()
         .fallback(|| async {
             Error::Request(RequestError::NotFound {
                 message: "no route found".to_string(),

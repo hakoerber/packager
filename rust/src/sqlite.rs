@@ -1,5 +1,7 @@
 use std::time;
 
+use tracing::Instrument;
+
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::ConnectOptions;
 pub use sqlx::{Pool, Sqlite};
@@ -28,10 +30,13 @@ pub async fn migrate(url: &str) -> Result<(), StartError> {
         .connect_with(
             SqliteConnectOptions::from_str(url)?
                 .pragma("foreign_keys", "0")
-                .log_statements(log::LevelFilter::Debug),
+                .log_statements(log::LevelFilter::Warn),
         )
         .await?;
 
-    sqlx::migrate!().run(&pool).await?;
+    async { sqlx::migrate!().run(&pool).await }
+        .instrument(tracing::info_span!("packager::query", "migration"))
+        .await?;
+
     Ok(())
 }

@@ -4,6 +4,8 @@ use crate::Context;
 use futures::{TryFutureExt, TryStreamExt};
 use uuid::Uuid;
 
+use tracing::Instrument;
+
 pub struct Inventory {
     pub categories: Vec<Category>,
 }
@@ -12,26 +14,32 @@ impl Inventory {
     #[tracing::instrument]
     pub async fn load(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
         let user_id = ctx.user.id.to_string();
-        let mut categories = sqlx::query_as!(
-            DbCategoryRow,
-            "SELECT 
+        let categories = async {
+            let mut categories = sqlx::query_as!(
+                DbCategoryRow,
+                "SELECT 
                 id,
                 name,
                 description 
             FROM inventory_items_categories 
             WHERE user_id = ?",
-            user_id,
-        )
-        .fetch(pool)
-        .map_ok(|row: DbCategoryRow| row.try_into())
-        .try_collect::<Vec<Result<Category, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<Category>, Error>>()?;
+                user_id,
+            )
+            .fetch(pool)
+            .map_ok(|row: DbCategoryRow| row.try_into())
+            .try_collect::<Vec<Result<Category, Error>>>()
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<Category>, Error>>()?;
 
-        for category in &mut categories {
-            category.populate_items(ctx, pool).await?;
+            for category in &mut categories {
+                category.populate_items(ctx, pool).await?;
+            }
+
+            Ok::<_, Error>(categories)
         }
+        .instrument(tracing::info_span!("packager::query", "query"))
+        .await?;
 
         Ok(Self { categories })
     }

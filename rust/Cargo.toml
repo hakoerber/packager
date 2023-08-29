@@ -11,10 +11,18 @@ path = "src/main.rs"
 opt-level = 0
 lto = "off"
 
-[dependencies]
-opentelemetry = "0.20"
-tracing-opentelemetry = "0.20" 
-opentelemetry-jaeger = "0.19"
+[dependencies.opentelemetry]
+version = "0.20"
+
+[dependencies.tracing-opentelemetry]
+version = "0.20"
+
+[dependencies.tracing-log]
+version = "0.1"
+
+[dependencies.opentelemetry-jaeger]
+version = "0.19"
+features = ["rt-tokio"]
 
 [dependencies.http]
 version = "0.2"
