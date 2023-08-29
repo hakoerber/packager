@@ -7,14 +7,26 @@ use tracing::Instrument;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::ConnectOptions;
-pub use sqlx::{Pool, Sqlite};
+pub use sqlx::{Pool as SqlitePool, Sqlite};
 
 use std::str::FromStr as _;
 
+pub use sqlx::Type;
+
 use crate::StartError;
 
+pub type Pool = sqlx::Pool<sqlx::Sqlite>;
+
+pub fn int_to_bool(value: i32) -> bool {
+    match value {
+        0 => false,
+        1 => true,
+        _ => panic!("got invalid boolean from sqlite"),
+    }
+}
+
 #[tracing::instrument]
-pub async fn init_database_pool(url: &str) -> Result<Pool<Sqlite>, StartError> {
+pub async fn init_database_pool(url: &str) -> Result<Pool, StartError> {
     async {
         SqlitePoolOptions::new()
             .max_connections(5)

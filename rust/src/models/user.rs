@@ -57,11 +57,16 @@ impl User {
 }
 
 #[tracing::instrument]
-pub async fn create(pool: &sqlx::Pool<sqlx::Sqlite>, user: NewUser<'_>) -> Result<Uuid, Error> {
+pub async fn create(pool: &sqlite::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
     let id_param = id.to_string();
 
-    sqlx::query!(
+    crate::execute!(
+        sqlite::QueryClassification {
+            query_type: sqlite::QueryType::Insert,
+            component: sqlite::Component::User,
+        },
+        pool,
         "INSERT INTO users
             (id, username, fullname)
         VALUES
@@ -70,7 +75,6 @@ pub async fn create(pool: &sqlx::Pool<sqlx::Sqlite>, user: NewUser<'_>) -> Resul
         user.username,
         user.fullname
     )
-    .execute(pool)
     .await?;
 
     Ok(id)

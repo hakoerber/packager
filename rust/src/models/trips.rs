@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
 
-#[derive(sqlx::Type, PartialEq, PartialOrd, Deserialize, Debug)]
+#[derive(sqlite::Type, PartialEq, PartialOrd, Deserialize, Debug)]
 pub enum TripState {
     Init,
     Planning,
@@ -131,18 +131,80 @@ impl TripCategory {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         trip_id: Uuid,
         category_id: Uuid,
     ) -> Result<Option<TripCategory>, Error> {
-        let mut category: Option<TripCategory> = None;
-
         let user_id = ctx.user.id.to_string();
         let trip_id_param = trip_id.to_string();
         let category_id_param = category_id.to_string();
 
-        sqlx::query!(
-            "
+        struct Row {
+            category_id: String,
+            category_name: String,
+            category_description: Option<String>,
+            #[allow(dead_code)]
+            trip_id: Option<String>,
+            item_id: Option<String>,
+            item_name: Option<String>,
+            item_description: Option<String>,
+            item_weight: Option<i64>,
+            item_is_picked: Option<bool>,
+            item_is_packed: Option<bool>,
+            item_is_ready: Option<bool>,
+            item_is_new: Option<bool>,
+        }
+
+        struct RowParsed {
+            category: TripCategory,
+            item: Option<TripItem>,
+        }
+
+        impl TryFrom<Row> for RowParsed {
+            type Error = Error;
+
+            fn try_from(row: Row) -> Result<Self, Self::Error> {
+                let category = inventory::Category {
+                    id: Uuid::try_parse(&row.category_id)?,
+                    name: row.category_name,
+                    description: row.category_description,
+                    items: None,
+                };
+                Ok(Self {
+                    category: TripCategory {
+                        category,
+                        items: None,
+                    },
+
+                    item: match row.item_id {
+                        Some(item_id) => Some(TripItem {
+                            item: inventory::Item {
+                                id: Uuid::try_parse(&item_id)?,
+                                name: row.item_name.unwrap(),
+                                description: row.item_description,
+                                weight: row.item_weight.unwrap(),
+                                category_id: Uuid::try_parse(&row.category_id)?,
+                            },
+                            picked: row.item_is_picked.unwrap(),
+                            packed: row.item_is_packed.unwrap(),
+                            ready: row.item_is_ready.unwrap(),
+                            new: row.item_is_new.unwrap(),
+                        }),
+                        None => None,
+                    },
+                })
+            }
+        }
+
+        let mut rows = crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
+            Row,
+            RowParsed,
+            r#"
                 SELECT
                     category.id as category_id,
                     category.name as category_name,
@@ -182,67 +244,34 @@ impl TripCategory {
                     ) AS inner
                     ON inner.category_id = category.id
                 WHERE category.id = ?
-            ",
+            "#,
             trip_id_param,
             user_id,
             category_id_param
         )
-        .fetch(pool)
-        .map_ok(|row| -> Result<(), Error> {
-            match &category {
-                Some(_) => (),
-                None => {
-                    category = Some(TripCategory {
-                        category: inventory::Category {
-                            id: Uuid::try_parse(&row.category_id)?,
-                            name: row.category_name,
-                            description: row.category_description,
-                            items: None,
-                        },
-                        items: None,
-                    });
-                }
+        .await?;
+
+        let mut category = match rows.pop() {
+            None => return Ok(None),
+            Some(initial) => TripCategory {
+                category: initial.category.category,
+                items: initial.item.map(|item| vec![item]).or_else(|| Some(vec![])),
+            },
+        };
+
+        for row in rows {
+            let item = row.item;
+            category.items = category.items.or_else(|| Some(vec![]));
+
+            if let Some(item) = item {
+                category.items = category.items.map(|mut c| {
+                    c.push(item);
+                    c
+                });
             };
+        }
 
-            match row.item_id {
-                None => {
-                    // we have an empty (unused) category which has NULL values
-                    // for the item_id column
-                    category.as_mut().unwrap().items = Some(vec![]);
-                    category.as_mut().unwrap().category.items = Some(vec![]);
-                }
-                Some(item_id) => {
-                    let item = TripItem {
-                        item: inventory::Item {
-                            id: Uuid::try_parse(&item_id)?,
-                            name: row.item_name.unwrap(),
-                            description: row.item_description,
-                            weight: row.item_weight.unwrap(),
-                            category_id: category.as_ref().unwrap().category.id,
-                        },
-                        picked: row.item_is_picked.unwrap(),
-                        packed: row.item_is_packed.unwrap(),
-                        ready: row.item_is_ready.unwrap(),
-                        new: row.item_is_new.unwrap(),
-                    };
-
-                    match &mut category.as_mut().unwrap().items {
-                        None => category.as_mut().unwrap().items = Some(vec![item]),
-                        Some(ref mut items) => items.push(item),
-                    }
-                }
-            }
-
-            Ok(())
-        })
-        .try_collect::<Vec<Result<(), Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<(), Error>>()?;
-
-        // this may be None if there are no results (which
-        // means that the category was not found)
-        Ok(category)
+        Ok(Some(category))
     }
 }
 
@@ -292,7 +321,7 @@ impl TripItem {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         trip_id: Uuid,
         item_id: Uuid,
     ) -> Result<Option<Self>, Error> {
@@ -335,7 +364,7 @@ impl TripItem {
     #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         trip_id: Uuid,
         item_id: Uuid,
         key: TripItemStateKey,
@@ -477,7 +506,7 @@ pub enum TripAttribute {
 
 impl Trip {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Trip>, Error> {
+    pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Trip>, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_all!(
             sqlite::QueryClassification {
@@ -507,7 +536,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         trip_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         let trip_id_param = trip_id.to_string();
@@ -541,7 +570,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn trip_type_remove(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<bool, Error> {
@@ -576,7 +605,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn trip_type_add(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<(), Error> {
@@ -614,7 +643,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
         new_state: &TripState,
     ) -> Result<bool, Error> {
@@ -641,7 +670,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_comment(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
         new_comment: &str,
     ) -> Result<bool, Error> {
@@ -668,7 +697,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_attribute(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         trip_id: Uuid,
         attribute: TripAttribute,
         value: &str,
@@ -785,7 +814,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         name: &str,
         date_start: time::Date,
         date_end: time::Date,
@@ -823,7 +852,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn find_total_picked_weight(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         trip_id: Uuid,
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
@@ -890,7 +919,7 @@ impl Trip {
     pub async fn load_trips_types(
         &mut self,
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
     ) -> Result<(), Error> {
         struct Row {
             id: String,
@@ -956,7 +985,7 @@ impl Trip {
     pub async fn sync_trip_items_with_inventory(
         &mut self,
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
     ) -> Result<(), Error> {
         // we need to get all items that are part of the inventory but not
         // part of the trip items
@@ -1009,9 +1038,6 @@ impl Trip {
         )
         .await?;
 
-        // looks like there is currently no nice way to do multiple inserts
-        // with sqlx. whatever, this won't matter
-
         // only mark as new when the trip is already underway
         let mark_as_new = self.state != TripState::new();
 
@@ -1056,15 +1082,80 @@ impl Trip {
     pub async fn load_categories(
         &mut self,
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
     ) -> Result<(), Error> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
-        sqlx::query!(
-            "
+
+        struct Row {
+            category_id: String,
+            category_name: String,
+            category_description: Option<String>,
+            #[allow(dead_code)]
+            trip_id: Option<String>,
+            item_id: Option<String>,
+            item_name: Option<String>,
+            item_description: Option<String>,
+            item_weight: Option<i64>,
+            item_is_picked: Option<bool>,
+            item_is_packed: Option<bool>,
+            item_is_ready: Option<bool>,
+            item_is_new: Option<bool>,
+        }
+
+        struct RowParsed {
+            category: TripCategory,
+            item: Option<TripItem>,
+        }
+
+        impl TryFrom<Row> for RowParsed {
+            type Error = Error;
+
+            fn try_from(row: Row) -> Result<Self, Self::Error> {
+                let category = inventory::Category {
+                    id: Uuid::try_parse(&row.category_id)?,
+                    name: row.category_name,
+                    description: row.category_description,
+                    items: None,
+                };
+                Ok(Self {
+                    category: TripCategory {
+                        category,
+                        items: None,
+                    },
+
+                    item: match row.item_id {
+                        Some(item_id) => Some(TripItem {
+                            item: inventory::Item {
+                                id: Uuid::try_parse(&item_id)?,
+                                name: row.item_name.unwrap(),
+                                description: row.item_description,
+                                weight: row.item_weight.unwrap(),
+                                category_id: Uuid::try_parse(&row.category_id)?,
+                            },
+                            picked: row.item_is_picked.unwrap(),
+                            packed: row.item_is_packed.unwrap(),
+                            ready: row.item_is_ready.unwrap(),
+                            new: row.item_is_new.unwrap(),
+                        }),
+                        None => None,
+                    },
+                })
+            }
+        }
+
+        let rows = crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
+            Row,
+            RowParsed,
+            r#"
                 SELECT
                     category.id as category_id,
                     category.name as category_name,
@@ -1103,70 +1194,93 @@ impl Trip {
                     ) AS inner
                     ON inner.category_id = category.id
                 WHERE category.user_id = ?
-            ",
+            "#,
             id,
             user_id,
             user_id,
         )
-        .fetch(pool)
-        .map_ok(|row| -> Result<(), Error> {
-            let mut category = TripCategory {
-                category: inventory::Category {
-                    id: Uuid::try_parse(&row.category_id)?,
-                    name: row.category_name,
-                    description: row.category_description,
+        .await?;
 
-                    items: None,
-                },
-                items: None,
-            };
+        for row in rows {
+            match categories
+                .iter_mut()
+                .find(|cat| cat.category.id == row.category.category.id)
+            {
+                Some(ref mut existing_category) => {
+                    // taking and then readding later
+                    let mut items = existing_category.items.take().unwrap_or(vec![]);
 
-            match row.item_id {
-                None => {
-                    // we have an empty (unused) category which has NULL values
-                    // for the item_id column
-                    category.items = Some(vec![]);
-                    categories.push(category);
-                }
-                Some(item_id) => {
-                    let item = TripItem {
-                        item: inventory::Item {
-                            id: Uuid::try_parse(&item_id)?,
-                            name: row.item_name.unwrap(),
-                            description: row.item_description,
-                            weight: row.item_weight.unwrap(),
-                            category_id: category.category.id,
-                        },
-                        picked: row.item_is_picked.unwrap(),
-                        packed: row.item_is_packed.unwrap(),
-                        ready: row.item_is_ready.unwrap(),
-                        new: row.item_is_new.unwrap(),
-                    };
-
-                    if let Some(&mut ref mut c) = categories
-                        .iter_mut()
-                        .find(|c| c.category.id == category.category.id)
-                    {
-                        // we always populate c.items when we add a new category, so
-                        // it's safe to unwrap here
-                        c.items.as_mut().unwrap().push(item);
-                    } else {
-                        category.items = Some(vec![item]);
-                        categories.push(category);
+                    if let Some(item) = row.item {
+                        items.push(item);
                     }
-                }
-            }
 
-            Ok(())
-        })
-        .try_collect::<Vec<Result<(), Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<(), Error>>()?;
+                    existing_category.items = Some(items);
+                }
+                None => categories.push(TripCategory {
+                    category: row.category.category,
+                    items: row.item.map(|item| vec![item]).or_else(|| Some(vec![])),
+                }),
+            }
+        }
 
         self.categories = Some(categories);
 
         Ok(())
+        // .fetch(pool)
+        // .map_ok(|row| -> Result<(), Error> {
+        //     let mut category = TripCategory {
+        //         category: inventory::Category {
+        //             id: Uuid::try_parse(&row.category_id)?,
+        //             name: row.category_name,
+        //             description: row.category_description,
+
+        //             items: None,
+        //         },
+        //         items: None,
+        //     };
+
+        //     match row.item_id {
+        //         None => {
+        //             // we have an empty (unused) category which has NULL values
+        //             // for the item_id column
+        //             category.items = Some(vec![]);
+        //             categories.push(category);
+        //         }
+        //         Some(item_id) => {
+        //             let item = TripItem {
+        //                 item: inventory::Item {
+        //                     id: Uuid::try_parse(&item_id)?,
+        //                     name: row.item_name.unwrap(),
+        //                     description: row.item_description,
+        //                     weight: row.item_weight.unwrap(),
+        //                     category_id: category.category.id,
+        //                 },
+        //                 picked: row.item_is_picked.unwrap(),
+        //                 packed: row.item_is_packed.unwrap(),
+        //                 ready: row.item_is_ready.unwrap(),
+        //                 new: row.item_is_new.unwrap(),
+        //             };
+
+        //             if let Some(&mut ref mut c) = categories
+        //                 .iter_mut()
+        //                 .find(|c| c.category.id == category.category.id)
+        //             {
+        //                 // we always populate c.items when we add a new category, so
+        //                 // it's safe to unwrap here
+        //                 c.items.as_mut().unwrap().push(item);
+        //             } else {
+        //                 category.items = Some(vec![item]);
+        //                 categories.push(category);
+        //             }
+        //         }
+        //     }
+
+        //     Ok(())
+        // })
+        // .try_collect::<Vec<Result<(), Error>>>()
+        // .await?
+        // .into_iter()
+        // .collect::<Result<(), Error>>()?;
     }
 }
 
@@ -1179,7 +1293,7 @@ pub struct TripType {
 
 impl TripsType {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Self>, Error> {
+    pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Self>, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_all!(
             sqlite::QueryClassification {
@@ -1200,11 +1314,7 @@ impl TripsType {
     }
 
     #[tracing::instrument]
-    pub async fn save(
-        ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-        name: &str,
-    ) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &sqlite::Pool, name: &str) -> Result<Uuid, Error> {
         let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         let id_param = id.to_string();
@@ -1230,7 +1340,7 @@ impl TripsType {
     #[tracing::instrument]
     pub async fn set_name(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
         new_name: &str,
     ) -> Result<bool, Error> {

@@ -10,7 +10,7 @@ pub struct Inventory {
 
 impl Inventory {
     #[tracing::instrument]
-    pub async fn load(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Self, Error> {
+    pub async fn load(ctx: &Context, pool: &sqlite::Pool) -> Result<Self, Error> {
         let user_id = ctx.user.id.to_string();
 
         let mut categories = crate::query_all!(
@@ -70,7 +70,7 @@ impl Category {
     #[tracing::instrument]
     pub async fn _find(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
     ) -> Result<Option<Category>, Error> {
         let id_param = id.to_string();
@@ -98,11 +98,7 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub async fn save(
-        ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-        name: &str,
-    ) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &sqlite::Pool, name: &str) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
@@ -141,7 +137,7 @@ impl Category {
     pub async fn populate_items(
         &mut self,
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
     ) -> Result<(), Error> {
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
@@ -237,11 +233,7 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 
 impl InventoryItem {
     #[tracing::instrument]
-    pub async fn find(
-        ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-        id: Uuid,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn find(ctx: &Context, pool: &sqlite::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
 
@@ -282,7 +274,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn name_exists(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         name: &str,
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
@@ -304,11 +296,7 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn delete(
-        ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-        id: Uuid,
-    ) -> Result<bool, Error> {
+    pub async fn delete(ctx: &Context, pool: &sqlite::Pool, id: Uuid) -> Result<bool, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         let results = crate::execute!(
@@ -332,7 +320,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn update(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         id: Uuid,
         name: &str,
         weight: u32,
@@ -367,7 +355,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         name: &str,
         category_id: Uuid,
         weight: u32,
@@ -402,7 +390,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn get_category_max_weight(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
@@ -468,7 +456,7 @@ impl Item {
     #[tracing::instrument]
     pub async fn _get_category_total_picked_weight(
         ctx: &Context,
-        pool: &sqlx::Pool<sqlx::Sqlite>,
+        pool: &sqlite::Pool,
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();

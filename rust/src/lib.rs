@@ -17,7 +17,7 @@ pub use error::{AuthError, CommandError, Error, RequestError, StartError};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    pub database_pool: sqlite::Pool<sqlite::Sqlite>,
+    pub database_pool: sqlite::Pool,
     pub client_state: ClientState,
     pub auth_config: auth::Config,
 }
