@@ -257,7 +257,7 @@ impl TripPackageListCategoryBlockUnready {
                         ."flex"
                         ."flex-col"
                     {
-                        @for item in category.items.as_ref().unwrap().iter().filter(|item| item.picked) {
+                        @for item in category.items.as_ref().unwrap().iter().filter(|item| item.picked && !item.ready) {
                             (TripPackageListRowUnready::build(trip.id, item))
                         }
                     }
@@ -329,18 +329,25 @@ impl TripPackageList {
                         ."gap-5"
                     {
                         @for category in trip.categories() {
-                            (TripPackageListCategoryBlockUnready::build(trip, category))
+                            @let empty = !category
+                                .items
+                                .as_ref()
+                                .unwrap()
+                                .iter()
+                                .any(|item| item.picked);
+                            @if !empty {
+                                (TripPackageListCategoryBlockUnready::build(trip, category))
+                            }
                         }
                     }
-                } @else {
-                    p { "All items are ready, pack the following things:" }
-                    div
-                        ."columns-3"
-                        ."gap-5"
-                    {
-                        @for category in trip.categories() {
-                            (TripPackageListCategoryBlockReady::build(trip, category))
-                        }
+                }
+                p { "Pack the following things:" }
+                div
+                    ."columns-3"
+                    ."gap-5"
+                {
+                    @for category in trip.categories() {
+                        (TripPackageListCategoryBlockReady::build(trip, category))
                     }
                 }
             }
