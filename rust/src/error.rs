@@ -1,7 +1,7 @@
 use std::fmt;
 
-use crate::components;
 use crate::models;
+use crate::view;
 
 use axum::{
     http::StatusCode,
@@ -74,38 +74,34 @@ impl IntoResponse for Error {
             Self::Model(ref model_error) => match model_error {
                 models::Error::Database(_) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    components::ErrorPage::build(&format!("{}", self)),
+                    view::ErrorPage::build(&format!("{}", self)),
                 ),
                 models::Error::Query(error) => match error {
-                    models::QueryError::NotFound { description } => (
-                        StatusCode::NOT_FOUND,
-                        components::ErrorPage::build(&description),
-                    ),
+                    models::QueryError::NotFound { description } => {
+                        (StatusCode::NOT_FOUND, view::ErrorPage::build(&description))
+                    }
                     _ => (
                         StatusCode::BAD_REQUEST,
-                        components::ErrorPage::build(&format!("{}", error)),
+                        view::ErrorPage::build(&format!("{}", error)),
                     ),
                 },
             },
             Self::Request(request_error) => match request_error {
                 RequestError::RefererNotFound => (
                     StatusCode::BAD_REQUEST,
-                    components::ErrorPage::build("no referer header found"),
+                    view::ErrorPage::build("no referer header found"),
                 ),
                 RequestError::RefererInvalid { message } => (
                     StatusCode::BAD_REQUEST,
-                    components::ErrorPage::build(&format!(
-                        "referer could not be converted: {}",
-                        message
-                    )),
+                    view::ErrorPage::build(&format!("referer could not be converted: {}", message)),
                 ),
                 RequestError::EmptyFormElement { name } => (
                     StatusCode::UNPROCESSABLE_ENTITY,
-                    components::ErrorPage::build(&format!("empty form element: {}", name)),
+                    view::ErrorPage::build(&format!("empty form element: {}", name)),
                 ),
                 RequestError::NotFound { message } => (
                     StatusCode::NOT_FOUND,
-                    components::ErrorPage::build(&format!("not found: {}", message)),
+                    view::ErrorPage::build(&format!("not found: {}", message)),
                 ),
             },
         }

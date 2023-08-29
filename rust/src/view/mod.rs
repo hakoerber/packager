@@ -6,15 +6,34 @@ pub mod trip;
 
 pub struct Root;
 
-#[derive(PartialEq, Eq)]
-pub enum TopLevelPage {
-    Inventory,
-    Trips,
-    None,
-}
+use crate::TopLevelPage;
 
 impl Root {
-    pub fn build(body: &Markup, active_page: &TopLevelPage) -> Markup {
+    pub fn build(body: &Markup, active_page: Option<&TopLevelPage>) -> Markup {
+        let menu_item = |item: TopLevelPage, active_page: Option<&TopLevelPage>| {
+            let active = active_page.map(|page| *page == item).unwrap_or(false);
+            html!(
+                a
+                    href=(item.path())
+                    hx-boost="true"
+                    #{"header-link-" (item.id())}
+                    ."px-5"
+                    ."flex"
+                    ."h-full"
+                    ."text-lg"
+                    ."hover:bg-gray-300"
+
+                    // invisible top border to fix alignment
+                    ."border-t-gray-200"[active]
+                    ."hover:border-t-gray-300"[active]
+
+                    ."border-b-gray-500"[active]
+                    ."border-y-4"[active]
+                    ."font-bold"[active]
+                { span ."m-auto" ."font-semibold" { (item.name()) }}
+            )
+        };
+
         html!(
             (DOCTYPE)
             html {
@@ -66,42 +85,8 @@ impl Root {
                             ."gap-x-10"
                             ."items-stretch"
                         {
-                            a
-                                href="/inventory/"
-                                hx-boost="true"
-                                #header-link-inventory
-                                ."px-5"
-                                ."flex"
-                                ."h-full"
-                                ."text-lg"
-                                ."hover:bg-gray-300"
-
-                                // invisible top border to fix alignment
-                                ."border-t-gray-200"[active_page == &TopLevelPage::Inventory]
-                                ."hover:border-t-gray-300"[active_page == &TopLevelPage::Inventory]
-
-                                ."border-b-gray-500"[active_page == &TopLevelPage::Inventory]
-                                ."border-y-4"[active_page == &TopLevelPage::Inventory]
-                                ."font-bold"[active_page == &TopLevelPage::Inventory]
-                            { span ."m-auto" ."font-semibold" { "Inventory" }}
-                            a
-                                href="/trips/"
-                                hx-boost="true"
-                                #header-link-trips
-                                ."px-5"
-                                ."flex"
-                                ."h-full"
-                                ."text-lg"
-                                ."hover:bg-gray-300"
-
-                                // invisible top border to fix alignment
-                                ."border-t-gray-200"[active_page == &TopLevelPage::Trips]
-                                ."hover:border-t-gray-300"[active_page == &TopLevelPage::Trips]
-
-                                ."border-gray-500"[active_page == &TopLevelPage::Trips]
-                                ."border-y-4"[active_page == &TopLevelPage::Trips]
-                                ."font-bold"[active_page == &TopLevelPage::Trips]
-                            { span ."m-auto" ."font-semibold" { "Trips" }}
+                            (menu_item(TopLevelPage::Inventory, active_page))
+                            (menu_item(TopLevelPage::Trips, active_page))
                         }
                     }
                     (body)

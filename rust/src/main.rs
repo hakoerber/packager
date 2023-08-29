@@ -10,13 +10,14 @@ use serde::Deserialize;
 
 use uuid::Uuid;
 
+use std::fmt;
 use std::net::SocketAddr;
 
-mod components;
 mod error;
 mod html;
 mod models;
 mod sqlite;
+mod view;
 
 use error::{Error, RequestError, StartError};
 
@@ -59,6 +60,52 @@ impl ClientState {
 impl Default for ClientState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+struct UriPath(String);
+
+impl fmt::Display for UriPath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<'a> Into<&'a str> for &'a UriPath {
+    fn into(self) -> &'a str {
+        self.0.as_str()
+    }
+}
+
+#[derive(PartialEq, Eq)]
+pub enum TopLevelPage {
+    Inventory,
+    Trips,
+}
+
+impl TopLevelPage {
+    fn id(&self) -> &'static str {
+        match self {
+            Self::Inventory => "inventory",
+            Self::Trips => "trips",
+        }
+    }
+
+    fn path(&self) -> UriPath {
+        UriPath(
+            match self {
+                Self::Inventory => "/inventory/",
+                Self::Trips => "/trips/",
+            }
+            .to_string(),
+        )
+    }
+
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Inventory => "Inventory",
+            Self::Trips => "Trips",
+        }
     }
 }
 
@@ -143,7 +190,7 @@ async fn main() -> Result<(), StartError> {
             }),
         )
         .nest(
-            "/trips/",
+            (&TopLevelPage::Trips.path()).into(),
             Router::new()
                 .route("/", get(trips).post(trip_create))
                 .route("/types/", get(trips_types).post(trip_type_create))
@@ -183,7 +230,7 @@ async fn main() -> Result<(), StartError> {
                 ),
         )
         .nest(
-            "/inventory/",
+            (&TopLevelPage::Inventory.path()).into(),
             Router::new()
                 .route("/", get(inventory_inactive))
                 .route("/categories/:id/select", post(inventory_category_select))
@@ -216,10 +263,7 @@ async fn main() -> Result<(), StartError> {
 }
 
 async fn root() -> impl IntoResponse {
-    components::Root::build(
-        &components::home::Home::build(),
-        &components::TopLevelPage::None,
-    )
+    view::Root::build(&view::home::Home::build(), None)
 }
 
 #[derive(Deserialize, Default)]
@@ -251,13 +295,13 @@ async fn inventory_active(
         })
         .transpose()?;
 
-    Ok(components::Root::build(
-        &components::inventory::Inventory::build(
+    Ok(view::Root::build(
+        &view::inventory::Inventory::build(
             active_category,
             &inventory.categories,
             state.client_state.edit_item,
         ),
-        &components::TopLevelPage::Inventory,
+        Some(&TopLevelPage::Inventory),
     ))
 }
 
@@ -270,13 +314,13 @@ async fn inventory_inactive(
 
     let inventory = models::Inventory::load(&state.database_pool).await?;
 
-    Ok(components::Root::build(
-        &components::inventory::Inventory::build(
+    Ok(view::Root::build(
+        &view::inventory::Inventory::build(
             None,
             &inventory.categories,
             state.client_state.edit_item,
         ),
-        &components::TopLevelPage::Inventory,
+        Some(&TopLevelPage::Inventory),
     ))
 }
 
@@ -304,7 +348,7 @@ async fn inventory_item_validate_name(
 ) -> Result<impl IntoResponse, Error> {
     let exists = models::InventoryItem::name_exists(&state.database_pool, &new_item.name).await?;
 
-    Ok(components::inventory::InventoryNewItemFormName::build(
+    Ok(view::inventory::InventoryNewItemFormName::build(
         Some(&new_item.name),
         exists,
     ))
@@ -342,7 +386,7 @@ async fn inventory_item_create(
                 .unwrap(),
         );
 
-        Ok(components::inventory::Inventory::build(
+        Ok(view::inventory::Inventory::build(
             active_category,
             &inventory.categories,
             state.client_state.edit_item,
@@ -460,9 +504,9 @@ async fn trip_create(
 async fn trips(State(state): State<AppState>) -> Result<impl IntoResponse, Error> {
     let trips = models::Trip::all(&state.database_pool).await?;
 
-    Ok(components::Root::build(
-        &components::trip::TripManager::build(trips),
-        &components::TopLevelPage::Trips,
+    Ok(view::Root::build(
+        &view::trip::TripManager::build(trips),
+        Some(&TopLevelPage::Trips),
     ))
 }
 
@@ -507,13 +551,13 @@ async fn trip(
         })
         .transpose()?;
 
-    Ok(components::Root::build(
-        &components::trip::Trip::build(
+    Ok(view::Root::build(
+        &view::trip::Trip::build(
             &trip,
             state.client_state.trip_edit_attribute,
             active_category,
         ),
-        &components::TopLevelPage::Trips,
+        Some(&TopLevelPage::Trips),
     ))
 }
 
@@ -618,7 +662,7 @@ async fn trip_row(
             })
         })?;
 
-    let item_row = components::trip::TripItemListRow::build(
+    let item_row = view::trip::TripItemListRow::build(
         trip_id,
         &item,
         models::Item::get_category_max_weight(&state.database_pool, item.item.category_id).await?,
@@ -633,8 +677,7 @@ async fn trip_row(
         })?;
 
     // TODO biggest_category_weight?
-    let category_row =
-        components::trip::TripCategoryListRow::build(trip_id, &category, true, 0, true);
+    let category_row = view::trip::TripCategoryListRow::build(trip_id, &category, true, 0, true);
 
     Ok(html::concat(item_row, category_row))
 }
@@ -797,7 +840,7 @@ async fn trip_total_weight_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let total_weight =
         models::Trip::find_total_picked_weight(&state.database_pool, trip_id).await?;
-    Ok(components::trip::TripInfoTotalWeightRow::build(
+    Ok(view::trip::TripInfoTotalWeightRow::build(
         trip_id,
         total_weight,
     ))
@@ -838,7 +881,7 @@ async fn trip_state_set(
     }
 
     if is_htmx(&headers) {
-        Ok(components::trip::TripInfoStateRow::build(&new_state).into_response())
+        Ok(view::trip::TripInfoStateRow::build(&new_state).into_response())
     } else {
         Ok(Redirect::to(&format!("/trips/{id}/", id = trip_id)).into_response())
     }
@@ -864,9 +907,9 @@ async fn trips_types(
 
     let trip_types: Vec<models::TripsType> = models::TripsType::all(&state.database_pool).await?;
 
-    Ok(components::Root::build(
-        &components::trip::types::TypeList::build(&state.client_state, trip_types),
-        &components::TopLevelPage::Trips,
+    Ok(view::Root::build(
+        &view::trip::types::TypeList::build(&state.client_state, trip_types),
+        Some(&TopLevelPage::Trips),
     ))
 }
 
@@ -931,9 +974,9 @@ async fn inventory_item(
             message: format!("inventory item with id {id} not found"),
         }))?;
 
-    Ok(components::Root::build(
-        &components::inventory::InventoryItem::build(&state.client_state, &item),
-        &components::TopLevelPage::Inventory,
+    Ok(view::Root::build(
+        &view::inventory::InventoryItem::build(&state.client_state, &item),
+        Some(&TopLevelPage::Inventory),
     ))
 }
 
@@ -965,7 +1008,7 @@ async fn trip_category_select(
 
     Ok((
         headers,
-        components::trip::TripItems::build(Some(active_category), &trip),
+        view::trip::TripItems::build(Some(active_category), &trip),
     ))
 }
 
@@ -995,7 +1038,7 @@ async fn inventory_category_select(
 
     Ok((
         headers,
-        components::inventory::Inventory::build(
+        view::inventory::Inventory::build(
             active_category,
             &inventory.categories,
             state.client_state.edit_item,
@@ -1015,9 +1058,9 @@ async fn trip_packagelist(
 
     trip.load_categories(&state.database_pool).await?;
 
-    Ok(components::Root::build(
-        &components::trip::packagelist::TripPackageList::build(&trip),
-        &components::TopLevelPage::Trips,
+    Ok(view::Root::build(
+        &view::trip::packagelist::TripPackageList::build(&trip),
+        Some(&TopLevelPage::Trips),
     ))
 }
 
@@ -1040,7 +1083,7 @@ async fn trip_item_packagelist_set_pack_htmx(
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
-    Ok(components::trip::packagelist::TripPackageListRow::build(
+    Ok(view::trip::packagelist::TripPackageListRow::build(
         trip_id, &item,
     ))
 }
@@ -1066,7 +1109,7 @@ async fn trip_item_packagelist_set_unpack_htmx(
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
-    Ok(components::trip::packagelist::TripPackageListRow::build(
+    Ok(view::trip::packagelist::TripPackageListRow::build(
         trip_id, &item,
     ))
 }
