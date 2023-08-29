@@ -214,6 +214,114 @@ impl TripCategory {
             .map(|item| item.item.weight)
             .sum()
     }
+
+    pub async fn find(
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+        category_id: Uuid,
+    ) -> Result<Option<TripCategory>, Error> {
+        let mut category: Option<TripCategory> = None;
+
+        let trip_id_param = trip_id.to_string();
+        let category_id_param = category_id.to_string();
+
+        sqlx::query!(
+            "
+                SELECT
+                    category.id as category_id,
+                    category.name as category_name,
+                    category.description AS category_description,
+                    inner.trip_id AS trip_id,
+                    inner.item_id AS item_id,
+                    inner.item_name AS item_name,
+                    inner.item_description AS item_description,
+                    inner.item_weight AS item_weight,
+                    inner.item_is_picked AS item_is_picked,
+                    inner.item_is_packed AS item_is_packed,
+                    inner.item_is_new AS item_is_new
+                FROM inventory_items_categories AS category
+                    LEFT JOIN (
+                        SELECT
+                            trip.trip_id AS trip_id,
+                            category.id as category_id,
+                            category.name as category_name,
+                            category.description as category_description,
+                            item.id as item_id,
+                            item.name as item_name,
+                            item.description as item_description,
+                            item.weight as item_weight,
+                            trip.pick as item_is_picked,
+                            trip.pack as item_is_packed,
+                            trip.new as item_is_new
+                        FROM trips_items as trip
+                        INNER JOIN inventory_items as item
+                            ON item.id = trip.item_id
+                        INNER JOIN inventory_items_categories as category
+                            ON category.id = item.category_id
+                        WHERE trip.trip_id = ?
+                    ) AS inner
+                    ON inner.category_id = category.id
+                WHERE category.id = ?
+            ",
+            trip_id_param,
+            category_id_param
+        )
+        .fetch(pool)
+        .map_ok(|row| -> Result<(), Error> {
+            match &category {
+                Some(_) => (),
+                None => {
+                    category = Some(TripCategory {
+                        category: Category {
+                            id: Uuid::try_parse(&row.category_id)?,
+                            name: row.category_name,
+                            description: row.category_description,
+                            items: None,
+                        },
+                        items: None,
+                    })
+                }
+            };
+
+            match row.item_id {
+                None => {
+                    // we have an empty (unused) category which has NULL values
+                    // for the item_id column
+                    category.as_mut().unwrap().items = Some(vec![]);
+                    category.as_mut().unwrap().category.items = Some(vec![]);
+                }
+                Some(item_id) => {
+                    let item = TripItem {
+                        item: Item {
+                            id: Uuid::try_parse(&item_id)?,
+                            name: row.item_name.unwrap(),
+                            description: row.item_description,
+                            weight: row.item_weight.unwrap(),
+                            category_id: category.as_ref().unwrap().category.id,
+                        },
+                        picked: row.item_is_picked.unwrap(),
+                        packed: row.item_is_packed.unwrap(),
+                        new: row.item_is_new.unwrap(),
+                    };
+
+                    match &mut category.as_mut().unwrap().items {
+                        None => category.as_mut().unwrap().items = Some(vec![item]),
+                        Some(ref mut items) => items.push(item),
+                    }
+                }
+            }
+
+            Ok(())
+        })
+        .try_collect::<Vec<Result<(), Error>>>()
+        .await?
+        .into_iter()
+        .collect::<Result<(), Error>>()?;
+
+        // this may be None if there are no results (which
+        // means that the category was not found)
+        Ok(category)
+    }
 }
 
 #[derive(Debug)]
@@ -658,6 +766,34 @@ pub struct DbInventoryItemsRow {
 }
 
 impl<'a> Category {
+    // pub async fn find(
+    //     pool: &sqlx::Pool<sqlx::Sqlite>,
+    //     id: Uuid,
+    // ) -> Result<Option<Category>, Error> {
+    //     let id_param = id.to_string();
+    //     let item: Result<Result<Category, Error>, sqlx::Error> = sqlx::query_as!(
+    //         DbCategoryRow,
+    //         "SELECT
+    //             id,
+    //             name,
+    //             description
+    //         FROM inventory_items_categories AS category
+    //         WHERE category.id = ?",
+    //         id_param,
+    //     )
+    //     .fetch_one(pool)
+    //     .map_ok(|row| row.try_into())
+    //     .await;
+
+    //     match item {
+    //         Err(e) => match e {
+    //             sqlx::Error::RowNotFound => Ok(None),
+    //             _ => Err(e.into()),
+    //         },
+    //         Ok(v) => Ok(Some(v?)),
+    //     }
+    // }
+
     pub fn items(&'a self) -> &'a Vec<Item> {
         self.items
             .as_ref()
@@ -787,22 +923,18 @@ impl Item {
 
     pub async fn get_category_max_weight(
         pool: &sqlx::Pool<sqlx::Sqlite>,
-        id: Uuid,
+        category_id: Uuid,
     ) -> Result<i64, Error> {
-        let id_param = id.to_string();
+        let category_id_param = category_id.to_string();
         let weight: Result<i64, sqlx::Error> = sqlx::query!(
             "
                 SELECT COALESCE(MAX(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
                 INNER JOIN inventory_items as i_item
                     ON i_item.category_id = category.id
-                WHERE category_id = (
-                    SELECT category_id
-                    FROM inventory_items
-                    WHERE inventory_items.id = ?
-                )
+                WHERE category_id = ?
             ",
-            id_param
+            category_id_param
         )
         .fetch_one(pool)
         .map_ok(|row| {

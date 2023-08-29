@@ -745,12 +745,14 @@ impl TripCategoryListRow {
     pub fn build(
         category: &TripCategory,
         active: bool,
-        has_new_items: bool,
         biggest_category_weight: i64,
+        htmx_swap: bool,
     ) -> Markup {
+        let has_new_items = category.items.as_ref().unwrap().iter().any(|item| item.new);
         html!(
             tr
                 id={"category-" (category.category.id)}
+                hx-swap-oob=[htmx_swap.then_some("outerHTML")]
                 ."h-10"
                 ."hover:bg-purple-100"
                 ."m-3"
@@ -872,9 +874,8 @@ impl TripCategoryList {
                 }
                 tbody {
                     @for category in trip.categories() {
-                        @let has_new_items = category.items.as_ref().unwrap().iter().any(|item| item.new);
                         @let active = state.active_category_id.map_or(false, |id| category.category.id == id);
-                        (TripCategoryListRow::build(category, active, has_new_items, biggest_category_weight))
+                        (TripCategoryListRow::build(category, active, biggest_category_weight,false))
                     }
                     tr ."h-10" ."hover:bg-purple-200" ."bg-gray-300" ."font-bold" {
                         td ."border" ."p-0" ."m-0" {
@@ -922,8 +923,8 @@ impl TripItemList {
                 {
                     thead ."bg-gray-200" {
                         tr ."h-10" {
-                            th ."border" ."p-2" { "Take?" }
-                            th ."border" ."p-2" { "Packed?" }
+                            th ."border" ."p-2" {}
+                            th ."border" ."p-2" {}
                             th ."border" ."p-2" ."w-1/2" { "Name" }
                             th ."border" ."p-2" ."w-1/4" { "Weight" }
                         }

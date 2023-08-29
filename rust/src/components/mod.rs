@@ -30,6 +30,7 @@ impl Root {
                     link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css" {}
                     link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg" {}
                     script { (PreEscaped(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/js/app.js")))) }
+                    meta name="htmx-config" content=r#"{"useTemplateFragments":true}"# {}
                 }
                 body
                     hx-boost="true"

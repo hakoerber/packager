@@ -114,54 +114,53 @@ async fn main() -> Result<(), sqlx::Error> {
         .route("/favicon.svg", get(icon_handler))
         .route("/assets/luggage.svg", get(icon_handler))
         .route("/", get(root))
-        .route("/trips/", get(trips))
-        .route("/trips/types/", get(trips_types).post(trip_type_create))
-        .route(
-            "/trips/types/:id/edit/name/submit",
-            post(trips_types_edit_name),
+        .nest(
+            "/trips/",
+            Router::new()
+                .route("/", get(trips))
+                .route("/trips/types/", get(trips_types).post(trip_type_create))
+                .route("/types/:id/edit/name/submit", post(trips_types_edit_name))
+                .route("/", post(trip_create))
+                .route("/:id/", get(trip))
+                .route("/:id/comment/submit", post(trip_comment_set))
+                .route("/:id/state/:id", post(trip_state_set))
+                .route("/:id/type/:id/add", get(trip_type_add))
+                .route("/:id/type/:id/remove", get(trip_type_remove))
+                .route("/:id/edit/:attribute/submit", post(trip_edit_attribute))
+                .route(
+                    "/:id/items/:id/pick",
+                    get(trip_item_set_pick).post(trip_item_set_pick_htmx),
+                )
+                .route(
+                    "/:id/items/:id/unpick",
+                    get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
+                )
+                .route(
+                    "/:id/items/:id/pack",
+                    get(trip_item_set_pack).post(trip_item_set_pack_htmx),
+                )
+                .route(
+                    "/:id/items/:id/unpack",
+                    get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
+                ),
         )
-        .route("/trips/", post(trip_create))
-        .route("/trips/:id/", get(trip))
-        .route("/trips/:id/comment/submit", post(trip_comment_set))
-        .route("/trips/:id/state/:id", post(trip_state_set))
-        .route("/trips/:id/type/:id/add", get(trip_type_add))
-        .route("/trips/:id/type/:id/remove", get(trip_type_remove))
-        .route(
-            "/trips/:id/edit/:attribute/submit",
-            post(trip_edit_attribute),
+        .nest(
+            "/inventory/",
+            Router::new()
+                .route("/", get(inventory_inactive))
+                .route("/category/", post(inventory_category_create))
+                .route("/item/:id/", get(inventory_item))
+                .route("/item/", post(inventory_item_create))
+                .route("/item/name/validate", post(inventory_item_validate_name))
+                .route("/category/:id/", get(inventory_active))
+                .route("/item/:id/delete", get(inventory_item_delete))
+                .route("/item/:id/edit", post(inventory_item_edit))
+                .route("/item/:id/cancel", get(inventory_item_cancel)), // .route(
+                                                                        //     "/inventory/category/:id/items",
+                                                                        //     post(htmx_inventory_category_items),
+                                                                        // );
         )
-        .route(
-            "/trips/:id/items/:id/pick",
-            get(trip_item_set_pick).post(trip_item_set_pick_htmx),
-        )
-        .route(
-            "/trips/:id/items/:id/unpick",
-            get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
-        )
-        .route(
-            "/trips/:id/items/:id/pack",
-            get(trip_item_set_pack).post(trip_item_set_pack_htmx),
-        )
-        .route(
-            "/trips/:id/items/:id/unpack",
-            get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
-        )
-        .route("/inventory/", get(inventory_inactive))
-        .route("/inventory/category/", post(inventory_category_create))
-        .route("/inventory/item/:id/", get(inventory_item))
-        .route("/inventory/item/", post(inventory_item_create))
-        .route(
-            "/inventory/item/name/validate",
-            post(inventory_item_validate_name),
-        )
-        .route("/inventory/category/:id/", get(inventory_active))
-        .route("/inventory/item/:id/delete", get(inventory_item_delete))
-        .route("/inventory/item/:id/edit", post(inventory_item_edit))
-        .route("/inventory/item/:id/cancel", get(inventory_item_cancel))
-        // .route(
-        //     "/inventory/category/:id/items",
-        //     post(htmx_inventory_category_items),
-        // );
+        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") })
         .with_state(state);
 
     let args = Args::parse();
@@ -996,6 +995,65 @@ async fn trip_item_set_state(
     }
 }
 
+async fn trip_row(
+    state: &AppState,
+    trip_id: Uuid,
+    item_id: Uuid,
+) -> Result<Markup, (StatusCode, Markup)> {
+    let item: TripItem = TripItem::find(&state.database_pool, trip_id, item_id)
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::BAD_REQUEST,
+                ErrorPage::build(&error.to_string()),
+            )
+        })?
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                ErrorPage::build(&format!(
+                    "item with id {} not found for trip {}",
+                    item_id, trip_id
+                )),
+            )
+        })?;
+
+    let item_row = components::trip::TripItemListRow::build(
+        trip_id,
+        &item,
+        Item::get_category_max_weight(&state.database_pool, item.item.category_id)
+            .await
+            .map_err(|error| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    ErrorPage::build(&error.to_string()),
+                )
+            })?,
+    );
+
+    let category = TripCategory::find(&state.database_pool, trip_id, item.item.category_id)
+        .map_err(|error| {
+            (
+                StatusCode::BAD_REQUEST,
+                ErrorPage::build(&error.to_string()),
+            )
+        })
+        .await?
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                ErrorPage::build(&format!(
+                    "category with id {} not found",
+                    item.item.category_id
+                )),
+            )
+        })?;
+
+    let category_row = components::trip::TripCategoryListRow::build(&category, true, 0, true);
+
+    Ok(html!((item_row)(category_row)))
+}
+
 async fn trip_item_set_pick(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -1054,43 +1112,6 @@ async fn trip_item_set_unpick(
             ))
         },
     )?
-}
-
-async fn trip_row(
-    state: &AppState,
-    trip_id: Uuid,
-    item_id: Uuid,
-) -> Result<Markup, (StatusCode, Markup)> {
-    let item: TripItem = TripItem::find(&state.database_pool, trip_id, item_id)
-        .await
-        .map_err(|error| {
-            (
-                StatusCode::BAD_REQUEST,
-                ErrorPage::build(&error.to_string()),
-            )
-        })?
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                ErrorPage::build(&format!(
-                    "item with id {} not found for trip {}",
-                    item_id, trip_id
-                )),
-            )
-        })?;
-
-    Ok(components::trip::TripItemListRow::build(
-        trip_id,
-        &item,
-        Item::get_category_max_weight(&state.database_pool, item.item.category_id)
-            .await
-            .map_err(|error| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    ErrorPage::build(&error.to_string()),
-                )
-            })?,
-    ))
 }
 
 async fn trip_item_set_unpick_htmx(
