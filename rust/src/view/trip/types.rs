@@ -5,7 +5,7 @@ use maud::{html, Markup};
 pub struct TypeList;
 
 impl TypeList {
-    pub fn build(state: &ClientState, trip_types: Vec<models::TripsType>) -> Markup {
+    pub fn build(state: &ClientState, trip_types: Vec<models::trips::TripsType>) -> Markup {
         html!(
             div ."p-8" ."flex" ."flex-col" ."gap-8" {
                 h1 ."text-2xl" {"Trip Types"}

@@ -6,7 +6,7 @@ use crate::models;
 pub struct TripPackageListRow;
 
 impl TripPackageListRow {
-    pub fn build(trip_id: Uuid, item: &models::TripItem) -> Markup {
+    pub fn build(trip_id: Uuid, item: &models::trips::TripItem) -> Markup {
         html!(
             li
                 ."flex"
@@ -82,7 +82,7 @@ impl TripPackageListRow {
 pub struct TripPackageListCategoryBlock;
 
 impl TripPackageListCategoryBlock {
-    pub fn build(trip: &models::Trip, category: &models::TripCategory) -> Markup {
+    pub fn build(trip: &models::trips::Trip, category: &models::trips::TripCategory) -> Markup {
         let empty = !category
             .items
             .as_ref()
@@ -138,7 +138,7 @@ impl TripPackageListCategoryBlock {
 pub struct TripPackageList;
 
 impl TripPackageList {
-    pub fn build(trip: &models::Trip) -> Markup {
+    pub fn build(trip: &models::trips::Trip) -> Markup {
         // let all_packed = trip.categories().iter().all(|category| {
         //     category
         //         .items

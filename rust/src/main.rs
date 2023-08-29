@@ -42,7 +42,7 @@ struct Args {
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
-    pub trip_edit_attribute: Option<models::TripAttribute>,
+    pub trip_edit_attribute: Option<models::trips::TripAttribute>,
     pub trip_type_edit: Option<Uuid>,
 }
 
@@ -279,9 +279,9 @@ async fn inventory_active(
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = Some(id);
 
-    let inventory = models::Inventory::load(&state.database_pool).await?;
+    let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
 
-    let active_category: Option<&models::Category> = state
+    let active_category: Option<&models::inventory::Category> = state
         .client_state
         .active_category_id
         .map(|id| {
@@ -312,7 +312,7 @@ async fn inventory_inactive(
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = None;
 
-    let inventory = models::Inventory::load(&state.database_pool).await?;
+    let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
 
     Ok(view::Root::build(
         &view::inventory::Inventory::build(
@@ -346,7 +346,8 @@ async fn inventory_item_validate_name(
     State(state): State<AppState>,
     Form(new_item): Form<NewItemName>,
 ) -> Result<impl IntoResponse, Error> {
-    let exists = models::InventoryItem::name_exists(&state.database_pool, &new_item.name).await?;
+    let exists =
+        models::inventory::InventoryItem::name_exists(&state.database_pool, &new_item.name).await?;
 
     Ok(view::inventory::InventoryNewItemFormName::build(
         Some(&new_item.name),
@@ -365,7 +366,7 @@ async fn inventory_item_create(
         }));
     }
 
-    let _new_id = models::InventoryItem::save(
+    let _new_id = models::inventory::InventoryItem::save(
         &state.database_pool,
         &new_item.name,
         new_item.category_id,
@@ -374,11 +375,11 @@ async fn inventory_item_create(
     .await?;
 
     if is_htmx(&headers) {
-        let inventory = models::Inventory::load(&state.database_pool).await?;
+        let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
 
         // it's impossible to NOT find the item here, as we literally just added
         // it.
-        let active_category: Option<&models::Category> = Some(
+        let active_category: Option<&models::inventory::Category> = Some(
             inventory
                 .categories
                 .iter()
@@ -418,7 +419,7 @@ async fn inventory_item_delete(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, Error> {
-    let deleted = models::InventoryItem::delete(&state.database_pool, id).await?;
+    let deleted = models::inventory::InventoryItem::delete(&state.database_pool, id).await?;
 
     if !deleted {
         Err(Error::Request(RequestError::NotFound {
@@ -448,8 +449,13 @@ async fn inventory_item_edit(
         }));
     }
 
-    let id =
-        models::Item::update(&state.database_pool, id, &edit_item.name, edit_item.weight).await?;
+    let id = models::inventory::InventoryItem::update(
+        &state.database_pool,
+        id,
+        &edit_item.name,
+        edit_item.weight,
+    )
+    .await?;
 
     Ok(Redirect::to(&format!("/inventory/category/{id}/", id = id)))
 }
@@ -458,7 +464,7 @@ async fn inventory_item_cancel(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Redirect, Error> {
-    let id = models::Item::find(&state.database_pool, id)
+    let id = models::inventory::InventoryItem::find(&state.database_pool, id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("item with id {id} not found"),
@@ -466,7 +472,7 @@ async fn inventory_item_cancel(
 
     Ok(Redirect::to(&format!(
         "/inventory/category/{id}/",
-        id = id.category_id
+        id = id.category.id
     )))
 }
 
@@ -490,7 +496,7 @@ async fn trip_create(
         }));
     }
 
-    let new_id = models::Trip::save(
+    let new_id = models::trips::Trip::save(
         &state.database_pool,
         &new_trip.name,
         new_trip.date_start,
@@ -502,7 +508,7 @@ async fn trip_create(
 }
 
 async fn trips(State(state): State<AppState>) -> Result<impl IntoResponse, Error> {
-    let trips = models::Trip::all(&state.database_pool).await?;
+    let trips = models::trips::Trip::all(&state.database_pool).await?;
 
     Ok(view::Root::build(
         &view::trip::TripManager::build(trips),
@@ -512,7 +518,7 @@ async fn trips(State(state): State<AppState>) -> Result<impl IntoResponse, Error
 
 #[derive(Debug, Deserialize)]
 struct TripQuery {
-    edit: Option<models::TripAttribute>,
+    edit: Option<models::trips::TripAttribute>,
     category: Option<Uuid>,
 }
 
@@ -524,12 +530,11 @@ async fn trip(
     state.client_state.trip_edit_attribute = trip_query.edit;
     state.client_state.active_category_id = trip_query.category;
 
-    let mut trip: models::Trip =
-        models::Trip::find(&state.database_pool, id)
-            .await?
-            .ok_or(Error::Request(RequestError::NotFound {
-                message: format!("trip with id {id} not found"),
-            }))?;
+    let mut trip: models::trips::Trip = models::trips::Trip::find(&state.database_pool, id)
+        .await?
+        .ok_or(Error::Request(RequestError::NotFound {
+            message: format!("trip with id {id} not found"),
+        }))?;
 
     trip.load_trips_types(&state.database_pool).await?;
 
@@ -538,7 +543,7 @@ async fn trip(
 
     trip.load_categories(&state.database_pool).await?;
 
-    let active_category: Option<&models::TripCategory> = state
+    let active_category: Option<&models::trips::TripCategory> = state
         .client_state
         .active_category_id
         .map(|id| {
@@ -565,7 +570,8 @@ async fn trip_type_remove(
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, Error> {
-    let found = models::Trip::trip_type_remove(&state.database_pool, trip_id, type_id).await?;
+    let found =
+        models::trips::Trip::trip_type_remove(&state.database_pool, trip_id, type_id).await?;
 
     if !found {
         Err(Error::Request(RequestError::NotFound {
@@ -580,7 +586,7 @@ async fn trip_type_add(
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, Error> {
-    models::Trip::trip_type_add(&state.database_pool, trip_id, type_id).await?;
+    models::trips::Trip::trip_type_add(&state.database_pool, trip_id, type_id).await?;
 
     Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
@@ -596,9 +602,12 @@ async fn trip_comment_set(
     Path(trip_id): Path<Uuid>,
     Form(comment_update): Form<CommentUpdate>,
 ) -> Result<Redirect, Error> {
-    let found =
-        models::Trip::set_comment(&state.database_pool, trip_id, &comment_update.new_comment)
-            .await?;
+    let found = models::trips::Trip::set_comment(
+        &state.database_pool,
+        trip_id,
+        &comment_update.new_comment,
+    )
+    .await?;
 
     if !found {
         Err(Error::Request(RequestError::NotFound {
@@ -617,17 +626,17 @@ struct TripUpdate {
 
 async fn trip_edit_attribute(
     State(state): State<AppState>,
-    Path((trip_id, attribute)): Path<(Uuid, models::TripAttribute)>,
+    Path((trip_id, attribute)): Path<(Uuid, models::trips::TripAttribute)>,
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, Error> {
-    if attribute == models::TripAttribute::Name {
+    if attribute == models::trips::TripAttribute::Name {
         if trip_update.new_value.is_empty() {
             return Err(Error::Request(RequestError::EmptyFormElement {
                 name: "name".to_string(),
             }));
         }
     }
-    models::Trip::set_attribute(
+    models::trips::Trip::set_attribute(
         &state.database_pool,
         trip_id,
         attribute,
@@ -642,10 +651,10 @@ async fn trip_item_set_state(
     state: &AppState,
     trip_id: Uuid,
     item_id: Uuid,
-    key: models::TripItemStateKey,
+    key: models::trips::TripItemStateKey,
     value: bool,
 ) -> Result<(), Error> {
-    models::TripItem::set_state(&state.database_pool, trip_id, item_id, key, value).await?;
+    models::trips::TripItem::set_state(&state.database_pool, trip_id, item_id, key, value).await?;
     Ok(())
 }
 
@@ -654,7 +663,7 @@ async fn trip_row(
     trip_id: Uuid,
     item_id: Uuid,
 ) -> Result<impl IntoResponse, Error> {
-    let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
         .await?
         .ok_or_else(|| {
             Error::Request(RequestError::NotFound {
@@ -665,16 +674,21 @@ async fn trip_row(
     let item_row = view::trip::TripItemListRow::build(
         trip_id,
         &item,
-        models::Item::get_category_max_weight(&state.database_pool, item.item.category_id).await?,
+        models::inventory::Item::get_category_max_weight(
+            &state.database_pool,
+            item.item.category_id,
+        )
+        .await?,
     );
 
-    let category = models::TripCategory::find(&state.database_pool, trip_id, item.item.category_id)
-        .await?
-        .ok_or_else(|| {
-            Error::Request(RequestError::NotFound {
-                message: format!("category with id {} not found", item.item.category_id),
-            })
-        })?;
+    let category =
+        models::trips::TripCategory::find(&state.database_pool, trip_id, item.item.category_id)
+            .await?
+            .ok_or_else(|| {
+                Error::Request(RequestError::NotFound {
+                    message: format!("category with id {} not found", item.item.category_id),
+                })
+            })?;
 
     // TODO biggest_category_weight?
     let category_row = view::trip::TripCategoryListRow::build(trip_id, &category, true, 0, true);
@@ -692,7 +706,7 @@ async fn trip_item_set_pick(
             &state,
             trip_id,
             item_id,
-            models::TripItemStateKey::Pick,
+            models::trips::TripItemStateKey::Pick,
             true,
         )
         .await?,
@@ -708,7 +722,7 @@ async fn trip_item_set_pick_htmx(
         &state,
         trip_id,
         item_id,
-        models::TripItemStateKey::Pick,
+        models::trips::TripItemStateKey::Pick,
         true,
     )
     .await?;
@@ -730,7 +744,7 @@ async fn trip_item_set_unpick(
             &state,
             trip_id,
             item_id,
-            models::TripItemStateKey::Pick,
+            models::trips::TripItemStateKey::Pick,
             false,
         )
         .await?,
@@ -746,7 +760,7 @@ async fn trip_item_set_unpick_htmx(
         &state,
         trip_id,
         item_id,
-        models::TripItemStateKey::Pick,
+        models::trips::TripItemStateKey::Pick,
         false,
     )
     .await?;
@@ -768,7 +782,7 @@ async fn trip_item_set_pack(
             &state,
             trip_id,
             item_id,
-            models::TripItemStateKey::Pack,
+            models::trips::TripItemStateKey::Pack,
             true,
         )
         .await?,
@@ -784,7 +798,7 @@ async fn trip_item_set_pack_htmx(
         &state,
         trip_id,
         item_id,
-        models::TripItemStateKey::Pack,
+        models::trips::TripItemStateKey::Pack,
         true,
     )
     .await?;
@@ -806,7 +820,7 @@ async fn trip_item_set_unpack(
             &state,
             trip_id,
             item_id,
-            models::TripItemStateKey::Pack,
+            models::trips::TripItemStateKey::Pack,
             false,
         )
         .await?,
@@ -822,7 +836,7 @@ async fn trip_item_set_unpack_htmx(
         &state,
         trip_id,
         item_id,
-        models::TripItemStateKey::Pack,
+        models::trips::TripItemStateKey::Pack,
         false,
     )
     .await?;
@@ -839,7 +853,7 @@ async fn trip_total_weight_htmx(
     Path(trip_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
     let total_weight =
-        models::Trip::find_total_picked_weight(&state.database_pool, trip_id).await?;
+        models::trips::Trip::find_total_picked_weight(&state.database_pool, trip_id).await?;
     Ok(view::trip::TripInfoTotalWeightRow::build(
         trip_id,
         total_weight,
@@ -862,7 +876,8 @@ async fn inventory_category_create(
         }));
     }
 
-    let _new_id = models::Category::save(&state.database_pool, &new_category.name).await?;
+    let _new_id =
+        models::inventory::Category::save(&state.database_pool, &new_category.name).await?;
 
     Ok(Redirect::to("/inventory/"))
 }
@@ -870,9 +885,9 @@ async fn inventory_category_create(
 async fn trip_state_set(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((trip_id, new_state)): Path<(Uuid, models::TripState)>,
+    Path((trip_id, new_state)): Path<(Uuid, models::trips::TripState)>,
 ) -> Result<impl IntoResponse, Error> {
-    let exists = models::Trip::set_state(&state.database_pool, trip_id, &new_state).await?;
+    let exists = models::trips::Trip::set_state(&state.database_pool, trip_id, &new_state).await?;
 
     if !exists {
         return Err(Error::Request(RequestError::NotFound {
@@ -905,7 +920,8 @@ async fn trips_types(
 ) -> Result<impl IntoResponse, Error> {
     state.client_state.trip_type_edit = trip_type_query.edit;
 
-    let trip_types: Vec<models::TripsType> = models::TripsType::all(&state.database_pool).await?;
+    let trip_types: Vec<models::trips::TripsType> =
+        models::trips::TripsType::all(&state.database_pool).await?;
 
     Ok(view::Root::build(
         &view::trip::types::TypeList::build(&state.client_state, trip_types),
@@ -929,7 +945,7 @@ async fn trip_type_create(
         }));
     }
 
-    let _new_id = models::TripsType::save(&state.database_pool, &new_trip_type.name).await?;
+    let _new_id = models::trips::TripsType::save(&state.database_pool, &new_trip_type.name).await?;
 
     Ok(Redirect::to("/trips/types/"))
 }
@@ -951,9 +967,12 @@ async fn trips_types_edit_name(
         }));
     }
 
-    let exists =
-        models::TripsType::set_name(&state.database_pool, trip_type_id, &trip_update.new_value)
-            .await?;
+    let exists = models::trips::TripsType::set_name(
+        &state.database_pool,
+        trip_type_id,
+        &trip_update.new_value,
+    )
+    .await?;
 
     if !exists {
         return Err(Error::Request(RequestError::NotFound {
@@ -968,7 +987,7 @@ async fn inventory_item(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
-    let item = models::InventoryItem::find(&state.database_pool, id)
+    let item = models::inventory::InventoryItem::find(&state.database_pool, id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("inventory item with id {id} not found"),
@@ -984,7 +1003,7 @@ async fn trip_category_select(
     State(state): State<AppState>,
     Path((trip_id, category_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
-    let mut trip = models::Trip::find(&state.database_pool, trip_id)
+    let mut trip = models::trips::Trip::find(&state.database_pool, trip_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("trip with id {trip_id} not found"),
@@ -1016,9 +1035,9 @@ async fn inventory_category_select(
     State(state): State<AppState>,
     Path(category_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
-    let inventory = models::Inventory::load(&state.database_pool).await?;
+    let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
 
-    let active_category: Option<&models::Category> = Some(
+    let active_category: Option<&models::inventory::Category> = Some(
         inventory
             .categories
             .iter()
@@ -1050,7 +1069,7 @@ async fn trip_packagelist(
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
-    let mut trip = models::Trip::find(&state.database_pool, trip_id)
+    let mut trip = models::trips::Trip::find(&state.database_pool, trip_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("trip with id {trip_id} not found"),
@@ -1072,12 +1091,12 @@ async fn trip_item_packagelist_set_pack_htmx(
         &state,
         trip_id,
         item_id,
-        models::TripItemStateKey::Pack,
+        models::trips::TripItemStateKey::Pack,
         true,
     )
     .await?;
 
-    let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
@@ -1096,14 +1115,14 @@ async fn trip_item_packagelist_set_unpack_htmx(
         &state,
         trip_id,
         item_id,
-        models::TripItemStateKey::Pack,
+        models::trips::TripItemStateKey::Pack,
         false,
     )
     .await?;
 
     // note that this cannot fail due to a missing item, as trip_item_set_state would already
     // return 404. but error handling cannot hurt ;)
-    let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),

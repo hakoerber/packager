@@ -8,8 +8,8 @@ pub struct Inventory;
 
 impl Inventory {
     pub fn build(
-        active_category: Option<&models::Category>,
-        categories: &Vec<models::Category>,
+        active_category: Option<&models::inventory::Category>,
+        categories: &Vec<models::inventory::Category>,
         edit_item_id: Option<Uuid>,
     ) -> Markup {
         html!(
@@ -37,12 +37,12 @@ pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
     pub fn build(
-        active_category: Option<&models::Category>,
-        categories: &Vec<models::Category>,
+        active_category: Option<&models::inventory::Category>,
+        categories: &Vec<models::inventory::Category>,
     ) -> Markup {
         let biggest_category_weight: i64 = categories
             .iter()
-            .map(models::Category::total_weight)
+            .map(models::inventory::Category::total_weight)
             .max()
             .unwrap_or(1);
 
@@ -129,7 +129,7 @@ impl InventoryCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(models::Category::total_weight).sum::<i64>().to_string())
+                                (categories.iter().map(models::inventory::Category::total_weight).sum::<i64>().to_string())
                             }
                         }
                     }
@@ -142,7 +142,7 @@ impl InventoryCategoryList {
 pub struct InventoryItemList;
 
 impl InventoryItemList {
-    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::Item>) -> Markup {
+    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
         html!(
             div #items {
@@ -414,8 +414,8 @@ pub struct InventoryNewItemFormCategory;
 
 impl InventoryNewItemFormCategory {
     pub fn build(
-        active_category: Option<&models::Category>,
-        categories: &Vec<models::Category>,
+        active_category: Option<&models::inventory::Category>,
+        categories: &Vec<models::inventory::Category>,
     ) -> Markup {
         html!(
             div
@@ -455,8 +455,8 @@ pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
     pub fn build(
-        active_category: Option<&models::Category>,
-        categories: &Vec<models::Category>,
+        active_category: Option<&models::inventory::Category>,
+        categories: &Vec<models::inventory::Category>,
     ) -> Markup {
         html!(
             form
@@ -558,7 +558,7 @@ impl InventoryNewCategoryForm {
 pub struct InventoryItem;
 
 impl InventoryItem {
-    pub fn build(_state: &ClientState, item: &models::InventoryItem) -> Markup {
+    pub fn build(_state: &ClientState, item: &models::inventory::InventoryItem) -> Markup {
         html!(
             div ."p-8" {
                 table

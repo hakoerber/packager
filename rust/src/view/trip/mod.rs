@@ -12,7 +12,7 @@ pub mod packagelist;
 pub mod types;
 
 impl TripManager {
-    pub fn build(trips: Vec<models::Trip>) -> Markup {
+    pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
         html!(
             div
                 ."p-8"
@@ -44,21 +44,21 @@ impl From<InputType> for &'static str {
     }
 }
 
-fn trip_state_icon(state: &models::TripState) -> &'static str {
+fn trip_state_icon(state: &models::trips::TripState) -> &'static str {
     match state {
-        models::TripState::Init => "mdi-magic-staff",
-        models::TripState::Planning => "mdi-text-box-outline",
-        models::TripState::Planned => "mdi-clock-outline",
-        models::TripState::Active => "mdi-play",
-        models::TripState::Review => "mdi-magnify",
-        models::TripState::Done => "mdi-check",
+        models::trips::TripState::Init => "mdi-magic-staff",
+        models::trips::TripState::Planning => "mdi-text-box-outline",
+        models::trips::TripState::Planned => "mdi-clock-outline",
+        models::trips::TripState::Active => "mdi-play",
+        models::trips::TripState::Review => "mdi-magnify",
+        models::trips::TripState::Done => "mdi-check",
     }
 }
 
 pub struct TripTable;
 
 impl TripTable {
-    pub fn build(trips: Vec<models::Trip>) -> Markup {
+    pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
         html!(
             table
                 ."table"
@@ -222,9 +222,9 @@ pub struct Trip;
 
 impl Trip {
     pub fn build(
-        trip: &models::Trip,
-        trip_edit_attribute: Option<models::TripAttribute>,
-        active_category: Option<&models::TripCategory>,
+        trip: &models::trips::Trip,
+        trip_edit_attribute: Option<models::trips::TripAttribute>,
+        active_category: Option<&models::trips::TripCategory>,
     ) -> Markup {
         html!(
             div ."p-8" ."flex" ."flex-col" ."gap-8" {
@@ -257,10 +257,10 @@ impl Trip {
                             }
                         }
                         div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                            @if trip_edit_attribute.as_ref().map_or(false, |a| *a == models::TripAttribute::Name) {
+                            @if trip_edit_attribute.as_ref().map_or(false, |a| *a == models::trips::TripAttribute::Name) {
                                 form
                                     id="edit-trip"
-                                    action=(format!("edit/{}/submit", to_variant_name(&models::TripAttribute::Name).unwrap()))
+                                    action=(format!("edit/{}/submit", to_variant_name(&models::trips::TripAttribute::Name).unwrap()))
                                     hx-boost="true"
                                     target="_self"
                                     method="post"
@@ -316,7 +316,7 @@ impl Trip {
                                 h1 ."text-2xl" { (trip.name) }
                                 span {
                                     a
-                                        href={"?edit=" (to_variant_name(&models::TripAttribute::Name).unwrap())}
+                                        href={"?edit=" (to_variant_name(&models::trips::TripAttribute::Name).unwrap())}
                                         hx-boost="true"
                                     {
                                         span
@@ -357,8 +357,8 @@ impl TripInfoRow {
     pub fn build(
         name: &str,
         value: Option<impl std::fmt::Display>,
-        attribute_key: &models::TripAttribute,
-        edit_attribute: Option<&models::TripAttribute>,
+        attribute_key: &models::trips::TripAttribute,
+        edit_attribute: Option<&models::trips::TripAttribute>,
         input_type: InputType,
     ) -> Markup {
         let edit = edit_attribute.map_or(false, |a| a == attribute_key);
@@ -497,7 +497,7 @@ impl TripInfoTotalWeightRow {
 pub struct TripInfoStateRow;
 
 impl TripInfoStateRow {
-    pub fn build(trip_state: &models::TripState) -> Markup {
+    pub fn build(trip_state: &models::trips::TripState) -> Markup {
         let prev_state = trip_state.prev();
         let next_state = trip_state.next();
         html!(
@@ -602,8 +602,8 @@ pub struct TripInfo;
 
 impl TripInfo {
     pub fn build(
-        trip_edit_attribute: Option<models::TripAttribute>,
-        trip: &models::Trip,
+        trip_edit_attribute: Option<models::trips::TripAttribute>,
+        trip: &models::trips::Trip,
     ) -> Markup {
         html!(
             table
@@ -617,31 +617,31 @@ impl TripInfo {
                 tbody {
                     (TripInfoRow::build("Location",
                         trip.location.as_ref(),
-                        &models::TripAttribute::Location,
+                        &models::trips::TripAttribute::Location,
                         trip_edit_attribute.as_ref(),
                         InputType::Text,
                     ))
                     (TripInfoRow::build("Start date",
                         Some(trip.date_start),
-                        &models::TripAttribute::DateStart,
+                        &models::trips::TripAttribute::DateStart,
                         trip_edit_attribute.as_ref(),
                         InputType::Date,
                     ))
                     (TripInfoRow::build("End date",
                         Some(trip.date_end),
-                        &models::TripAttribute::DateEnd,
+                        &models::trips::TripAttribute::DateEnd,
                         trip_edit_attribute.as_ref(),
                         InputType::Date,
                     ))
                     (TripInfoRow::build("Temp (min)",
                         trip.temp_min,
-                        &models::TripAttribute::TempMin,
+                        &models::trips::TripAttribute::TempMin,
                         trip_edit_attribute.as_ref(),
                         InputType::Number,
                     ))
                     (TripInfoRow::build("Temp (max)",
                         trip.temp_max,
-                        &models::TripAttribute::TempMax,
+                        &models::trips::TripAttribute::TempMax,
                         trip_edit_attribute.as_ref(),
                         InputType::Number,
                     ))
@@ -672,8 +672,8 @@ impl TripInfo {
                                 // the margins
                                 {
                                     @let types = trip.types();
-                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&models::TripType>>();
-                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&models::TripType>>();
+                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&models::trips::TripType>>();
+                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&models::trips::TripType>>();
 
                                     @if !active_triptypes.is_empty() {
                                         div
@@ -775,7 +775,7 @@ impl TripInfo {
 pub struct TripComment;
 
 impl TripComment {
-    pub fn build(trip: &models::Trip) -> Markup {
+    pub fn build(trip: &models::trips::Trip) -> Markup {
         html!(
             div
                 x-data="{ save_active: false }"
@@ -830,7 +830,10 @@ impl TripComment {
 pub struct TripItems;
 
 impl TripItems {
-    pub fn build(active_category: Option<&models::TripCategory>, trip: &models::Trip) -> Markup {
+    pub fn build(
+        active_category: Option<&models::trips::TripCategory>,
+        trip: &models::trips::Trip,
+    ) -> Markup {
         html!(
             div #trip-items ."grid" ."grid-cols-4" ."gap-3" {
                 div ."col-span-2" {
@@ -856,7 +859,7 @@ pub struct TripCategoryListRow;
 impl TripCategoryListRow {
     pub fn build(
         trip_id: Uuid,
-        category: &models::TripCategory,
+        category: &models::trips::TripCategory,
         active: bool,
         biggest_category_weight: i64,
         htmx_swap: bool,
@@ -962,12 +965,15 @@ impl TripCategoryListRow {
 pub struct TripCategoryList;
 
 impl TripCategoryList {
-    pub fn build(active_category: Option<&models::TripCategory>, trip: &models::Trip) -> Markup {
+    pub fn build(
+        active_category: Option<&models::trips::TripCategory>,
+        trip: &models::trips::Trip,
+    ) -> Markup {
         let categories = trip.categories();
 
         let biggest_category_weight: i64 = categories
             .iter()
-            .map(models::TripCategory::total_picked_weight)
+            .map(models::trips::TripCategory::total_picked_weight)
             .max()
             .unwrap_or(1);
 
@@ -1002,7 +1008,7 @@ impl TripCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(models::TripCategory::total_picked_weight).sum::<i64>().to_string())
+                                (categories.iter().map(models::trips::TripCategory::total_picked_weight).sum::<i64>().to_string())
                             }
                         }
                     }
@@ -1015,7 +1021,7 @@ impl TripCategoryList {
 pub struct TripItemList;
 
 impl TripItemList {
-    pub fn build(trip_id: Uuid, items: &Vec<models::TripItem>) -> Markup {
+    pub fn build(trip_id: Uuid, items: &Vec<models::trips::TripItem>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
         html!(
@@ -1053,7 +1059,11 @@ impl TripItemList {
 pub struct TripItemListRow;
 
 impl TripItemListRow {
-    pub fn build(trip_id: Uuid, item: &models::TripItem, biggest_item_weight: i64) -> Markup {
+    pub fn build(
+        trip_id: Uuid,
+        item: &models::trips::TripItem,
+        biggest_item_weight: i64,
+    ) -> Markup {
         html!(
             tr ."h-10" {
                 td
