@@ -13,6 +13,9 @@ pub enum RequestError {
     RefererNotFound,
     RefererInvalid { message: String },
     NotFound { message: String },
+    AuthenticationUserNotFound { username: String },
+    AuthenticationHeaderMissing,
+    AuthenticationHeaderInvalid { message: String },
 }
 
 impl fmt::Display for RequestError {
@@ -22,6 +25,13 @@ impl fmt::Display for RequestError {
             Self::RefererNotFound => write!(f, "Referer header not found"),
             Self::RefererInvalid { message } => write!(f, "Referer header invalid: {message}"),
             Self::NotFound { message } => write!(f, "Not found: {message}"),
+            Self::AuthenticationUserNotFound { username } => {
+                write!(f, "User \"{username}\" not found")
+            }
+            Self::AuthenticationHeaderMissing => write!(f, "Authentication header not found"),
+            Self::AuthenticationHeaderInvalid { message } => {
+                write!(f, "Authentication header invalid: {message}")
+            }
         }
     }
 }
@@ -102,6 +112,18 @@ impl IntoResponse for Error {
                 RequestError::NotFound { message } => (
                     StatusCode::NOT_FOUND,
                     view::ErrorPage::build(&format!("not found: {}", message)),
+                ),
+                RequestError::AuthenticationUserNotFound { username: _ } => (
+                    StatusCode::BAD_REQUEST,
+                    view::ErrorPage::build(&request_error.to_string()),
+                ),
+                RequestError::AuthenticationHeaderMissing => (
+                    StatusCode::UNAUTHORIZED,
+                    view::ErrorPage::build(&request_error.to_string()),
+                ),
+                RequestError::AuthenticationHeaderInvalid { message: _ } => (
+                    StatusCode::UNAUTHORIZED,
+                    view::ErrorPage::build(&request_error.to_string()),
                 ),
             },
         }

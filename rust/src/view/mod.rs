@@ -1,3 +1,5 @@
+use super::Context;
+
 use maud::{html, Markup, PreEscaped, DOCTYPE};
 
 pub mod home;
@@ -9,7 +11,7 @@ pub struct Root;
 use crate::TopLevelPage;
 
 impl Root {
-    pub fn build(body: &Markup, active_page: Option<&TopLevelPage>) -> Markup {
+    pub fn build(context: &Context, body: &Markup, active_page: Option<&TopLevelPage>) -> Markup {
         let menu_item = |item: TopLevelPage, active_page: Option<&TopLevelPage>| {
             let active = active_page.map(|page| *page == item).unwrap_or(false);
             html!(
@@ -87,6 +89,24 @@ impl Root {
                         {
                             (menu_item(TopLevelPage::Inventory, active_page))
                             (menu_item(TopLevelPage::Trips, active_page))
+                        }
+                        a
+                            ."flex"
+                            ."flex-row"
+                            ."items-center"
+                            ."gap-3"
+                            ."px-5"
+                            ."bg-gray-200"
+                            ."hover:bg-gray-300"
+                            href=(format!("/user/{}", context.user.username))
+                        {
+                            span
+                                ."m-auto"
+                                ."mdi"
+                                ."mdi-account"
+                                ."text-3xl"
+                            {}
+                            p { (context.user.username)}
                         }
                     }
                     (body)

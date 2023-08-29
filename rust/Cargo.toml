@@ -3,6 +3,16 @@ name = "packager"
 version = "0.1.0"
 edition = "2021"
 
+default-run = "packager"
+
+[[bin]]
+name = "packager"
+path = "src/main.rs"
+
+[[bin]]
+name = "packager-adm"
+path = "src/bin/adm.rs"
+
 [profile.dev]
 opt-level = 0
 lto = "off"

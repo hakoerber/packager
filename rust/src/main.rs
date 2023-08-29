@@ -1,10 +1,13 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Extension, Path, Query, State},
     http::header::{self, HeaderMap, HeaderName, HeaderValue},
+    middleware::{self, Next},
     response::{IntoResponse, Redirect},
     routing::{get, post},
     Form, Router,
 };
+
+use hyper::Request;
 
 use serde::Deserialize;
 
@@ -14,18 +17,35 @@ use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-mod error;
 mod html;
-mod models;
-mod sqlite;
 mod view;
 
+type User = models::user::User;
+
 use error::{Error, RequestError, StartError};
+
+#[derive(Clone)]
+pub enum AuthConfig {
+    Enabled,
+    Disabled { assume_user: String },
+}
 
 #[derive(Clone)]
 pub struct AppState {
     database_pool: sqlite::Pool<sqlite::Sqlite>,
     client_state: ClientState,
+    auth_config: AuthConfig,
+}
+
+#[derive(Clone)]
+pub struct Context {
+    user: User,
+}
+
+impl Context {
+    fn build(user: User) -> Self {
+        Self { user }
+    }
 }
 
 use clap::Parser;
@@ -39,6 +59,8 @@ struct Args {
     port: u16,
     #[arg(long)]
     bind: String,
+    #[arg(long, name = "USERNAME")]
+    disable_auth_and_assume_user: Option<String>,
 }
 
 #[derive(Clone)]
@@ -156,6 +178,51 @@ impl From<HtmxRequestHeaders> for HeaderName {
     }
 }
 
+async fn authorize<B>(
+    State(state): State<AppState>,
+    mut request: Request<B>,
+    next: Next<B>,
+) -> Result<impl IntoResponse, Error> {
+    let current_user = match state.auth_config {
+        AuthConfig::Disabled { assume_user } => {
+            match models::user::User::find_by_name(&state.database_pool, &assume_user).await? {
+                Some(user) => user,
+                None => {
+                    return Err(Error::Request(RequestError::AuthenticationUserNotFound {
+                        username: assume_user,
+                    }))
+                }
+            }
+        }
+        AuthConfig::Enabled => {
+            let Some(username) = request.headers().get("x-auth-username") else {
+                return Err(Error::Request(RequestError::AuthenticationHeaderMissing));
+            };
+
+            let username = username
+                .to_str()
+                .map_err(|error| {
+                    Error::Request(RequestError::AuthenticationHeaderInvalid {
+                        message: error.to_string(),
+                    })
+                })?
+                .to_string();
+
+            match models::user::User::find_by_name(&state.database_pool, &username).await? {
+                Some(user) => user,
+                None => {
+                    return Err(Error::Request(RequestError::AuthenticationUserNotFound {
+                        username,
+                    }))
+                }
+            }
+        }
+    };
+
+    request.extensions_mut().insert(current_user);
+    Ok(next.run(request).await)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), StartError> {
     tracing_subscriber::fmt()
@@ -164,12 +231,17 @@ async fn main() -> Result<(), StartError> {
 
     let args = Args::parse();
 
-    let database_pool = sqlite::init_database_pool(&args.database_url).await?;
+    let database_pool = sqlie::init_database_pool(&args.database_url).await?;
     sqlite::migrate(&database_pool).await?;
 
     let state = AppState {
         database_pool,
         client_state: ClientState::new(),
+        auth_config: if let Some(assume_user) = args.disable_auth_and_assume_user {
+            AuthConfig::Disabled { assume_user }
+        } else {
+            AuthConfig::Enabled
+        },
     };
 
     let icon_handler = || async {
@@ -183,7 +255,6 @@ async fn main() -> Result<(), StartError> {
     let app = Router::new()
         .route("/favicon.svg", get(icon_handler))
         .route("/assets/luggage.svg", get(icon_handler))
-        .route("/", get(root))
         .route(
             "/notfound",
             get(|| async {
@@ -193,75 +264,81 @@ async fn main() -> Result<(), StartError> {
             }),
         )
         .route("/debug", get(debug))
-        .nest(
-            (&TopLevelPage::Trips.path()).into(),
+        .merge(
+            // thse are routes that require authentication
             Router::new()
-                .route("/", get(trips).post(trip_create))
-                .route("/types/", get(trips_types).post(trip_type_create))
-                .route("/types/:id/edit/name/submit", post(trips_types_edit_name))
-                .route("/:id/", get(trip))
-                .route("/:id/comment/submit", post(trip_comment_set))
-                .route("/:id/categories/:id/select", post(trip_category_select))
-                .route("/:id/packagelist/", get(trip_packagelist))
-                .route(
-                    "/:id/packagelist/item/:id/pack",
-                    post(trip_item_packagelist_set_pack_htmx),
+                .route("/", get(root))
+                .nest(
+                    (&TopLevelPage::Trips.path()).into(),
+                    Router::new()
+                        .route("/", get(trips).post(trip_create))
+                        .route("/types/", get(trips_types).post(trip_type_create))
+                        .route("/types/:id/edit/name/submit", post(trips_types_edit_name))
+                        .route("/:id/", get(trip))
+                        .route("/:id/comment/submit", post(trip_comment_set))
+                        .route("/:id/categories/:id/select", post(trip_category_select))
+                        .route("/:id/packagelist/", get(trip_packagelist))
+                        .route(
+                            "/:id/packagelist/item/:id/pack",
+                            post(trip_item_packagelist_set_pack_htmx),
+                        )
+                        .route(
+                            "/:id/packagelist/item/:id/unpack",
+                            post(trip_item_packagelist_set_unpack_htmx),
+                        )
+                        .route(
+                            "/:id/packagelist/item/:id/ready",
+                            post(trip_item_packagelist_set_ready_htmx),
+                        )
+                        .route(
+                            "/:id/packagelist/item/:id/unready",
+                            post(trip_item_packagelist_set_unready_htmx),
+                        )
+                        .route("/:id/state/:id", post(trip_state_set))
+                        .route("/:id/total_weight", get(trip_total_weight_htmx))
+                        .route("/:id/type/:id/add", get(trip_type_add))
+                        .route("/:id/type/:id/remove", get(trip_type_remove))
+                        .route("/:id/edit/:attribute/submit", post(trip_edit_attribute))
+                        .route(
+                            "/:id/items/:id/pick",
+                            get(trip_item_set_pick).post(trip_item_set_pick_htmx),
+                        )
+                        .route(
+                            "/:id/items/:id/unpick",
+                            get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
+                        )
+                        .route(
+                            "/:id/items/:id/pack",
+                            get(trip_item_set_pack).post(trip_item_set_pack_htmx),
+                        )
+                        .route(
+                            "/:id/items/:id/unpack",
+                            get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
+                        )
+                        .route(
+                            "/:id/items/:id/ready",
+                            get(trip_item_set_ready).post(trip_item_set_ready_htmx),
+                        )
+                        .route(
+                            "/:id/items/:id/unready",
+                            get(trip_item_set_unready).post(trip_item_set_unready_htmx),
+                        ),
                 )
-                .route(
-                    "/:id/packagelist/item/:id/unpack",
-                    post(trip_item_packagelist_set_unpack_htmx),
+                .nest(
+                    (&TopLevelPage::Inventory.path()).into(),
+                    Router::new()
+                        .route("/", get(inventory_inactive))
+                        .route("/categories/:id/select", post(inventory_category_select))
+                        .route("/category/", post(inventory_category_create))
+                        .route("/category/:id/", get(inventory_active))
+                        .route("/item/", post(inventory_item_create))
+                        .route("/item/:id/", get(inventory_item))
+                        .route("/item/:id/cancel", get(inventory_item_cancel))
+                        .route("/item/:id/delete", get(inventory_item_delete))
+                        .route("/item/:id/edit", post(inventory_item_edit))
+                        .route("/item/name/validate", post(inventory_item_validate_name)),
                 )
-                .route(
-                    "/:id/packagelist/item/:id/ready",
-                    post(trip_item_packagelist_set_ready_htmx),
-                )
-                .route(
-                    "/:id/packagelist/item/:id/unready",
-                    post(trip_item_packagelist_set_unready_htmx),
-                )
-                .route("/:id/state/:id", post(trip_state_set))
-                .route("/:id/total_weight", get(trip_total_weight_htmx))
-                .route("/:id/type/:id/add", get(trip_type_add))
-                .route("/:id/type/:id/remove", get(trip_type_remove))
-                .route("/:id/edit/:attribute/submit", post(trip_edit_attribute))
-                .route(
-                    "/:id/items/:id/pick",
-                    get(trip_item_set_pick).post(trip_item_set_pick_htmx),
-                )
-                .route(
-                    "/:id/items/:id/unpick",
-                    get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
-                )
-                .route(
-                    "/:id/items/:id/pack",
-                    get(trip_item_set_pack).post(trip_item_set_pack_htmx),
-                )
-                .route(
-                    "/:id/items/:id/unpack",
-                    get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
-                )
-                .route(
-                    "/:id/items/:id/ready",
-                    get(trip_item_set_ready).post(trip_item_set_ready_htmx),
-                )
-                .route(
-                    "/:id/items/:id/unready",
-                    get(trip_item_set_unready).post(trip_item_set_unready_htmx),
-                ),
-        )
-        .nest(
-            (&TopLevelPage::Inventory.path()).into(),
-            Router::new()
-                .route("/", get(inventory_inactive))
-                .route("/categories/:id/select", post(inventory_category_select))
-                .route("/category/", post(inventory_category_create))
-                .route("/category/:id/", get(inventory_active))
-                .route("/item/", post(inventory_item_create))
-                .route("/item/:id/", get(inventory_item))
-                .route("/item/:id/cancel", get(inventory_item_cancel))
-                .route("/item/:id/delete", get(inventory_item_delete))
-                .route("/item/:id/edit", post(inventory_item_edit))
-                .route("/item/name/validate", post(inventory_item_validate_name)),
+                .layer(middleware::from_fn_with_state(state.clone(), authorize)),
         )
         .fallback(|| async {
             Error::Request(RequestError::NotFound {
@@ -287,8 +364,12 @@ async fn main() -> Result<(), StartError> {
     Ok(())
 }
 
-async fn root() -> impl IntoResponse {
-    view::Root::build(&view::home::Home::build(), None)
+async fn root(Extension(current_user): Extension<User>) -> impl IntoResponse {
+    view::Root::build(
+        &Context::build(current_user),
+        &view::home::Home::build(),
+        None,
+    )
 }
 
 async fn debug(headers: HeaderMap) -> impl IntoResponse {
@@ -308,6 +389,7 @@ struct InventoryQuery {
 }
 
 async fn inventory_active(
+    Extension(current_user): Extension<User>,
     State(mut state): State<AppState>,
     Path(id): Path<Uuid>,
     Query(inventory_query): Query<InventoryQuery>,
@@ -332,6 +414,7 @@ async fn inventory_active(
         .transpose()?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::inventory::Inventory::build(
             active_category,
             &inventory.categories,
@@ -342,6 +425,7 @@ async fn inventory_active(
 }
 
 async fn inventory_inactive(
+    Extension(current_user): Extension<User>,
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
 ) -> Result<impl IntoResponse, Error> {
@@ -351,6 +435,7 @@ async fn inventory_inactive(
     let inventory = models::inventory::Inventory::load(&state.database_pool).await?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::inventory::Inventory::build(
             None,
             &inventory.categories,
@@ -543,10 +628,14 @@ async fn trip_create(
     Ok(Redirect::to(&format!("/trips/{new_id}/")))
 }
 
-async fn trips(State(state): State<AppState>) -> Result<impl IntoResponse, Error> {
+async fn trips(
+    Extension(current_user): Extension<User>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, Error> {
     let trips = models::trips::Trip::all(&state.database_pool).await?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::trip::TripManager::build(trips),
         Some(&TopLevelPage::Trips),
     ))
@@ -559,6 +648,7 @@ struct TripQuery {
 }
 
 async fn trip(
+    Extension(current_user): Extension<User>,
     State(mut state): State<AppState>,
     Path(id): Path<Uuid>,
     Query(trip_query): Query<TripQuery>,
@@ -593,6 +683,7 @@ async fn trip(
         .transpose()?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::trip::Trip::build(
             &trip,
             state.client_state.trip_edit_attribute,
@@ -1027,6 +1118,7 @@ struct TripTypeQuery {
 }
 
 async fn trips_types(
+    Extension(current_user): Extension<User>,
     State(mut state): State<AppState>,
     Query(trip_type_query): Query<TripTypeQuery>,
 ) -> Result<impl IntoResponse, Error> {
@@ -1036,6 +1128,7 @@ async fn trips_types(
         models::trips::TripsType::all(&state.database_pool).await?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::trip::types::TypeList::build(&state.client_state, trip_types),
         Some(&TopLevelPage::Trips),
     ))
@@ -1096,6 +1189,7 @@ async fn trips_types_edit_name(
 }
 
 async fn inventory_item(
+    Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
@@ -1106,6 +1200,7 @@ async fn inventory_item(
         }))?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::inventory::InventoryItem::build(&state.client_state, &item),
         Some(&TopLevelPage::Inventory),
     ))
@@ -1178,6 +1273,7 @@ async fn inventory_category_select(
 }
 
 async fn trip_packagelist(
+    Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
@@ -1190,6 +1286,7 @@ async fn trip_packagelist(
     trip.load_categories(&state.database_pool).await?;
 
     Ok(view::Root::build(
+        &Context::build(current_user),
         &view::trip::packagelist::TripPackageList::build(&trip),
         Some(&TopLevelPage::Trips),
     ))
