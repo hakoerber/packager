@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
 
+macro_rules! build_state_query {
+    () => {
+        println!("hi")
+    };
+}
+
 #[derive(sqlite::Type, PartialEq, PartialOrd, Deserialize, Debug)]
 pub enum TripState {
     Init,
@@ -382,10 +388,10 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-            SET pick = ?
-            WHERE trip_id = ?
-            AND item_id = ?
-            AND user_id = ?",
+                        SET pick = ?
+                        WHERE trip_id = ?
+                        AND item_id = ?
+                        AND user_id = ?",
                     value,
                     trip_id_param,
                     item_id_param,
@@ -401,10 +407,10 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-            SET pack = ?
-            WHERE trip_id = ?
-            AND item_id = ?
-            AND user_id = ?",
+                        SET pack = ?
+                        WHERE trip_id = ?
+                        AND item_id = ?
+                        AND user_id = ?",
                     value,
                     trip_id_param,
                     item_id_param,
@@ -420,10 +426,10 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-            SET ready = ?
-            WHERE trip_id = ?
-            AND item_id = ?
-            AND user_id = ?",
+                        SET ready = ?
+                        WHERE trip_id = ?
+                        AND item_id = ?
+                        AND user_id = ?",
                     value,
                     trip_id_param,
                     item_id_param,
