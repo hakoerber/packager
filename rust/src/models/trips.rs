@@ -24,6 +24,7 @@ pub enum TripState {
     Done,
 }
 
+#[allow(clippy::new_without_default)]
 impl TripState {
     pub fn new() -> Self {
         TripState::Init
