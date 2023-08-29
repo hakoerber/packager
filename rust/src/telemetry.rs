@@ -7,19 +7,23 @@ use std::time::Duration;
 use axum::Router;
 use http::Request;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
-use tracing::Span;
+use tracing::{Span, Subscriber};
 
 use tracing_log::LogTracer;
 use tracing_subscriber::{
     filter::{LevelFilter, Targets},
-    fmt::{format::Format, Layer},
+    fmt::{
+        format::{Format, Writer},
+        FmtContext, FormatEvent, FormatFields, Layer,
+    },
     layer::SubscriberExt,
     prelude::*,
-    registry::Registry,
+    registry::{LookupSpan, Registry},
 };
 use uuid::Uuid;
 
 use opentelemetry::{global, runtime::Tokio};
+use tracing::Event;
 
 pub enum OpenTelemetryConfig {
     Enabled,
@@ -29,6 +33,42 @@ pub enum OpenTelemetryConfig {
 pub enum TokioConsoleConfig {
     Enabled,
     Disabled,
+}
+
+struct DebugFormat;
+
+impl<S, N> FormatEvent<S, N> for DebugFormat
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &FmtContext<'_, S, N>,
+        mut writer: Writer<'_>,
+        event: &Event<'_>,
+    ) -> fmt::Result {
+        let metadata = event.metadata();
+
+        write!(
+            &mut writer,
+            "{}\t{}:\t",
+            metadata.level(),
+            metadata.target()
+        )?;
+
+        if let Some(scope) = ctx.event_scope() {
+            for span in scope.from_root() {
+                write!(writer, "span: {}\t", span.metadata().name())?;
+            }
+        } else {
+            write!(writer, "NO SPAN\t")?;
+        };
+
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
+    }
 }
 
 pub async fn init_tracing<Func, T>(
@@ -52,6 +92,8 @@ where
         .with_target(true)
         .with_level(true)
         .with_file(false);
+
+    let stdout_format = DebugFormat;
 
     let stdout_layer = Layer::default()
         .event_format(stdout_format)
@@ -83,7 +125,8 @@ where
                 .with_service_name(env!("CARGO_PKG_NAME"))
                 .with_max_packet_size(20_000)
                 .with_auto_split_batch(true)
-                .install_batch(Tokio)
+                // .install_batch(Tokio)
+                .install_simple()
                 .unwrap();
 
             let opentelemetry_filter = {
@@ -97,8 +140,9 @@ where
                     ])
             };
 
-            let opentelemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-            // .with_filter(opentelemetry_filter);
+            let opentelemetry_layer = tracing_opentelemetry::layer()
+                .with_tracer(tracer)
+                .with_filter(opentelemetry_filter);
 
             shutdown_functions.push(Box::new(|| {
                 println!("shutting down otel");
@@ -144,6 +188,7 @@ impl fmt::Display for Latency {
 }
 
 pub fn init_request_tracing(router: Router) -> Router {
+    return router;
     router.layer(
         TraceLayer::new_for_http()
             .make_span_with(|_request: &Request<_>| {
