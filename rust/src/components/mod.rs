@@ -10,6 +10,7 @@ pub use trip::*;
 
 pub struct Root;
 
+#[derive(PartialEq, Eq)]
 pub enum TopLevelPage {
     Inventory,
     Trips,
@@ -36,25 +37,30 @@ impl Root {
                 {
                     header
                         #header
-                        ."h-full"
+                        ."h-16"
                         ."bg-gray-200"
-                        ."p-5"
                         ."flex"
                         ."flex-row"
                         ."flex-nowrap"
                         ."justify-between"
-                        ."items-center"
+                        ."items-stretch"
                     {
-                        span
-                            ."text-xl"
-                            ."font-semibold"
+                        a
+                            #home
+                            hx-boost="true"
+                            href="/"
                             ."flex"
                             ."flex-row"
                             ."items-center"
                             ."gap-3"
+                            ."px-5"
+                            ."hover:bg-gray-300"
                         {
                             img ."h-12" src="/assets/luggage.svg" {}
-                            a #home href="/" { "Packager" }
+                            span
+                                ."text-xl"
+                                ."font-semibold"
+                            { "Packager" }
                         }
                         nav
                             ."grow"
@@ -62,22 +68,44 @@ impl Root {
                             ."flex-row"
                             ."justify-center"
                             ."gap-x-10"
-                            ."content-stretch"
+                            ."items-stretch"
                         {
-                            a href="/inventory/"
+                            a
+                                href="/inventory/"
+                                hx-boost="true"
                                 #header-link-inventory
+                                ."px-5"
+                                ."flex"
                                 ."h-full"
                                 ."text-lg"
-                                ."font-bold"[matches!(active_page, TopLevelPage::Inventory)]
-                                ."underline"[matches!(active_page, TopLevelPage::Inventory)]
-                            { "Inventory" }
-                            a href="/trips/"
+                                ."hover:bg-gray-300"
+
+                                // invisible top border to fix alignment
+                                ."border-t-gray-200"[active_page == &TopLevelPage::Inventory]
+                                ."hover:border-t-gray-300"[active_page == &TopLevelPage::Inventory]
+
+                                ."border-b-gray-500"[active_page == &TopLevelPage::Inventory]
+                                ."border-y-4"[active_page == &TopLevelPage::Inventory]
+                                ."font-bold"[active_page == &TopLevelPage::Inventory]
+                            { span ."m-auto" ."font-semibold" { "Inventory" }}
+                            a
+                                href="/trips/"
+                                hx-boost="true"
                                 #header-link-trips
+                                ."px-5"
+                                ."flex"
                                 ."h-full"
                                 ."text-lg"
-                                ."font-bold"[matches!(active_page, TopLevelPage::Trips)]
-                                ."underline"[matches!(active_page, TopLevelPage::Trips)]
-                            { "Trips" }
+                                ."hover:bg-gray-300"
+
+                                // invisible top border to fix alignment
+                                ."border-t-gray-200"[active_page == &TopLevelPage::Trips]
+                                ."hover:border-t-gray-300"[active_page == &TopLevelPage::Trips]
+
+                                ."border-gray-500"[active_page == &TopLevelPage::Trips]
+                                ."border-y-4"[active_page == &TopLevelPage::Trips]
+                                ."font-bold"[active_page == &TopLevelPage::Trips]
+                            { span ."m-auto" ."font-semibold" { "Trips" }}
                         }
                     }
                     (body)

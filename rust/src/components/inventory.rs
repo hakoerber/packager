@@ -89,7 +89,7 @@ impl InventoryCategoryList {
                                     id="select-category"
                                     href={
                                         "/inventory/category/"
-                                        (category.id)
+                                        (category.id) "/"
                                     }
                                     hx-post={
                                         "/inventory/categories/"
@@ -152,6 +152,7 @@ impl InventoryItemList {
                             name="edit-item"
                             id="edit-item"
                             action={"/inventory/item/" (edit_item_id) "/edit"}
+                            hx-boost="true"
                             target="_self"
                             method="post"
                         {}
@@ -230,12 +231,13 @@ impl InventoryItemList {
                                             ."h-full"
                                         {
                                             a
+                                                href=(format!("/inventory/item/{id}/cancel", id = item.id))
+                                                hx-boost="true"
                                                 ."aspect-square"
                                                 ."flex"
                                                 ."w-full"
                                                 ."h-full"
                                                 ."p-0"
-                                                href=(format!("/inventory/item/{id}/cancel", id = item.id))
                                             {
                                                 span
                                                     ."m-auto"
@@ -253,10 +255,11 @@ impl InventoryItemList {
                                                 ."p-2" ."w-full" ."inline-block"
                                                 href=(
                                                     format!("/inventory/item/{id}/", id=item.id)
-                                                ) {
-
-                                                    (item.name.clone())
-                                                }
+                                                )
+                                                hx-boost="true"
+                                            {
+                                                (item.name.clone())
+                                            }
                                         }
                                         td ."border" ."p-2" style="position:relative;" {
                                             p { (item.weight.to_string()) }
@@ -276,10 +279,11 @@ impl InventoryItemList {
                                             ."h-full"
                                             {
                                                 a
+                                                    href=(format!("?edit_item={id}", id = item.id))
+                                                    hx-boost="true"
                                                     ."aspect-square"
                                                     ."flex"
                                                     ."w-full"
-                                                    href=(format!("?edit_item={id}", id = item.id))
                                                 {
                                                     span ."m-auto" ."mdi" ."mdi-pencil" ."text-xl" {}
                                                 }
@@ -293,10 +297,11 @@ impl InventoryItemList {
                                             ."h-full"
                                         {
                                             a
+                                                href=(format!("/inventory/item/{id}/delete", id = item.id))
+                                                hx-boost="true"
                                                 ."aspect-square"
                                                 ."flex"
                                                 ."w-full"
-                                                href=(format!("/inventory/item/{id}/delete", id = item.id))
                                             {
                                                 span ."m-auto" ."mdi" ."mdi-delete" ."text-xl" {}
                                             }
@@ -317,17 +322,6 @@ pub struct InventoryNewItemFormName;
 impl InventoryNewItemFormName {
     pub fn build(value: Option<&str>, error: bool) -> Markup {
         html!(
-            script {
-                (PreEscaped("
-                function inventory_new_item_check_input() {
-                    return document.getElementById('new-item-name').value.length != 0
-                    && is_positive_integer(document.getElementById('new-item-weight').value)
-                }
-                function check_weight() {
-                    return document.getElementById('new-item-weight').validity.valid;
-                }
-                "))
-            }
             div
                 ."grid"
                 ."grid-cols-[2fr,3fr]"
@@ -376,17 +370,6 @@ pub struct InventoryNewItemFormWeight;
 impl InventoryNewItemFormWeight {
     pub fn build() -> Markup {
         html!(
-            script {
-                (PreEscaped("
-                function inventory_new_item_check_input() {
-                    return document.getElementById('new-item-name').value.length != 0
-                    && is_positive_integer(document.getElementById('new-item-weight').value)
-                }
-                function check_weight() {
-                    return document.getElementById('new-item-weight').validity.valid;
-                }
-                "))
-            }
             div
                 ."grid"
                 ."grid-cols-[2fr,3fr]"
@@ -468,17 +451,6 @@ pub struct InventoryNewItemForm;
 impl InventoryNewItemForm {
     pub fn build(active_category: Option<&Category>, categories: &Vec<Category>) -> Markup {
         html!(
-            script {
-                (PreEscaped("
-                function inventory_new_item_check_input() {
-                    return document.getElementById('new-item-name').value.length != 0
-                    && is_positive_integer(document.getElementById('new-item-weight').value)
-                }
-                function check_weight() {
-                    return document.getElementById('new-item-weight').validity.valid;
-                }
-                "))
-            }
             form
                 x-data="{
                     save_active: inventory_new_item_check_input(),

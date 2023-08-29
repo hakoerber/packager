@@ -166,13 +166,21 @@ async fn main() -> Result<(), sqlx::Error> {
         .nest(
             "/trips/",
             Router::new()
-                .route("/", get(trips))
+                .route("/", get(trips).post(trip_create))
                 .route("/types/", get(trips_types).post(trip_type_create))
                 .route("/types/:id/edit/name/submit", post(trips_types_edit_name))
-                .route("/", post(trip_create))
                 .route("/:id/", get(trip))
                 .route("/:id/comment/submit", post(trip_comment_set))
                 .route("/:id/categories/:id/select", post(trip_category_select))
+                .route("/:id/packagelist/", get(trip_packagelist))
+                .route(
+                    "/:id/packagelist/item/:id/pack",
+                    post(trip_item_packagelist_set_pack_htmx),
+                )
+                .route(
+                    "/:id/packagelist/item/:id/unpack",
+                    post(trip_item_packagelist_set_unpack_htmx),
+                )
                 .route("/:id/state/:id", post(trip_state_set))
                 .route("/:id/total_weight", get(trip_total_weight_htmx))
                 .route("/:id/type/:id/add", get(trip_type_add))
@@ -199,18 +207,15 @@ async fn main() -> Result<(), sqlx::Error> {
             "/inventory/",
             Router::new()
                 .route("/", get(inventory_inactive))
-                .route("/category/", post(inventory_category_create))
-                .route("/item/:id/", get(inventory_item))
                 .route("/categories/:id/select", post(inventory_category_select))
-                .route("/item/", post(inventory_item_create))
-                .route("/item/name/validate", post(inventory_item_validate_name))
+                .route("/category/", post(inventory_category_create))
                 .route("/category/:id/", get(inventory_active))
+                .route("/item/", post(inventory_item_create))
+                .route("/item/:id/", get(inventory_item))
+                .route("/item/:id/cancel", get(inventory_item_cancel))
                 .route("/item/:id/delete", get(inventory_item_delete))
                 .route("/item/:id/edit", post(inventory_item_edit))
-                .route("/item/:id/cancel", get(inventory_item_cancel)), // .route(
-                                                                        //     "/inventory/category/:id/items",
-                                                                        //     post(htmx_inventory_category_items),
-                                                                        // );
+                .route("/item/name/validate", post(inventory_item_validate_name)),
         )
         .fallback(|| async { (StatusCode::NOT_FOUND, "not found") })
         .with_state(state);
@@ -1777,7 +1782,7 @@ async fn inventory_category_select(
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
         HtmxResponseHeaders::PushUrl.into(),
-        format!("/inventory/category/{category_id}")
+        format!("/inventory/category/{category_id}/")
             .parse()
             .unwrap(),
     );
@@ -1790,5 +1795,92 @@ async fn inventory_category_select(
             &inventory.categories,
             state.client_state.edit_item,
         ),
+    ))
+}
+
+async fn trip_packagelist(
+    State(state): State<AppState>,
+    Path(trip_id): Path<Uuid>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    let mut trip = models::Trip::find(&state.database_pool, trip_id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("trip with id {trip_id} not found")),
+        ))?;
+
+    trip.load_categories(&state.database_pool)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&e.to_string()),
+            )
+        })?;
+
+    Ok((
+        StatusCode::OK,
+        Root::build(
+            &components::packagelist::TripPackageList::build(&trip),
+            &TopLevelPage::None,
+        ),
+    ))
+}
+
+async fn trip_item_packagelist_set_pack_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, true).await?;
+
+    let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&error.to_string()),
+            )
+        })?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("an item with id {item_id} does not exist")),
+        ))?;
+
+    Ok((
+        StatusCode::OK,
+        components::packagelist::TripPackageListRow::build(trip_id, &item),
+    ))
+}
+
+async fn trip_item_packagelist_set_unpack_htmx(
+    State(state): State<AppState>,
+    Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Markup), (StatusCode, Markup)> {
+    trip_item_set_state(&state, trip_id, item_id, TripItemStateKey::Pack, false).await?;
+
+    // note that this cannot fail due to a missing item, as trip_item_set_state would already
+    // return 404. but error handling cannot hurt ;)
+    let item = models::TripItem::find(&state.database_pool, trip_id, item_id)
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorPage::build(&error.to_string()),
+            )
+        })?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            ErrorPage::build(&format!("an item with id {item_id} does not exist")),
+        ))?;
+
+    Ok((
+        StatusCode::OK,
+        components::packagelist::TripPackageListRow::build(trip_id, &item),
     ))
 }

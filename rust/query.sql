@@ -63,22 +63,44 @@
 /*     ON inner.category_id = category.id */
 /* WHERE category.id = '1293c6b6-eef5-4269-bf10-a1ac20549dac' */
 
-SELECT
-    trip.id AS id,
-    trip.name AS name,
-    CAST (date_start AS TEXT) date_start,
-    CAST (date_end AS TEXT) date_end,
-    state,
-    location,
-    temp_min,
-    temp_max,
-    comment,
-    SUM(i_item.weight) AS total_weight
-FROM trips AS trip
-INNER JOIN trips_items AS t_item
-    ON t_item.trip_id = trip.id
-INNER JOIN inventory_items AS i_item
-    ON t_item.item_id = i_item.id
-WHERE
-    trip.id = '0535193c-7b47-4ba4-bca5-40e54c15c2d0'
-    AND t_item.pick = true
+/* SELECT */
+/*     trip.id AS id, */
+/*     trip.name AS name, */
+/*     CAST (date_start AS TEXT) date_start, */
+/*     CAST (date_end AS TEXT) date_end, */
+/*     state, */
+/*     location, */
+/*     temp_min, */
+/*     temp_max, */
+/*     comment, */
+/*     SUM(i_item.weight) AS total_weight */
+/* FROM trips AS trip */
+/* INNER JOIN trips_items AS t_item */
+/*     ON t_item.trip_id = trip.id */
+/* INNER JOIN inventory_items AS i_item */
+/*     ON t_item.item_id = i_item.id */
+/* WHERE */
+/*     trip.id = '0535193c-7b47-4ba4-bca5-40e54c15c2d0' */
+/*     AND t_item.pick = true */
+
+        /* UPDATE trips_items */
+        /*     SET pick = true */
+        /* WHERE trip_id = '0535193c-7b47-4ba4-bca5-40e54c15c2d0' */
+        /*     AND item_id = '2418ab2d-4e11-4a68-8761-265d442742f6' */
+        /* RETURNING */
+        /*     trips_items.item_id */
+
+SELECT *
+FROM inventory_items
+WHERE id = (
+        UPDATE trips_items
+            SET pick = true
+        WHERE trip_id = '0535193c-7b47-4ba4-bca5-40e54c15c2d0'
+            AND item_id = '2418ab2d-4e11-4a68-8761-265d442742f6'
+        RETURNING
+            trips_items.item_id
+        /* SELECT trips_items.item_id */
+        /* FROM trips_items */
+        /* WHERE trip_id = '0535193c-7b47-4ba4-bca5-40e54c15c2d0' */
+        /*     AND item_id = '2418ab2d-4e11-4a68-8761-265d442742f6' */
+    )

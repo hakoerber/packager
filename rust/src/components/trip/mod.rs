@@ -9,7 +9,9 @@ use serde_variant::to_variant_name;
 use crate::ClientState;
 pub struct TripManager;
 
+pub mod packagelist;
 pub mod types;
+
 pub use types::*;
 
 impl TripManager {
@@ -105,8 +107,14 @@ impl TripTableRow {
     pub fn build(trip_id: Uuid, value: impl maud::Render) -> Markup {
         html!(
             td ."border" ."p-0" ."m-0" {
-                a ."inline-block" ."p-2" ."m-0" ."w-full"
-                    href=(format!("/trips/{id}/", id=trip_id))
+                a
+                    href={"/trips/" (trip_id) "/"}
+                    hx-boost="true"
+                    ."inline-block"
+                    ."p-2"
+                    ."m-0"
+                    ."w-full"
+
                 { (value) }
             }
         )
@@ -123,6 +131,7 @@ impl NewTrip {
                 action="/trips/"
                 target="_self"
                 method="post"
+                hx-boost="true"
                 ."p-5" ."border-2" ."border-gray-200"
             {
                 div ."mb-5" ."flex" ."flex-row" ."trips-center" {
@@ -225,93 +234,116 @@ impl Trip {
                 div
                     ."flex"
                     ."flex-row"
-                    ."items-stretch"
-                    ."gap-x-5"
+                    ."justify-between"
                 {
-                    a
-                        href="/trips/"
-                        ."text-sm"
-                        ."text-gray-500"
+                    div
                         ."flex"
+                        ."flex-row"
+                        ."items-stretch"
+                        ."gap-x-5"
                     {
-                        div
-                            ."m-auto"
+                        a
+                            href="/trips/"
+                            hx-boost="true"
+                            ."text-sm"
+                            ."text-gray-500"
+                            ."flex"
                         {
-                            span
-                                ."mdi"
-                                ."mdi-arrow-left"
-                            {}
-                            "back"
+                            div
+                                ."m-auto"
+                            {
+                                span
+                                    ."mdi"
+                                    ."mdi-arrow-left"
+                                {}
+                                "back"
+                            }
+                        }
+                        div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
+                            @if trip_edit_attribute.as_ref().map_or(false, |a| *a == TripAttribute::Name) {
+                                form
+                                    id="edit-trip"
+                                    action=(format!("edit/{}/submit", to_variant_name(&TripAttribute::Name).unwrap()))
+                                    hx-boost="true"
+                                    target="_self"
+                                    method="post"
+                                {
+                                    div
+                                        ."flex"
+                                        ."flex-row"
+                                        ."items-center"
+                                        ."gap-x-3"
+                                        ."items-stretch"
+                                    {
+                                        input
+                                            ."bg-blue-200"
+                                            ."w-full"
+                                            ."text-2xl"
+                                            ."font-semibold"
+                                            type=(<InputType as Into<&'static str>>::into(InputType::Text))
+                                            name="new-value"
+                                            form="edit-trip"
+                                            value=(trip.name)
+                                        {}
+                                        a
+                                            href="."
+                                            hx-boost="true"
+                                            ."bg-red-200"
+                                            ."hover:bg-red-300"
+                                            ."w-8"
+                                            ."flex"
+                                        {
+                                            span
+                                                ."mdi"
+                                                ."mdi-cancel"
+                                                ."text-xl"
+                                                ."m-auto"
+                                            {}
+                                        }
+                                        button
+                                            type="submit"
+                                            form="edit-trip"
+                                            ."bg-green-200"
+                                            ."hover:bg-green-300"
+                                            ."w-8"
+                                        {
+                                            span
+                                                ."mdi"
+                                                ."mdi-content-save"
+                                                ."text-xl"
+                                            {}
+                                        }
+                                    }
+                                }
+                            } @else {
+                                h1 ."text-2xl" { (trip.name) }
+                                span {
+                                    a
+                                        href={"?edit=" (to_variant_name(&TripAttribute::Name).unwrap())}
+                                        hx-boost="true"
+                                    {
+                                        span
+                                            ."mdi"
+                                            ."mdi-pencil"
+                                            ."text-xl"
+                                            ."opacity-50"
+                                        {}
+                                    }
+                                }
+                            }
                         }
                     }
-                    div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                        @if trip_edit_attribute.as_ref().map_or(false, |a| *a == TripAttribute::Name) {
-                            form
-                                id="edit-trip"
-                                action=(format!("edit/{}/submit", to_variant_name(&TripAttribute::Name).unwrap()))
-                                target="_self"
-                                method="post"
-                            {
-                                div
-                                    ."flex"
-                                    ."flex-row"
-                                    ."items-center"
-                                    ."gap-x-3"
-                                    ."items-stretch"
-                                {
-                                    input
-                                        ."bg-blue-200"
-                                        ."w-full"
-                                        ."text-2xl"
-                                        ."font-semibold"
-                                        type=(<InputType as Into<&'static str>>::into(InputType::Text))
-                                        name="new-value"
-                                        form="edit-trip"
-                                        value=(trip.name)
-                                    {}
-                                    a
-                                        href="."
-                                        ."bg-red-200"
-                                        ."hover:bg-red-300"
-                                        ."w-8"
-                                        ."flex"
-                                    {
-                                        span
-                                            ."mdi"
-                                            ."mdi-cancel"
-                                            ."text-xl"
-                                            ."m-auto"
-                                        {}
-                                    }
-                                    button
-                                        type="submit"
-                                        form="edit-trip"
-                                        ."bg-green-200"
-                                        ."hover:bg-green-300"
-                                        ."w-8"
-                                    {
-                                        span
-                                            ."mdi"
-                                            ."mdi-content-save"
-                                            ."text-xl"
-                                        {}
-                                    }
-                                }
-                            }
-                        } @else {
-                            h1 ."text-2xl" { (trip.name) }
-                            span {
-                                a href=(format!("?edit={}", to_variant_name(&TripAttribute::Name).unwrap()))
-                                {
-                                    span
-                                        ."mdi"
-                                        ."mdi-pencil"
-                                        ."text-xl"
-                                        ."opacity-50"
-                                    {}
-                                }
-                            }
-                        }
+                    a
+                        href={"/trips/" (trip.id) "/packagelist/"}
+                        hx-boost="true"
+                        ."p-2"
+                        ."border-2"
+                        ."border-gray-500"
+                        ."rounded-md"
+                        ."bg-blue-200"
+                        ."hover:bg-blue-200"
+                    {
+                        "Show Package List"
                     }
                 }
                 (TripInfo::build(trip_edit_attribute, trip))
@@ -339,6 +371,7 @@ impl TripInfoRow {
                     name="edit-trip"
                     id="edit-trip"
                     action=(format!("edit/{key}/submit", key=(to_variant_name(&attribute_key).unwrap()) ))
+                    hx-boost="true"
                     target="_self"
                     method="post"
                 {}
@@ -377,11 +410,12 @@ impl TripInfoRow {
                                 ."h-full"
                             {
                                 a
+                                    href="." // strips query parameters
+                                    hx-boost="true"
                                     ."flex"
                                     ."w-full"
                                     ."h-full"
                                     ."p-0"
-                                    href="." // strips query parameters
                                 {
                                     span
                                         ."m-auto"
@@ -426,10 +460,11 @@ impl TripInfoRow {
                         ."h-full"
                     {
                         a
-                            .flex
+                            href={ "?edit=" (to_variant_name(&attribute_key).unwrap()) }
+                            hx-boost="true"
+                            ."flex"
                             ."w-full"
                             ."h-full"
-                            href={ "?edit=" (to_variant_name(&attribute_key).unwrap()) }
                         {
                             span
                                 ."m-auto"
@@ -649,7 +684,10 @@ impl TripInfo {
                                             ."justify-start"
                                         {
                                             @for triptype in active_triptypes {
-                                                a href=(format!("type/{}/remove", triptype.id)) {
+                                                a
+                                                    href={"type/" (triptype.id) "/remove"}
+                                                    hx-boost="true"
+                                                {
                                                     li
                                                         ."border"
                                                         ."rounded-2xl"
@@ -679,7 +717,10 @@ impl TripInfo {
                                             ."justify-start"
                                         {
                                             @for triptype in inactive_triptypes {
-                                                a href=(format!("type/{}/add", triptype.id)) {
+                                                a
+                                                    href={"type/" (triptype.id) "/add"}
+                                                    hx-boost="true"
+                                                {
                                                     li
                                                         ."border"
                                                         ."rounded-2xl"
@@ -703,7 +744,9 @@ impl TripInfo {
                                         }
                                     }
                                 }
-                                a href="/trips/types/"
+                                a
+                                    href="/trips/types/"
+                                    hx-boost="true"
                                     ."text-sm"
                                     ."text-gray-500"
                                     ."mr-2"
@@ -742,6 +785,7 @@ impl TripComment {
                 form
                     id="edit-comment"
                     action="comment/submit"
+                    hx-boost="true"
                     target="_self"
                     method="post"
                 {}
@@ -1118,6 +1162,7 @@ impl TripItemListRow {
                             href=(
                                 format!("/inventory/item/{id}/", id=item.item.id)
                             )
+                            hx-boost="true"
                         {
                             (item.item.name.clone())
                         }
