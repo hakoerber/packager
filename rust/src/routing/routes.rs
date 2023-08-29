@@ -308,9 +308,11 @@ pub async fn inventory_item_cancel(
 }
 
 pub async fn trip_create(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_trip): Form<NewTrip>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     if new_trip.name.is_empty() {
         return Err(Error::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
@@ -318,6 +320,7 @@ pub async fn trip_create(
     }
 
     let new_id = models::trips::Trip::save(
+        &ctx,
         &state.database_pool,
         &new_trip.name,
         new_trip.date_start,
@@ -332,10 +335,11 @@ pub async fn trips(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, Error> {
-    let trips = models::trips::Trip::all(&state.database_pool).await?;
+    let ctx = Context::build(current_user);
+    let trips = models::trips::Trip::all(&ctx, &state.database_pool).await?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::trip::TripManager::build(trips),
         Some(&TopLevelPage::Trips),
     ))
@@ -347,21 +351,22 @@ pub async fn trip(
     Path(id): Path<Uuid>,
     Query(trip_query): Query<TripQuery>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     state.client_state.trip_edit_attribute = trip_query.edit;
     state.client_state.active_category_id = trip_query.category;
 
-    let mut trip: models::trips::Trip = models::trips::Trip::find(&state.database_pool, id)
+    let mut trip: models::trips::Trip = models::trips::Trip::find(&ctx, &state.database_pool, id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("trip with id {id} not found"),
         }))?;
 
-    trip.load_trips_types(&state.database_pool).await?;
+    trip.load_trips_types(&ctx, &state.database_pool).await?;
 
-    trip.sync_trip_items_with_inventory(&state.database_pool)
+    trip.sync_trip_items_with_inventory(&ctx, &state.database_pool)
         .await?;
 
-    trip.load_categories(&state.database_pool).await?;
+    trip.load_categories(&ctx, &state.database_pool).await?;
 
     let active_category: Option<&models::trips::TripCategory> = state
         .client_state
@@ -377,7 +382,7 @@ pub async fn trip(
         .transpose()?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::trip::Trip::build(
             &trip,
             state.client_state.trip_edit_attribute,
@@ -388,11 +393,13 @@ pub async fn trip(
 }
 
 pub async fn trip_type_remove(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     let found =
-        models::trips::Trip::trip_type_remove(&state.database_pool, trip_id, type_id).await?;
+        models::trips::Trip::trip_type_remove(&ctx, &state.database_pool, trip_id, type_id).await?;
 
     if !found {
         Err(Error::Request(RequestError::NotFound {
@@ -404,20 +411,25 @@ pub async fn trip_type_remove(
 }
 
 pub async fn trip_type_add(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Redirect, Error> {
-    models::trips::Trip::trip_type_add(&state.database_pool, trip_id, type_id).await?;
+    let ctx = Context::build(current_user);
+    models::trips::Trip::trip_type_add(&ctx, &state.database_pool, trip_id, type_id).await?;
 
     Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
 
 pub async fn trip_comment_set(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
     Form(comment_update): Form<CommentUpdate>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     let found = models::trips::Trip::set_comment(
+        &ctx,
         &state.database_pool,
         trip_id,
         &comment_update.new_comment,
@@ -434,10 +446,12 @@ pub async fn trip_comment_set(
 }
 
 pub async fn trip_edit_attribute(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, attribute)): Path<(Uuid, models::trips::TripAttribute)>,
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     if attribute == models::trips::TripAttribute::Name {
         if trip_update.new_value.is_empty() {
             return Err(Error::Request(RequestError::EmptyFormElement {
@@ -446,6 +460,7 @@ pub async fn trip_edit_attribute(
         }
     }
     models::trips::Trip::set_attribute(
+        &ctx,
         &state.database_pool,
         trip_id,
         attribute,
@@ -457,13 +472,15 @@ pub async fn trip_edit_attribute(
 }
 
 pub async fn trip_item_set_state(
+    ctx: &Context,
     state: &AppState,
     trip_id: Uuid,
     item_id: Uuid,
     key: models::trips::TripItemStateKey,
     value: bool,
 ) -> Result<(), Error> {
-    models::trips::TripItem::set_state(&state.database_pool, trip_id, item_id, key, value).await?;
+    models::trips::TripItem::set_state(&ctx, &state.database_pool, trip_id, item_id, key, value)
+        .await?;
     Ok(())
 }
 
@@ -473,7 +490,7 @@ pub async fn trip_row(
     trip_id: Uuid,
     item_id: Uuid,
 ) -> Result<impl IntoResponse, Error> {
-    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or_else(|| {
             Error::Request(RequestError::NotFound {
@@ -492,14 +509,18 @@ pub async fn trip_row(
         .await?,
     );
 
-    let category =
-        models::trips::TripCategory::find(&state.database_pool, trip_id, item.item.category_id)
-            .await?
-            .ok_or_else(|| {
-                Error::Request(RequestError::NotFound {
-                    message: format!("category with id {} not found", item.item.category_id),
-                })
-            })?;
+    let category = models::trips::TripCategory::find(
+        ctx,
+        &state.database_pool,
+        trip_id,
+        item.item.category_id,
+    )
+    .await?
+    .ok_or_else(|| {
+        Error::Request(RequestError::NotFound {
+            message: format!("category with id {} not found", item.item.category_id),
+        })
+    })?;
 
     // TODO biggest_category_weight?
     let category_row = view::trip::TripCategoryListRow::build(trip_id, &category, true, 0, true);
@@ -508,12 +529,15 @@ pub async fn trip_row(
 }
 
 pub async fn trip_item_set_pick(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     Ok::<_, Error>(
         trip_item_set_state(
+            &ctx,
             &state,
             trip_id,
             item_id,
@@ -532,6 +556,7 @@ pub async fn trip_item_set_pick_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -548,12 +573,15 @@ pub async fn trip_item_set_pick_htmx(
 }
 
 pub async fn trip_item_set_unpick(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     Ok::<_, Error>(
         trip_item_set_state(
+            &ctx,
             &state,
             trip_id,
             item_id,
@@ -572,6 +600,7 @@ pub async fn trip_item_set_unpick_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -588,12 +617,15 @@ pub async fn trip_item_set_unpick_htmx(
 }
 
 pub async fn trip_item_set_pack(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     Ok::<_, Error>(
         trip_item_set_state(
+            &ctx,
             &state,
             trip_id,
             item_id,
@@ -612,6 +644,7 @@ pub async fn trip_item_set_pack_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -628,12 +661,15 @@ pub async fn trip_item_set_pack_htmx(
 }
 
 pub async fn trip_item_set_unpack(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     Ok::<_, Error>(
         trip_item_set_state(
+            &ctx,
             &state,
             trip_id,
             item_id,
@@ -652,6 +688,7 @@ pub async fn trip_item_set_unpack_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -668,12 +705,15 @@ pub async fn trip_item_set_unpack_htmx(
 }
 
 pub async fn trip_item_set_ready(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     Ok::<_, Error>(
         trip_item_set_state(
+            &ctx,
             &state,
             trip_id,
             item_id,
@@ -692,6 +732,7 @@ pub async fn trip_item_set_ready_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -708,12 +749,15 @@ pub async fn trip_item_set_ready_htmx(
 }
 
 pub async fn trip_item_set_unready(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     Ok::<_, Error>(
         trip_item_set_state(
+            &ctx,
             &state,
             trip_id,
             item_id,
@@ -732,6 +776,7 @@ pub async fn trip_item_set_unready_htmx(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -748,11 +793,13 @@ pub async fn trip_item_set_unready_htmx(
 }
 
 pub async fn trip_total_weight_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     let total_weight =
-        models::trips::Trip::find_total_picked_weight(&state.database_pool, trip_id).await?;
+        models::trips::Trip::find_total_picked_weight(&ctx, &state.database_pool, trip_id).await?;
     Ok(view::trip::TripInfoTotalWeightRow::build(
         trip_id,
         total_weight,
@@ -778,11 +825,14 @@ pub async fn inventory_category_create(
 }
 
 pub async fn trip_state_set(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((trip_id, new_state)): Path<(Uuid, models::trips::TripState)>,
 ) -> Result<impl IntoResponse, Error> {
-    let exists = models::trips::Trip::set_state(&state.database_pool, trip_id, &new_state).await?;
+    let ctx = Context::build(current_user);
+    let exists =
+        models::trips::Trip::set_state(&ctx, &state.database_pool, trip_id, &new_state).await?;
 
     if !exists {
         return Err(Error::Request(RequestError::NotFound {
@@ -801,36 +851,42 @@ pub async fn trips_types(
     State(mut state): State<AppState>,
     Query(trip_type_query): Query<TripTypeQuery>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     state.client_state.trip_type_edit = trip_type_query.edit;
 
     let trip_types: Vec<models::trips::TripsType> =
-        models::trips::TripsType::all(&state.database_pool).await?;
+        models::trips::TripsType::all(&ctx, &state.database_pool).await?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::trip::types::TypeList::build(&state.client_state, trip_types),
         Some(&TopLevelPage::Trips),
     ))
 }
 pub async fn trip_type_create(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_trip_type): Form<NewTripType>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     if new_trip_type.name.is_empty() {
         return Err(Error::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
         }));
     }
 
-    let _new_id = models::trips::TripsType::save(&state.database_pool, &new_trip_type.name).await?;
+    let _new_id =
+        models::trips::TripsType::save(&ctx, &state.database_pool, &new_trip_type.name).await?;
 
     Ok(Redirect::to("/trips/types/"))
 }
 pub async fn trips_types_edit_name(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(trip_type_id): Path<Uuid>,
     Form(trip_update): Form<TripTypeUpdate>,
 ) -> Result<Redirect, Error> {
+    let ctx = Context::build(current_user);
     if trip_update.new_value.is_empty() {
         return Err(Error::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
@@ -838,6 +894,7 @@ pub async fn trips_types_edit_name(
     }
 
     let exists = models::trips::TripsType::set_name(
+        &ctx,
         &state.database_pool,
         trip_type_id,
         &trip_update.new_value,
@@ -873,16 +930,18 @@ pub async fn inventory_item(
 }
 
 pub async fn trip_category_select(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, category_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
-    let mut trip = models::trips::Trip::find(&state.database_pool, trip_id)
+    let ctx = Context::build(current_user);
+    let mut trip = models::trips::Trip::find(&ctx, &state.database_pool, trip_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("trip with id {trip_id} not found"),
         }))?;
 
-    trip.load_categories(&state.database_pool).await?;
+    trip.load_categories(&ctx, &state.database_pool).await?;
 
     let active_category = trip
         .categories()
@@ -945,26 +1004,30 @@ pub async fn trip_packagelist(
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, Error> {
-    let mut trip = models::trips::Trip::find(&state.database_pool, trip_id)
+    let ctx = Context::build(current_user);
+    let mut trip = models::trips::Trip::find(&ctx, &state.database_pool, trip_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("trip with id {trip_id} not found"),
         }))?;
 
-    trip.load_categories(&state.database_pool).await?;
+    trip.load_categories(&ctx, &state.database_pool).await?;
 
     Ok(view::Root::build(
-        &Context::build(current_user),
+        &ctx,
         &view::trip::packagelist::TripPackageList::build(&trip),
         Some(&TopLevelPage::Trips),
     ))
 }
 
 pub async fn trip_item_packagelist_set_pack_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -973,7 +1036,7 @@ pub async fn trip_item_packagelist_set_pack_htmx(
     )
     .await?;
 
-    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
@@ -985,10 +1048,13 @@ pub async fn trip_item_packagelist_set_pack_htmx(
 }
 
 pub async fn trip_item_packagelist_set_unpack_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -999,7 +1065,7 @@ pub async fn trip_item_packagelist_set_unpack_htmx(
 
     // note that this cannot fail due to a missing item, as trip_item_set_state would already
     // return 404. but error handling cannot hurt ;)
-    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
@@ -1011,10 +1077,13 @@ pub async fn trip_item_packagelist_set_unpack_htmx(
 }
 
 pub async fn trip_item_packagelist_set_ready_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -1023,7 +1092,7 @@ pub async fn trip_item_packagelist_set_ready_htmx(
     )
     .await?;
 
-    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
@@ -1035,10 +1104,13 @@ pub async fn trip_item_packagelist_set_ready_htmx(
 }
 
 pub async fn trip_item_packagelist_set_unready_htmx(
+    Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
     trip_item_set_state(
+        &ctx,
         &state,
         trip_id,
         item_id,
@@ -1049,7 +1121,7 @@ pub async fn trip_item_packagelist_set_unready_htmx(
 
     // note that this cannot fail due to a missing item, as trip_item_set_state would already
     // return 404. but error handling cannot hurt ;)
-    let item = models::trips::TripItem::find(&state.database_pool, trip_id, item_id)
+    let item = models::trips::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or(Error::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),

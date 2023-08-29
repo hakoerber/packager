@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                i_item.id AS item_id\n            FROM inventory_items AS i_item\n                LEFT JOIN (\n                    SELECT t_item.item_id AS item_id, t_item.user_id AS user_id\n                    FROM trips_items AS t_item\n                    WHERE t_item.trip_id = ? AND t_item.user_id = ?\n                ) AS t_item\n                ON t_item.item_id = i_item.id\n            WHERE t_item.item_id IS NULL AND i_item.user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "item_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a5bedc046d5a4fd900903675794e7c3d8202d3876a26505cd26be7ceeb10d06d"
+}

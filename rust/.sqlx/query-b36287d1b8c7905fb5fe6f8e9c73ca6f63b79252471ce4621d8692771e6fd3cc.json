@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                id,\n                name\n            FROM trips_types",
+  "query": "SELECT\n                id,\n                name\n            FROM trips_types\n            WHERE user_id = ?",
   "describe": {
     "columns": [
       {
@@ -15,12 +15,12 @@
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false,
       false
     ]
   },
-  "hash": "1eb9a8fdb9412753592f48a9267c97042aeaf6691546efae894e5d34ee92f34b"
+  "hash": "b36287d1b8c7905fb5fe6f8e9c73ca6f63b79252471ce4621d8692771e6fd3cc"
 }

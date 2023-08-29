@@ -6,6 +6,8 @@ use super::{
     inventory,
 };
 
+use crate::Context;
+
 use futures::{TryFutureExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_variant::to_variant_name;
@@ -126,12 +128,14 @@ impl TripCategory {
     }
 
     pub async fn find(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         trip_id: Uuid,
         category_id: Uuid,
     ) -> Result<Option<TripCategory>, Error> {
         let mut category: Option<TripCategory> = None;
 
+        let user_id = ctx.user.id.to_string();
         let trip_id_param = trip_id.to_string();
         let category_id_param = category_id.to_string();
 
@@ -170,12 +174,15 @@ impl TripCategory {
                             ON item.id = trip.item_id
                         INNER JOIN inventory_items_categories as category
                             ON category.id = item.category_id
-                        WHERE trip.trip_id = ?
+                        WHERE 
+                            trip.trip_id = ?
+                            AND trip.user_id = ?
                     ) AS inner
                     ON inner.category_id = category.id
                 WHERE category.id = ?
             ",
             trip_id_param,
+            user_id,
             category_id_param
         )
         .fetch(pool)
@@ -280,10 +287,12 @@ impl TryFrom<DbTripsItemsRow> for TripItem {
 
 impl TripItem {
     pub async fn find(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         trip_id: Uuid,
         item_id: Uuid,
     ) -> Result<Option<Self>, Error> {
+        let user_id = ctx.user.id.to_string();
         let item_id_param = item_id.to_string();
         let trip_id_param = trip_id.to_string();
         sqlx::query_as!(
@@ -304,9 +313,11 @@ impl TripItem {
                     ON i_item.id = t_item.item_id
                 WHERE t_item.item_id = ?
                 AND t_item.trip_id = ?
+                AND t_item.user_id = ?
             ",
             item_id_param,
             trip_id_param,
+            user_id,
         )
         .fetch_optional(pool)
         .await?
@@ -315,22 +326,26 @@ impl TripItem {
     }
 
     pub async fn set_state(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         trip_id: Uuid,
         item_id: Uuid,
         key: TripItemStateKey,
         value: bool,
     ) -> Result<(), Error> {
+        let user_id = ctx.user.id.to_string();
         let result = sqlx::query(&format!(
             "UPDATE trips_items
             SET {key} = ?
             WHERE trip_id = ?
-            AND item_id = ?",
+            AND item_id = ?
+            AND user_id = ?",
             key = to_variant_name(&key).unwrap()
         ))
         .bind(value)
         .bind(trip_id.to_string())
         .bind(item_id.to_string())
+        .bind(user_id)
         .execute(pool)
         .await?;
 
@@ -342,7 +357,7 @@ impl TripItem {
     }
 }
 
-pub(crate) struct DbTripRow {
+pub struct DbTripRow {
     pub id: String,
     pub name: String,
     pub date_start: String,
@@ -409,34 +424,8 @@ pub(crate) struct DbTripWeightRow {
 }
 
 impl Trip {
-    pub async fn all(pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Trip>, Error> {
-        sqlx::query_as!(
-            DbTripRow,
-            "SELECT
-                id,
-                name,
-                CAST (date_start AS TEXT) date_start,
-                CAST (date_end AS TEXT) date_end,
-                state,
-                location,
-                temp_min,
-                temp_max,
-                comment
-            FROM trips",
-        )
-        .fetch(pool)
-        .map_ok(|row| row.try_into())
-        .try_collect::<Vec<Result<Trip, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<Trip>, Error>>()
-    }
-
-    pub async fn find(
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-        trip_id: Uuid,
-    ) -> Result<Option<Self>, Error> {
-        let trip_id_param = trip_id.to_string();
+    pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Trip>, Error> {
+        let user_id = ctx.user.id.to_string();
         sqlx::query_as!(
             DbTripRow,
             "SELECT
@@ -450,8 +439,40 @@ impl Trip {
                 temp_max,
                 comment
             FROM trips
-            WHERE id = ?",
-            trip_id_param
+            WHERE user_id = ?",
+            user_id
+        )
+        .fetch(pool)
+        .map_ok(|row| row.try_into())
+        .try_collect::<Vec<Result<Trip, Error>>>()
+        .await?
+        .into_iter()
+        .collect::<Result<Vec<Trip>, Error>>()
+    }
+
+    pub async fn find(
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        trip_id: Uuid,
+    ) -> Result<Option<Self>, Error> {
+        let trip_id_param = trip_id.to_string();
+        let user_id = ctx.user.id.to_string();
+        sqlx::query_as!(
+            DbTripRow,
+            "SELECT
+                id,
+                name,
+                CAST (date_start AS TEXT) date_start,
+                CAST (date_end AS TEXT) date_end,
+                state,
+                location,
+                temp_min,
+                temp_max,
+                comment
+            FROM trips
+            WHERE id = ? and user_id = ?",
+            trip_id_param,
+            user_id,
         )
         .fetch_optional(pool)
         .await?
@@ -460,10 +481,12 @@ impl Trip {
     }
 
     pub async fn trip_type_remove(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<bool, Error> {
+        let user_id = ctx.user.id.to_string();
         let id_param = id.to_string();
         let type_id_param = type_id.to_string();
 
@@ -471,9 +494,15 @@ impl Trip {
             "DELETE FROM trips_to_trips_types AS ttt
             WHERE ttt.trip_id = ?
                 AND ttt.trip_type_id = ?
+            AND EXISTS(SELECT * FROM trips WHERE id = ? AND user_id = ?)
+            AND EXISTS(SELECT * FROM trips_types WHERE id = ? AND user_id = ?)
             ",
             id_param,
             type_id_param,
+            id_param,
+            user_id,
+            type_id_param,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -482,20 +511,31 @@ impl Trip {
     }
 
     pub async fn trip_type_add(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<(), Error> {
+        let user_id = ctx.user.id.to_string();
+        // TODO user handling?
         let trip_id_param = id.to_string();
         let type_id_param = type_id.to_string();
+
         sqlx::query!(
-            "INSERT INTO trips_to_trips_types
-                (trip_id, trip_type_id)
-            VALUES
-                (?, ?)
-            ",
+            "INSERT INTO
+                trips_to_trips_types (trip_id, trip_type_id)
+            SELECT trips.id as trip_id, trips_types.id as trip_type_id
+                FROM trips
+                INNER JOIN trips_types
+                WHERE
+                    trips.id = ?
+                    AND trips.user_id = ?
+                    AND trips_types.id = ?
+                    AND trips_types.user_id = ?",
             trip_id_param,
+            user_id,
             type_id_param,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -504,17 +544,20 @@ impl Trip {
     }
 
     pub async fn set_state(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         new_state: &TripState,
     ) -> Result<bool, Error> {
+        let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
         let result = sqlx::query!(
             "UPDATE trips
             SET state = ?
-            WHERE id = ?",
+            WHERE id = ? and user_id = ?",
             new_state,
             trip_id_param,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -523,17 +566,20 @@ impl Trip {
     }
 
     pub async fn set_comment(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         new_comment: &str,
     ) -> Result<bool, Error> {
+        let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
         let result = sqlx::query!(
             "UPDATE trips
             SET comment = ?
-            WHERE id = ?",
+            WHERE id = ? AND user_id = ?",
             new_comment,
             trip_id_param,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -542,19 +588,22 @@ impl Trip {
     }
 
     pub async fn set_attribute(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         trip_id: Uuid,
         attribute: TripAttribute,
         value: &str,
     ) -> Result<(), Error> {
+        let user_id = ctx.user.id.to_string();
         let result = sqlx::query(&format!(
             "UPDATE trips
             SET {attribute} = ?
-            WHERE id = ?",
+            WHERE id = ? AND user_id = ?",
             attribute = to_variant_name(&attribute).unwrap()
         ))
         .bind(value)
         .bind(trip_id.to_string())
+        .bind(user_id)
         .execute(pool)
         .await?;
 
@@ -566,11 +615,13 @@ impl Trip {
     }
 
     pub async fn save(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         name: &str,
         date_start: time::Date,
         date_end: time::Date,
     ) -> Result<Uuid, Error> {
+        let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         let date_start = date_start.format(consts::DATE_FORMAT)?;
@@ -580,14 +631,15 @@ impl Trip {
 
         sqlx::query!(
             "INSERT INTO trips
-                (id, name, date_start, date_end, state)
+                (id, name, date_start, date_end, state, user_id)
             VALUES
-                (?, ?, ?, ?, ?)",
+                (?, ?, ?, ?, ?, ?)",
             id_param,
             name,
             date_start,
             date_end,
             trip_state,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -596,9 +648,11 @@ impl Trip {
     }
 
     pub async fn find_total_picked_weight(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         trip_id: Uuid,
     ) -> Result<i64, Error> {
+        let user_id = ctx.user.id.to_string();
         let trip_id_param = trip_id.to_string();
         let weight = sqlx::query_as!(
             DbTripWeightRow,
@@ -611,10 +665,11 @@ impl Trip {
                 INNER JOIN inventory_items AS i_item
                     ON t_item.item_id = i_item.id
                 WHERE
-                    trip.id = ?
+                    trip.id = ? AND trip.user_id = ?
                 AND t_item.pick = true
             ",
-            trip_id_param
+            trip_id_param,
+            user_id,
         )
         .fetch_one(pool)
         .map_ok(|row| row.total_weight.unwrap() as i64)
@@ -650,7 +705,12 @@ impl Trip {
             .sum::<i64>()
     }
 
-    pub async fn load_trips_types(&mut self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), Error> {
+    pub async fn load_trips_types(
+        &mut self,
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
+        let user_id = ctx.user.id.to_string();
         let id = self.id.to_string();
         let types = sqlx::query!(
             "
@@ -660,17 +720,20 @@ impl Trip {
                 inner.id IS NOT NULL AS active
             FROM trips_types AS type
                 LEFT JOIN (
-                    SELECT type.id as id, type.name as name
+                    SELECT type.id as id, trip.user_id as user_id
                     FROM trips as trip
                     INNER JOIN trips_to_trips_types as ttt
                         ON ttt.trip_id = trip.id
                     INNER JOIN trips_types AS type
                         ON type.id == ttt.trip_type_id
-                    WHERE trip.id = ?
+                    WHERE trip.id = ? AND trip.user_id = ?
                 ) AS inner
                 ON inner.id = type.id
+            WHERE type.user_id = ?
             ",
-            id
+            id,
+            user_id,
+            user_id,
         )
         .fetch(pool)
         .map_ok(|row| -> Result<TripType, Error> {
@@ -695,6 +758,7 @@ impl Trip {
 
     pub async fn sync_trip_items_with_inventory(
         &mut self,
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
     ) -> Result<(), Error> {
         // we need to get all items that are part of the inventory but not
@@ -708,6 +772,7 @@ impl Trip {
         // * if the trip is new, we have to make these new items prominently
         //   visible so the user knows that there might be new items to
         //   consider
+        let user_id = ctx.user.id.to_string();
         let trip_id = self.id.to_string();
         let unsynced_items: Vec<Uuid> = sqlx::query!(
             "
@@ -715,14 +780,15 @@ impl Trip {
                 i_item.id AS item_id
             FROM inventory_items AS i_item
                 LEFT JOIN (
-                    SELECT t_item.item_id as item_id
+                    SELECT t_item.item_id AS item_id, t_item.user_id AS user_id
                     FROM trips_items AS t_item
-                    WHERE t_item.trip_id = ?
+                    WHERE t_item.trip_id = ? AND t_item.user_id = ?
                 ) AS t_item
                 ON t_item.item_id = i_item.id
-            WHERE t_item.item_id IS NULL
-        ",
-            trip_id
+            WHERE t_item.item_id IS NULL AND i_item.user_id = ?",
+            trip_id,
+            user_id,
+            user_id,
         )
         .fetch(pool)
         .map_ok(|row| -> Result<Uuid, Error> { Ok(Uuid::try_parse(&row.item_id)?) })
@@ -748,9 +814,10 @@ impl Trip {
                         pick,
                         pack,
                         ready,
-                        new
+                        new,
+                        user_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ",
                 item_id,
                 trip_id,
@@ -758,6 +825,7 @@ impl Trip {
                 false,
                 false,
                 mark_as_new,
+                user_id,
             )
             .execute(pool)
             .await?;
@@ -768,11 +836,16 @@ impl Trip {
         Ok(())
     }
 
-    pub async fn load_categories(&mut self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), Error> {
+    pub async fn load_categories(
+        &mut self,
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+    ) -> Result<(), Error> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
         let id = self.id.to_string();
+        let user_id = ctx.user.id.to_string();
         sqlx::query!(
             "
                 SELECT
@@ -802,17 +875,21 @@ impl Trip {
                             trip.pick as item_is_picked,
                             trip.pack as item_is_packed,
                             trip.ready as item_is_ready,
-                            trip.new as item_is_new
+                            trip.new as item_is_new,
+                            trip.user_id as user_id
                         FROM trips_items as trip
                         INNER JOIN inventory_items as item
                             ON item.id = trip.item_id
                         INNER JOIN inventory_items_categories as category
                             ON category.id = item.category_id
-                        WHERE trip.trip_id = ?
+                        WHERE trip.trip_id = ? AND trip.user_id = ?
                     ) AS inner
                     ON inner.category_id = category.id
+                WHERE category.user_id = ?
             ",
-            id
+            id,
+            user_id,
+            user_id,
         )
         .fetch(pool)
         .map_ok(|row| -> Result<(), Error> {
@@ -883,13 +960,16 @@ pub struct TripType {
 }
 
 impl TripsType {
-    pub async fn all(pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Self>, Error> {
+    pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Self>, Error> {
+        let user_id = ctx.user.id.to_string();
         sqlx::query_as!(
             DbTripsTypesRow,
             "SELECT
                 id,
                 name
-            FROM trips_types",
+            FROM trips_types
+            WHERE user_id = ?",
+            user_id,
         )
         .fetch(pool)
         .map_ok(|row| row.try_into())
@@ -899,16 +979,22 @@ impl TripsType {
         .collect::<Result<Vec<Self>, Error>>()
     }
 
-    pub async fn save(pool: &sqlx::Pool<sqlx::Sqlite>, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(
+        ctx: &Context,
+        pool: &sqlx::Pool<sqlx::Sqlite>,
+        name: &str,
+    ) -> Result<Uuid, Error> {
+        let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         sqlx::query!(
             "INSERT INTO trips_types
-            (id, name)
+            (id, name, user_id)
         VALUES
-            (?, ?)",
+            (?, ?, ?)",
             id_param,
             name,
+            user_id,
         )
         .execute(pool)
         .await?;
@@ -917,18 +1003,21 @@ impl TripsType {
     }
 
     pub async fn set_name(
+        ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
         id: Uuid,
         new_name: &str,
     ) -> Result<bool, Error> {
+        let user_id = ctx.user.id.to_string();
         let id_param = id.to_string();
 
         let result = sqlx::query!(
             "UPDATE trips_types
             SET name = ?
-            WHERE id = ?",
+            WHERE id = ? and user_id = ?",
             new_name,
             id_param,
+            user_id,
         )
         .execute(pool)
         .await?;

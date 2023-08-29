@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE trips\n            SET comment = ?\n            WHERE id = ? AND user_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "baea696b94b2f73ec46c645ed4f7ed355fab4bb37a56b9061bc37f3f053703cb"
+}

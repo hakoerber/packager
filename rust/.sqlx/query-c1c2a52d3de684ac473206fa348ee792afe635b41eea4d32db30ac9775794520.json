@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                id,\n                name,\n                CAST (date_start AS TEXT) date_start,\n                CAST (date_end AS TEXT) date_end,\n                state,\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips",
+  "query": "SELECT\n                id,\n                name,\n                CAST (date_start AS TEXT) date_start,\n                CAST (date_end AS TEXT) date_end,\n                state,\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE id = ? and user_id = ?",
   "describe": {
     "columns": [
       {
@@ -50,7 +50,7 @@
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 2
     },
     "nullable": [
       false,
@@ -64,5 +64,5 @@
       true
     ]
   },
-  "hash": "6df16058d577c24a2aaaae71b2c3fd94ddf24e1ced343f3ea20872f0692a9ada"
+  "hash": "c1c2a52d3de684ac473206fa348ee792afe635b41eea4d32db30ac9775794520"
 }
