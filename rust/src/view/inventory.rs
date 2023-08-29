@@ -154,7 +154,6 @@ impl InventoryItemList {
                             name="edit-item"
                             id="edit-item"
                             action={"/inventory/item/" (edit_item_id) "/edit"}
-                            hx-boost="true"
                             target="_self"
                             method="post"
                         {}
@@ -234,7 +233,6 @@ impl InventoryItemList {
                                         {
                                             a
                                                 href=(format!("/inventory/item/{id}/cancel", id = item.id))
-                                                hx-boost="true"
                                                 ."aspect-square"
                                                 ."flex"
                                                 ."w-full"
@@ -258,7 +256,6 @@ impl InventoryItemList {
                                                 href=(
                                                     format!("/inventory/item/{id}/", id=item.id)
                                                 )
-                                                hx-boost="true"
                                             {
                                                 (item.name.clone())
                                             }
@@ -282,7 +279,6 @@ impl InventoryItemList {
                                             {
                                                 a
                                                     href=(format!("?edit_item={id}", id = item.id))
-                                                    hx-boost="true"
                                                     ."aspect-square"
                                                     ."flex"
                                                     ."w-full"
@@ -300,7 +296,6 @@ impl InventoryItemList {
                                         {
                                             a
                                                 href=(format!("/inventory/item/{id}/delete", id = item.id))
-                                                hx-boost="true"
                                                 ."aspect-square"
                                                 ."flex"
                                                 ."w-full"
@@ -504,7 +499,6 @@ impl InventoryNewCategoryForm {
                 name="new-category"
                 id="new-category"
                 action="/inventory/category/"
-                hx-boost="true"
                 target="_self"
                 method="post"
                 ."p-5" ."border-2" ."border-gray-200" {

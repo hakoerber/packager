@@ -17,7 +17,6 @@ impl Root {
             html!(
                 a
                     href=(item.path())
-                    hx-boost="true"
                     #{"header-link-" (item.id())}
                     ."px-5"
                     ."flex"
@@ -63,7 +62,6 @@ impl Root {
                     {
                         a
                             #home
-                            hx-boost="true"
                             href="/"
                             ."flex"
                             ."flex-row"

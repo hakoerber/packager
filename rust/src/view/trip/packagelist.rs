@@ -302,7 +302,6 @@ impl TripPackageList {
                         "Package list for "
                         a
                             href={"/trips/" (trip.id) "/"}
-                            hx-boost="true"
                             ."font-bold"
                         {
                             (trip.name)
@@ -310,7 +309,6 @@ impl TripPackageList {
                     }
                     a
                         href={"/trips/" (trip.id) "/packagelist/"}
-                        hx-boost="true"
                         // disabled[!all_packed]
                         // ."opacity-50"[!all_packed]
                         ."p-2"

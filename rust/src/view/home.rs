@@ -7,7 +7,6 @@ impl Home {
         html!(
             div
                 id="home"
-                hx-boost="true"
                 ."p-8"
                 ."flex"
                 ."flex-col"
@@ -29,7 +28,6 @@ impl Home {
                 {
                     a
                         href="/inventory/"
-                        hx-boost="true"
                         ."p-8"
                         ."w-1/5"
                         ."flex"
@@ -68,7 +66,6 @@ impl Home {
                 {
                     a
                         href="/trips/"
-                        hx-boost="true"
                         ."p-8"
                         ."w-1/5"
                         ."flex"

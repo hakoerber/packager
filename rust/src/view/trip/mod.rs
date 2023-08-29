@@ -106,7 +106,6 @@ impl TripTableRow {
             td ."border" ."p-0" ."m-0" {
                 a
                     href={"/trips/" (trip_id) "/"}
-                    hx-boost="true"
                     ."inline-block"
                     ."p-2"
                     ."m-0"
@@ -128,7 +127,6 @@ impl NewTrip {
                 action="/trips/"
                 target="_self"
                 method="post"
-                hx-boost="true"
                 ."p-5" ."border-2" ."border-gray-200"
             {
                 div ."mb-5" ."flex" ."flex-row" ."trips-center" {
@@ -237,7 +235,6 @@ impl Trip {
                     {
                         a
                             href="/trips/"
-                            hx-boost="true"
                             ."text-sm"
                             ."text-gray-500"
                             ."flex"
@@ -257,7 +254,6 @@ impl Trip {
                                 form
                                     id="edit-trip"
                                     action=(format!("edit/{}/submit", to_variant_name(&models::trips::TripAttribute::Name).unwrap()))
-                                    hx-boost="true"
                                     target="_self"
                                     method="post"
                                 {
@@ -280,7 +276,6 @@ impl Trip {
                                         {}
                                         a
                                             href="."
-                                            hx-boost="true"
                                             ."bg-red-200"
                                             ."hover:bg-red-300"
                                             ."w-8"
@@ -313,7 +308,6 @@ impl Trip {
                                 span {
                                     a
                                         href={"?edit=" (to_variant_name(&models::trips::TripAttribute::Name).unwrap())}
-                                        hx-boost="true"
                                     {
                                         span
                                             ."mdi"
@@ -328,7 +322,6 @@ impl Trip {
                     }
                     a
                         href={"/trips/" (trip.id) "/packagelist/"}
-                        hx-boost="true"
                         ."p-2"
                         ."border-2"
                         ."border-gray-500"
@@ -363,7 +356,6 @@ impl TripInfoRow {
                     name="edit-trip"
                     id="edit-trip"
                     action=(format!("edit/{key}/submit", key=(to_variant_name(&attribute_key).unwrap()) ))
-                    hx-boost="true"
                     target="_self"
                     method="post"
                 {}
@@ -403,7 +395,6 @@ impl TripInfoRow {
                             {
                                 a
                                     href="." // strips query parameters
-                                    hx-boost="true"
                                     ."flex"
                                     ."w-full"
                                     ."h-full"
@@ -453,7 +444,6 @@ impl TripInfoRow {
                     {
                         a
                             href={ "?edit=" (to_variant_name(&attribute_key).unwrap()) }
-                            hx-boost="true"
                             ."flex"
                             ."w-full"
                             ."h-full"
@@ -681,7 +671,6 @@ impl TripInfo {
                                             @for triptype in active_triptypes {
                                                 a
                                                     href={"type/" (triptype.id) "/remove"}
-                                                    hx-boost="true"
                                                 {
                                                     li
                                                         ."border"
@@ -713,7 +702,6 @@ impl TripInfo {
                                             @for triptype in inactive_triptypes {
                                                 a
                                                     href={"type/" (triptype.id) "/add"}
-                                                    hx-boost="true"
                                                 {
                                                     li
                                                         ."border"
@@ -739,7 +727,6 @@ impl TripInfo {
                                 }
                                 a
                                     href="/trips/types/"
-                                    hx-boost="true"
                                     ."text-sm"
                                     ."text-gray-500"
                                     ."mr-2"
@@ -778,7 +765,6 @@ impl TripComment {
                 form
                     id="edit-comment"
                     action="comment/submit"
-                    hx-boost="true"
                     target="_self"
                     method="post"
                 {}
@@ -1221,7 +1207,6 @@ impl TripItemListRow {
                             href=(
                                 format!("/inventory/item/{id}/", id=item.item.id)
                             )
-                            hx-boost="true"
                         {
                             (item.item.name.clone())
                         }

@@ -32,7 +32,6 @@ impl TypeList {
                                     ."hidden"
                                     id="edit-trip-type"
                                     action={ (trip_type.id) "/edit/name/submit" }
-                                    hx-boost="true"
                                     target="_self"
                                     method="post"
                                 {}
@@ -57,7 +56,6 @@ impl TypeList {
                                 {
                                     a
                                         href="."
-                                        hx-boost="true"
                                         ."bg-red-200"
                                         ."hover:bg-red-300"
                                         ."w-8"
@@ -99,7 +97,6 @@ impl TypeList {
                                 {
                                     a
                                         href={ "?edit=" (trip_type.id) }
-                                        hx-boost="true"
                                         .flex
                                         ."w-full"
                                         ."h-full"
@@ -122,7 +119,6 @@ impl TypeList {
                     action="/trips/types/"
                     target="_self"
                     method="post"
-                    hx-boost="true"
                     ."mt-8" ."p-5" ."border-2" ."border-gray-200"
                 {
                     div ."mb-5" ."flex" ."flex-row" {
