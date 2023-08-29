@@ -434,12 +434,12 @@ pub async fn trip_comment_set(
     )
     .await?;
 
-    if !found {
+    if found {
+        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
+    } else {
         Err(Error::Request(RequestError::NotFound {
             message: format!("trip with id {trip_id} not found"),
         }))
-    } else {
-        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
     }
 }
 
