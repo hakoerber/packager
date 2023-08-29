@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE trips_items\n            SET pack = ?\n            WHERE trip_id = ?\n            AND item_id = ?\n            AND user_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "41f96460749516db0bb510c01cf8b5ea4f49773f2de3c3e10e718a09d6816cb0"
+}

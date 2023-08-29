@@ -1,6 +1,8 @@
 use super::Error;
 use uuid::Uuid;
 
+use crate::sqlite;
+
 #[derive(Debug, Clone)]
 pub struct User {
     pub id: Uuid,
@@ -39,15 +41,18 @@ impl User {
         pool: &sqlx::Pool<sqlx::Sqlite>,
         name: &str,
     ) -> Result<Option<Self>, Error> {
-        sqlx::query_as!(
+        crate::query_one!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::User,
+            },
+            pool,
             DbUserRow,
+            Self,
             "SELECT id,username,fullname FROM users WHERE username = ?",
             name
         )
-        .fetch_optional(pool)
-        .await?
-        .map(|row: DbUserRow| row.try_into())
-        .transpose()
+        .await
     }
 }
 

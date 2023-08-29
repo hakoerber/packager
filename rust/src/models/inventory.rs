@@ -1,10 +1,8 @@
 use super::Error;
-use crate::Context;
+use crate::{sqlite, Context};
 
 use futures::{TryFutureExt, TryStreamExt};
 use uuid::Uuid;
-
-use tracing::Instrument;
 
 pub struct Inventory {
     pub categories: Vec<Category>,
@@ -16,10 +14,14 @@ impl Inventory {
         let user_id = ctx.user.id.to_string();
 
         let mut categories = crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             DbCategoryRow,
             Category,
-            "SELECT 
+            "SELECT
                     id,
                     name,
                     description 
@@ -74,6 +76,10 @@ impl Category {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             DbCategoryRow,
             Category,
@@ -101,6 +107,10 @@ impl Category {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Insert,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "INSERT INTO inventory_items_categories
                 (id, name, user_id)
@@ -136,6 +146,10 @@ impl Category {
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
         let items = crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             DbInventoryItemsRow,
             Item,
@@ -232,6 +246,10 @@ impl InventoryItem {
         let user_id = ctx.user.id.to_string();
 
         crate::query_one!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             DbInventoryItemRow,
             Self,
@@ -269,6 +287,10 @@ impl InventoryItem {
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_exists!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "SELECT id
             FROM inventory_items
@@ -290,6 +312,10 @@ impl InventoryItem {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         let results = crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Delete,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "DELETE FROM inventory_items
             WHERE 
@@ -316,6 +342,10 @@ impl InventoryItem {
 
         let id_param = id.to_string();
         crate::execute_returning_uuid!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Update,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "UPDATE inventory_items AS item
             SET
@@ -348,6 +378,10 @@ impl InventoryItem {
         let category_id_param = category_id.to_string();
 
         crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Insert,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "INSERT INTO inventory_items
                 (id, name, description, weight, category_id, user_id)
@@ -374,6 +408,10 @@ impl InventoryItem {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         let weight = crate::execute_returning!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "
                 SELECT COALESCE(MAX(i_item.weight), 0) as weight
@@ -436,6 +474,10 @@ impl Item {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         crate::execute_returning!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Inventory,
+            },
             pool,
             "
                 SELECT COALESCE(SUM(i_item.weight), 0) as weight

@@ -6,11 +6,10 @@ use super::{
     inventory,
 };
 
-use crate::Context;
+use crate::{sqlite, Context};
 
 use futures::{TryFutureExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use serde_variant::to_variant_name;
 use time;
 use uuid::Uuid;
 
@@ -300,8 +299,14 @@ impl TripItem {
         let user_id = ctx.user.id.to_string();
         let item_id_param = item_id.to_string();
         let trip_id_param = trip_id.to_string();
-        sqlx::query_as!(
+        crate::query_one!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             DbTripsItemsRow,
+            Self,
             "
                 SELECT
                     t_item.item_id AS id,
@@ -324,10 +329,7 @@ impl TripItem {
             trip_id_param,
             user_id,
         )
-        .fetch_optional(pool)
-        .await?
-        .map(|row| row.try_into())
-        .transpose()
+        .await
     }
 
     #[tracing::instrument]
@@ -340,20 +342,67 @@ impl TripItem {
         value: bool,
     ) -> Result<(), Error> {
         let user_id = ctx.user.id.to_string();
-        let result = sqlx::query(&format!(
-            "UPDATE trips_items
-            SET {key} = ?
+        let trip_id_param = trip_id.to_string();
+        let item_id_param = item_id.to_string();
+        let result = match key {
+            TripItemStateKey::Pick => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Inventory,
+                    },
+                    pool,
+                    "UPDATE trips_items
+            SET pick = ?
             WHERE trip_id = ?
             AND item_id = ?
             AND user_id = ?",
-            key = to_variant_name(&key).unwrap()
-        ))
-        .bind(value)
-        .bind(trip_id.to_string())
-        .bind(item_id.to_string())
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+                    value,
+                    trip_id_param,
+                    item_id_param,
+                    user_id
+                )
+                .await
+            }
+            TripItemStateKey::Pack => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Inventory,
+                    },
+                    pool,
+                    "UPDATE trips_items
+            SET pack = ?
+            WHERE trip_id = ?
+            AND item_id = ?
+            AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    item_id_param,
+                    user_id
+                )
+                .await
+            }
+            TripItemStateKey::Ready => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Inventory,
+                    },
+                    pool,
+                    "UPDATE trips_items
+            SET ready = ?
+            WHERE trip_id = ?
+            AND item_id = ?
+            AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    item_id_param,
+                    user_id
+                )
+                .await
+            }
+        }?;
 
         (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
             Error::Query(QueryError::NotFound {
@@ -426,16 +475,18 @@ pub enum TripAttribute {
     TempMax,
 }
 
-pub(crate) struct DbTripWeightRow {
-    pub total_weight: Option<i32>,
-}
-
 impl Trip {
     #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Trip>, Error> {
         let user_id = ctx.user.id.to_string();
-        sqlx::query_as!(
+        crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             DbTripRow,
+            Self,
             "SELECT
                 id,
                 name,
@@ -450,12 +501,7 @@ impl Trip {
             WHERE user_id = ?",
             user_id
         )
-        .fetch(pool)
-        .map_ok(|row| row.try_into())
-        .try_collect::<Vec<Result<Trip, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<Trip>, Error>>()
+        .await
     }
 
     #[tracing::instrument]
@@ -466,8 +512,14 @@ impl Trip {
     ) -> Result<Option<Self>, Error> {
         let trip_id_param = trip_id.to_string();
         let user_id = ctx.user.id.to_string();
-        sqlx::query_as!(
+        crate::query_one!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             DbTripRow,
+            Self,
             "SELECT
                 id,
                 name,
@@ -483,10 +535,7 @@ impl Trip {
             trip_id_param,
             user_id,
         )
-        .fetch_optional(pool)
-        .await?
-        .map(|row| row.try_into())
-        .transpose()
+        .await
     }
 
     #[tracing::instrument]
@@ -500,7 +549,12 @@ impl Trip {
         let id_param = id.to_string();
         let type_id_param = type_id.to_string();
 
-        let results = sqlx::query!(
+        let results = crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Delete,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "DELETE FROM trips_to_trips_types AS ttt
             WHERE ttt.trip_id = ?
                 AND ttt.trip_type_id = ?
@@ -514,7 +568,6 @@ impl Trip {
             type_id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(results.rows_affected() != 0)
@@ -532,7 +585,12 @@ impl Trip {
         let trip_id_param = id.to_string();
         let type_id_param = type_id.to_string();
 
-        sqlx::query!(
+        crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Insert,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "INSERT INTO
                 trips_to_trips_types (trip_id, trip_type_id)
             SELECT trips.id as trip_id, trips_types.id as trip_type_id
@@ -548,7 +606,6 @@ impl Trip {
             type_id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(())
@@ -563,7 +620,12 @@ impl Trip {
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
-        let result = sqlx::query!(
+        let result = crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Update,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "UPDATE trips
             SET state = ?
             WHERE id = ? and user_id = ?",
@@ -571,7 +633,6 @@ impl Trip {
             trip_id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(result.rows_affected() != 0)
@@ -586,7 +647,12 @@ impl Trip {
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
-        let result = sqlx::query!(
+        let result = crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Update,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "UPDATE trips
             SET comment = ?
             WHERE id = ? AND user_id = ?",
@@ -594,7 +660,6 @@ impl Trip {
             trip_id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(result.rows_affected() != 0)
@@ -609,17 +674,106 @@ impl Trip {
         value: &str,
     ) -> Result<(), Error> {
         let user_id = ctx.user.id.to_string();
-        let result = sqlx::query(&format!(
-            "UPDATE trips
-            SET {attribute} = ?
-            WHERE id = ? AND user_id = ?",
-            attribute = to_variant_name(&attribute).unwrap()
-        ))
-        .bind(value)
-        .bind(trip_id.to_string())
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+        let trip_id_param = trip_id.to_string();
+        let result = match attribute {
+            TripAttribute::Name => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    "UPDATE trips
+                SET name = ?
+                WHERE id = ? AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    user_id
+                )
+                .await
+            }
+
+            TripAttribute::DateStart => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    "UPDATE trips
+                SET date_start = ?
+                WHERE id = ? AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    user_id
+                )
+                .await
+            }
+            TripAttribute::DateEnd => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    "UPDATE trips
+                SET date_end = ?
+                WHERE id = ? AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    user_id
+                )
+                .await
+            }
+            TripAttribute::Location => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    "UPDATE trips
+                SET location = ?
+                WHERE id = ? AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    user_id
+                )
+                .await
+            }
+            TripAttribute::TempMin => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    "UPDATE trips
+                SET temp_min = ?
+                WHERE id = ? AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    user_id
+                )
+                .await
+            }
+            TripAttribute::TempMax => {
+                crate::execute!(
+                    sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    "UPDATE trips
+                SET temp_max = ?
+                WHERE id = ? AND user_id = ?",
+                    value,
+                    trip_id_param,
+                    user_id
+                )
+                .await
+            }
+        }?;
 
         (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
             Error::Query(QueryError::NotFound {
@@ -644,7 +798,12 @@ impl Trip {
 
         let trip_state = TripState::new();
 
-        sqlx::query!(
+        crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Insert,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "INSERT INTO trips
                 (id, name, date_start, date_end, state, user_id)
             VALUES
@@ -656,7 +815,6 @@ impl Trip {
             trip_state,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(id)
@@ -670,8 +828,12 @@ impl Trip {
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = trip_id.to_string();
-        let weight = sqlx::query_as!(
-            DbTripWeightRow,
+        let weight = crate::execute_returning!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "
                 SELECT
                     CAST(IFNULL(SUM(i_item.weight), 0) AS INTEGER) AS total_weight
@@ -684,11 +846,11 @@ impl Trip {
                     trip.id = ? AND trip.user_id = ?
                 AND t_item.pick = true
             ",
+            i64,
+            |row| i64::from(row.total_weight),
             trip_id_param,
             user_id,
         )
-        .fetch_one(pool)
-        .map_ok(|row| i64::from(row.total_weight.unwrap()))
         .await?;
 
         Ok(weight)
@@ -730,9 +892,38 @@ impl Trip {
         ctx: &Context,
         pool: &sqlx::Pool<sqlx::Sqlite>,
     ) -> Result<(), Error> {
+        struct Row {
+            id: String,
+            name: String,
+            active: i32,
+        }
+
+        impl TryFrom<Row> for TripType {
+            type Error = Error;
+
+            fn try_from(row: Row) -> Result<Self, Self::Error> {
+                Ok(TripType {
+                    id: Uuid::try_parse(&row.id)?,
+                    name: row.name,
+                    active: match row.active {
+                        0 => false,
+                        1 => true,
+                        _ => unreachable!(),
+                    },
+                })
+            }
+        }
+
         let user_id = ctx.user.id.to_string();
         let id = self.id.to_string();
-        let types = sqlx::query!(
+        let types = crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
+            Row,
+            TripType,
             "
             SELECT
                 type.id as id,
@@ -755,22 +946,7 @@ impl Trip {
             user_id,
             user_id,
         )
-        .fetch(pool)
-        .map_ok(|row| -> Result<TripType, Error> {
-            Ok(TripType {
-                id: Uuid::try_parse(&row.id)?,
-                name: row.name,
-                active: match row.active {
-                    0 => false,
-                    1 => true,
-                    _ => unreachable!(),
-                },
-            })
-        })
-        .try_collect::<Vec<Result<TripType, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<TripType>, Error>>()?;
+        .await?;
 
         self.types = Some(types);
         Ok(())
@@ -795,7 +971,27 @@ impl Trip {
         //   consider
         let user_id = ctx.user.id.to_string();
         let trip_id = self.id.to_string();
-        let unsynced_items: Vec<Uuid> = sqlx::query!(
+
+        struct Row {
+            item_id: String,
+        }
+
+        impl TryFrom<Row> for Uuid {
+            type Error = Error;
+
+            fn try_from(value: Row) -> Result<Self, Self::Error> {
+                Uuid::try_parse(&value.item_id).map_err(Into::into)
+            }
+        }
+
+        let unsynced_items: Vec<Uuid> = crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
+            Row,
+            Uuid,
             "
             SELECT
                 i_item.id AS item_id
@@ -811,12 +1007,7 @@ impl Trip {
             user_id,
             user_id,
         )
-        .fetch(pool)
-        .map_ok(|row| -> Result<Uuid, Error> { Ok(Uuid::try_parse(&row.item_id)?) })
-        .try_collect::<Vec<Result<Uuid, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<Uuid>, Error>>()?;
+        .await?;
 
         // looks like there is currently no nice way to do multiple inserts
         // with sqlx. whatever, this won't matter
@@ -826,7 +1017,12 @@ impl Trip {
 
         for unsynced_item in &unsynced_items {
             let item_id = unsynced_item.to_string();
-            sqlx::query!(
+            crate::execute!(
+                sqlite::QueryClassification {
+                    query_type: sqlite::QueryType::Insert,
+                    component: sqlite::Component::Trips,
+                },
+                pool,
                 "
                 INSERT INTO trips_items
                     (
@@ -848,7 +1044,6 @@ impl Trip {
                 mark_as_new,
                 user_id,
             )
-            .execute(pool)
             .await?;
         }
 
@@ -986,8 +1181,14 @@ impl TripsType {
     #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<Vec<Self>, Error> {
         let user_id = ctx.user.id.to_string();
-        sqlx::query_as!(
+        crate::query_all!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Select,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             DbTripsTypesRow,
+            Self,
             "SELECT
                 id,
                 name
@@ -995,12 +1196,7 @@ impl TripsType {
             WHERE user_id = ?",
             user_id,
         )
-        .fetch(pool)
-        .map_ok(|row| row.try_into())
-        .try_collect::<Vec<Result<Self, Error>>>()
-        .await?
-        .into_iter()
-        .collect::<Result<Vec<Self>, Error>>()
+        .await
     }
 
     #[tracing::instrument]
@@ -1012,16 +1208,20 @@ impl TripsType {
         let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         let id_param = id.to_string();
-        sqlx::query!(
+        crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Insert,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "INSERT INTO trips_types
-            (id, name, user_id)
-        VALUES
-            (?, ?, ?)",
+                (id, name, user_id)
+            VALUES
+                (?, ?, ?)",
             id_param,
             name,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(id)
@@ -1037,7 +1237,12 @@ impl TripsType {
         let user_id = ctx.user.id.to_string();
         let id_param = id.to_string();
 
-        let result = sqlx::query!(
+        let result = crate::execute!(
+            sqlite::QueryClassification {
+                query_type: sqlite::QueryType::Update,
+                component: sqlite::Component::Trips,
+            },
+            pool,
             "UPDATE trips_types
             SET name = ?
             WHERE id = ? and user_id = ?",
@@ -1045,7 +1250,6 @@ impl TripsType {
             id_param,
             user_id,
         )
-        .execute(pool)
         .await?;
 
         Ok(result.rows_affected() != 0)

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE trips\n                SET temp_min = ?\n                WHERE id = ? AND user_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "6183a38d7587836b782e9e44b8fac57eecfe176d49fc60f88d10244fbdd2e23c"
+}

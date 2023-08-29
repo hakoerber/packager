@@ -1,3 +1,4 @@
+use std::fmt;
 use std::time;
 
 use base64::Engine as _;
@@ -50,134 +51,218 @@ pub async fn migrate(url: &str) -> Result<(), StartError> {
     Ok(())
 }
 
-pub fn sqlx_query(query: &str, labels: &[(&'static str, String)]) {
+pub enum QueryType {
+    Insert,
+    Update,
+    Select,
+    Delete,
+}
+
+impl fmt::Display for QueryType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Insert => "insert",
+                Self::Update => "update",
+                Self::Select => "select",
+                Self::Delete => "delete",
+            }
+        )
+    }
+}
+
+pub enum Component {
+    Inventory,
+    User,
+    Trips,
+}
+
+impl fmt::Display for Component {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Inventory => "inventory",
+                Self::User => "user",
+                Self::Trips => "trips",
+            }
+        )
+    }
+}
+
+pub struct QueryClassification {
+    pub query_type: QueryType,
+    pub component: Component,
+}
+
+pub fn sqlx_query(
+    classification: QueryClassification,
+    query: &str,
+    labels: &[(&'static str, String)],
+) {
     let query_id = {
         let mut hasher = Sha256::new();
         hasher.update(query);
         hasher.finalize()
     };
+
+    // 9 bytes is enough to be unique
+    // If this is divisible by 3, it means that we can base64-encode it without
+    // any "=" padding
+    //
+    // cannot panic, as the output for sha256 will always be bit
+    let query_id = &query_id[..9];
+
     let query_id = base64::engine::general_purpose::STANDARD.encode(query_id);
     let mut labels = Vec::from(labels);
-    labels.push(("query_id", query_id));
-    metrics::counter!("packager_database_queries_total", 1, &labels)
+    labels.extend_from_slice(&[
+        ("query_id", query_id),
+        ("query_type", classification.query_type.to_string()),
+        ("query_component", classification.component.to_string()),
+    ]);
+    metrics::counter!("packager_database_queries_total", 1, &labels);
 }
 
 #[macro_export]
 macro_rules! query_all {
-    ( $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
-        async {
-            crate::sqlite::sqlx_query($query, &[]);
-            let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
-                $struct_row,
-                $query,
-                $( $args )*
-            )
-            .fetch($pool)
-            .map_ok(|row: $struct_row| row.try_into())
-            .try_collect::<Vec<Result<$struct_into, Error>>>()
-            .await?
-            .into_iter()
-            .collect::<Result<Vec<$struct_into>, Error>>();
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                crate::sqlite::sqlx_query($class, $query, &[]);
+                let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
+                    $struct_row,
+                    $query,
+                    $( $args )*
+                )
+                .fetch($pool)
+                .map_ok(|row: $struct_row| row.try_into())
+                .try_collect::<Vec<Result<$struct_into, Error>>>()
+                .await?
+                .into_iter()
+                .collect::<Result<Vec<$struct_into>, Error>>();
 
-            result
+                result
 
-        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
     };
 }
 
 #[macro_export]
 macro_rules! query_one {
-    ( $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
-        async {
-            let result: Result<Option<$struct_into>, Error> = sqlx::query_as!(
-                $struct_row,
-                $query,
-                $( $args )*
-            )
-            .fetch_optional($pool)
-            .await?
-            .map(|row: $struct_row| row.try_into())
-            .transpose();
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                crate::sqlite::sqlx_query($class, $query, &[]);
+                let result: Result<Option<$struct_into>, Error> = sqlx::query_as!(
+                    $struct_row,
+                    $query,
+                    $( $args )*
+                )
+                .fetch_optional($pool)
+                .await?
+                .map(|row: $struct_row| row.try_into())
+                .transpose();
 
-            result
+                result
 
-        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
     };
 }
 
 #[macro_export]
 macro_rules! query_exists {
-    ( $pool:expr, $query:expr, $( $args:tt )*) => {
-        async {
-            let result: bool = sqlx::query!(
-                $query,
-                $( $args )*
-            )
-            .fetch_optional($pool)
-            .await?
-            .is_some();
+    ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                crate::sqlite::sqlx_query($class, $query, &[]);
+                let result: bool = sqlx::query!(
+                    $query,
+                    $( $args )*
+                )
+                .fetch_optional($pool)
+                .await?
+                .is_some();
 
-            Ok(result)
+                Ok(result)
 
-        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
     };
 }
 
 #[macro_export]
 macro_rules! execute {
-    ( $pool:expr, $query:expr, $( $args:tt )*) => {
-        async {
-            let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
-                $query,
-                $( $args )*
-            )
-            .execute($pool)
-            .await
-            .map_err(|e| e.into());
+    ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                crate::sqlite::sqlx_query($class, $query, &[]);
+                let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
+                    $query,
+                    $( $args )*
+                )
+                .execute($pool)
+                .await
+                .map_err(|e| e.into());
 
-            result
-
-
-        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+                result
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
     };
 }
 
 #[macro_export]
 macro_rules! execute_returning {
-    ( $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:tt )*) => {
-        async {
-            let result: Result<$t, Error> = sqlx::query!(
-                $query,
-                $( $args )*
-            )
-            .fetch_one($pool)
-            .map_ok($fn)
-            .await
-            .map_err(Into::into);
+    ( $class:expr, $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:tt )*) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                crate::sqlite::sqlx_query($class, $query, &[]);
+                let result: Result<$t, Error> = sqlx::query!(
+                    $query,
+                    $( $args )*
+                )
+                .fetch_one($pool)
+                .map_ok($fn)
+                .await
+                .map_err(Into::into);
 
-            result
+                result
 
 
-        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
     };
 }
 
 #[macro_export]
 macro_rules! execute_returning_uuid {
-    ( $pool:expr, $query:expr, $( $args:tt )*) => {
-        async {
-            let result: Result<Uuid, Error> = sqlx::query!(
-                $query,
-                $( $args )*
-            )
-            .fetch_one($pool)
-            .map_ok(|row| Uuid::try_parse(&row.id))
-            .await?
-            .map_err(Into::into);
+    ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
+        {
+            use tracing::Instrument as _;
+            async {
+                crate::sqlite::sqlx_query($class, $query, &[]);
+                let result: Result<Uuid, Error> = sqlx::query!(
+                    $query,
+                    $( $args )*
+                )
+                .fetch_one($pool)
+                .map_ok(|row| Uuid::try_parse(&row.id))
+                .await?
+                .map_err(Into::into);
 
-            result
+                result
 
 
-        }.instrument(tracing::info_span!("packager::sql::query", "query"))
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
     };
 }
