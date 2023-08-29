@@ -24,7 +24,6 @@ impl Home {
                 section
                     ."border-2"
                     ."border-gray-200"
-                    ."rounded-md"
                     ."flex"
                     ."flex-row"
                 {
@@ -64,7 +63,6 @@ impl Home {
                 section
                     ."border-2"
                     ."border-gray-200"
-                    ."rounded-md"
                     ."flex"
                     ."flex-row"
                 {

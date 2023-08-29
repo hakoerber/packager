@@ -143,7 +143,6 @@ impl TypeList {
                                         ."p-2"
                                         ."bg-gray-50"
                                         ."border-2"
-                                        ."rounded"
                                         ."focus:outline-none"
                                         ."focus:bg-white"
                                     {}
@@ -155,7 +154,6 @@ impl TypeList {
                             value="Add"
                             ."py-2"
                             ."border-2"
-                            ."rounded"
                             ."border-gray-300"
                             ."mx-auto"
                             ."w-full"

@@ -349,7 +349,6 @@ impl InventoryNewItemFormName {
                     ."border-2"
                     ."border-red-500"[error]
                     ."border-gray-300"[!error]
-                    ."rounded"
                     ."focus:outline-none"
                     ."focus:bg-white"
                     ."focus:border-gray-500"[!error]
@@ -394,7 +393,6 @@ impl InventoryNewItemFormWeight {
                     ."p-2"
                     ."bg-gray-50"
                     ."border-2"
-                    ."rounded"
                     ."focus:outline-none"
                     ."focus:bg-white"
                 {}
@@ -434,7 +432,6 @@ impl InventoryNewItemFormCategory {
                         ."bg-gray-50"
                         ."border-2"
                         ."border-gray-300"
-                        ."rounded"
                         ."focus:outline-none"
                         ."focus:bg-white"
                         ."focus:border-gray-500"
@@ -487,7 +484,6 @@ impl InventoryNewItemForm {
                         ."disabled:opacity-50"
                         ."py-2"
                         ."border-2"
-                        ."rounded"
                         ."border-gray-300"
                         ."mx-auto"
                         ."w-full" {
@@ -529,7 +525,6 @@ impl InventoryNewCategoryForm {
                                     ."bg-gray-50"
                                     ."border-2"
                                     ."border-gray-300"
-                                    ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
                                     ."focus:border-gray-500"
@@ -544,7 +539,6 @@ impl InventoryNewCategoryForm {
                         ."disabled:opacity-50"
                         ."py-2"
                         ."border-2"
-                        ."rounded"
                         ."border-gray-300"
                         ."mx-auto"
                         ."w-full" {

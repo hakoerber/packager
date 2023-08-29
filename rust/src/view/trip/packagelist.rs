@@ -177,7 +177,6 @@ impl TripPackageList {
                         ."p-2"
                         ."border-2"
                         ."border-gray-500"
-                        ."rounded-md"
                         ."bg-blue-200"
                         ."hover:bg-blue-200"
                     {

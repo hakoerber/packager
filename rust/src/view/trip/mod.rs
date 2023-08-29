@@ -149,7 +149,6 @@ impl NewTrip {
                                     ."p-2"
                                     ."bg-gray-50"
                                     ."border-2"
-                                    ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
                                 {}
@@ -171,7 +170,6 @@ impl NewTrip {
                                     ."appearance-none"
                                     ."border-2"
                                     ."border-gray-300"
-                                    ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
                                     ."focus:border-purple-500"
@@ -194,7 +192,6 @@ impl NewTrip {
                                     ."appearance-none"
                                     ."border-2"
                                     ."border-gray-300"
-                                    ."rounded"
                                     ."focus:outline-none"
                                     ."focus:bg-white"
                                     ."focus:border-purple-500"
@@ -207,7 +204,6 @@ impl NewTrip {
                         value="Add"
                         ."py-2"
                         ."border-2"
-                        ."rounded"
                         ."border-gray-300"
                         ."mx-auto"
                         ."w-full"
@@ -336,7 +332,6 @@ impl Trip {
                         ."p-2"
                         ."border-2"
                         ."border-gray-500"
-                        ."rounded-md"
                         ."bg-blue-200"
                         ."hover:bg-blue-200"
                     {
@@ -690,7 +685,6 @@ impl TripInfo {
                                                 {
                                                     li
                                                         ."border"
-                                                        ."rounded-2xl"
                                                         ."py-0.5"
                                                         ."px-2"
                                                         ."bg-green-100"
@@ -723,7 +717,6 @@ impl TripInfo {
                                                 {
                                                     li
                                                         ."border"
-                                                        ."rounded-2xl"
                                                         ."py-0.5"
                                                         ."px-2"
                                                         ."bg-gray-100"
