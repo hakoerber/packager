@@ -22,7 +22,7 @@ lto = "off"
 version = "0.20"
 
 [dependencies.tracing-opentelemetry]
-version = "0.20"
+version = "0.21"
 
 [dependencies.tracing-log]
 version = "0.1"
@@ -87,8 +87,8 @@ features = [
 ]
 
 [dependencies.sqlx]
-# version = "0.7"
-path = "./vendor/sqlx"
+version = "0.7"
+#path = "./vendor/sqlx"
 features = [
   "runtime-tokio-rustls",
   # "offline",
