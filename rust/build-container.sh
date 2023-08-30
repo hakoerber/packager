@@ -2,6 +2,7 @@
 
 set -o nounset
 set -o pipefail
+set -o errexit
 
 rustup target add x86_64-unknown-linux-musl
 
