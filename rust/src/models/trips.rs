@@ -532,7 +532,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Trip>, Error> {
         let user_id = ctx.user.id.to_string();
-        crate::query_all!(
+        let mut trips = crate::query_all!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Select,
                 component: sqlite::Component::Trips,
@@ -554,7 +554,10 @@ impl Trip {
             WHERE user_id = ?",
             user_id
         )
-        .await
+        .await?;
+
+        trips.sort_by_key(|trip| trip.date_start);
+        Ok(trips)
     }
 
     #[tracing::instrument]
@@ -842,6 +845,7 @@ impl Trip {
         name: &str,
         date_start: time::Date,
         date_end: time::Date,
+        copy_from: Option<Uuid>,
     ) -> Result<Uuid, Error> {
         let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
@@ -851,12 +855,14 @@ impl Trip {
 
         let trip_state = TripState::new();
 
+        let mut transaction = pool.begin().await?;
+
         crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Trips,
             },
-            pool,
+            &mut *transaction,
             "INSERT INTO trips
                 (id, name, date_start, date_end, state, user_id)
             VALUES
@@ -869,6 +875,70 @@ impl Trip {
             user_id,
         )
         .await?;
+
+        if let Some(copy_from_trip_id) = copy_from {
+            let copy_from_trip_id_param = copy_from_trip_id.to_string();
+            crate::execute!(
+                &sqlite::QueryClassification {
+                    query_type: sqlite::QueryType::Insert,
+                    component: sqlite::Component::Trips,
+                },
+                &mut *transaction,
+                r#"INSERT INTO trips_items (
+                    item_id, 
+                    trip_id, 
+                    pick, 
+                    pack, 
+                    ready,
+                    new,
+                    user_id
+                ) SELECT 
+                    item_id,
+                    $1 as trip_id,
+                    pick,
+                    false as pack,
+                    false as ready,
+                    false as new,
+                    user_id
+                FROM trips_items
+                WHERE trip_id = $2 AND user_id = $3"#,
+                id_param,
+                copy_from_trip_id_param,
+                user_id,
+            )
+            .await?;
+        } else {
+            crate::execute!(
+                &sqlite::QueryClassification {
+                    query_type: sqlite::QueryType::Insert,
+                    component: sqlite::Component::Trips,
+                },
+                &mut *transaction,
+                r#"INSERT INTO trips_items (
+                    item_id, 
+                    trip_id, 
+                    pick, 
+                    pack, 
+                    ready,
+                    new,
+                    user_id
+                ) SELECT 
+                    id as item_id,
+                    $1 as trip_id,
+                    false as pick,
+                    false as pack,
+                    false as ready,
+                    false as new,
+                    user_id
+                FROM inventory_items
+                WHERE user_id = $2"#,
+                id_param,
+                user_id,
+            )
+            .await?;
+        }
+
+        transaction.commit().await?;
 
         Ok(id)
     }
@@ -1019,7 +1089,7 @@ impl Trip {
         //
         // * if the trip is new (it's state is INITIAL), we can just forward
         //   as-is
-        // * if the trip is new, we have to make these new items prominently
+        // * if the trip is not new, we have to make these new items prominently
         //   visible so the user knows that there might be new items to
         //   consider
         let user_id = ctx.user.id.to_string();

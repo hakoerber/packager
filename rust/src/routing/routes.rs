@@ -18,11 +18,13 @@ use crate::{AppState, Context, Error, RequestError, TopLevelPage};
 use super::{get_referer, html};
 
 #[derive(Deserialize, Default, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct InventoryQuery {
     edit_item: Option<Uuid>,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct NewItem {
     #[serde(rename = "new-item-name")]
     name: String,
@@ -35,12 +37,14 @@ pub struct NewItem {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct NewItemName {
     #[serde(rename = "new-item-name")]
     name: String,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct EditItem {
     #[serde(rename = "edit-item-name")]
     name: String,
@@ -49,6 +53,7 @@ pub struct EditItem {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct NewTrip {
     #[serde(rename = "new-trip-name")]
     name: String,
@@ -56,44 +61,56 @@ pub struct NewTrip {
     date_start: time::Date,
     #[serde(rename = "new-trip-end-date")]
     date_end: time::Date,
+    #[serde(
+        rename = "new-trip-copy-from",
+        deserialize_with = "super::uuid_or_empty"
+    )]
+    copy_from: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TripQuery {
     edit: Option<models::trips::TripAttribute>,
     category: Option<Uuid>,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct CommentUpdate {
     #[serde(rename = "new-comment")]
     new_comment: String,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct TripUpdate {
     #[serde(rename = "new-value")]
     new_value: String,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct NewCategory {
     #[serde(rename = "new-category-name")]
     name: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TripTypeQuery {
     edit: Option<Uuid>,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct NewTripType {
     #[serde(rename = "new-trip-type-name")]
     name: String,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct TripTypeUpdate {
     #[serde(rename = "new-value")]
     new_value: String,
@@ -367,6 +384,7 @@ pub async fn trip_create(
         &new_trip.name,
         new_trip.date_start,
         new_trip.date_end,
+        new_trip.copy_from,
     )
     .await?;
 

@@ -6,8 +6,10 @@ use axum::{
     routing::{get, post},
     BoxError, Router,
 };
+use serde::de;
+use uuid::Uuid;
 
-use std::time::Duration;
+use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
 use crate::{AppState, Error, RequestError, TopLevelPage};
@@ -29,6 +31,33 @@ fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
                 message: error.to_string(),
             })
         })
+}
+
+fn uuid_or_empty<'de, D>(input: D) -> Result<Option<Uuid>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct NoneVisitor;
+
+    impl<'vi> de::Visitor<'vi> for NoneVisitor {
+        type Value = Option<Uuid>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            write!(formatter, "invalid input")
+        }
+
+        fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+            if value.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(Uuid::try_from(value).map_err(|e| {
+                    E::custom(format!("UUID parsing failed: {}", e))
+                })?))
+            }
+        }
+    }
+
+    input.deserialize_str(NoneVisitor)
 }
 
 #[tracing::instrument]

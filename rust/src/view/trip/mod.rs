@@ -22,8 +22,8 @@ impl TripManager {
                 ."gap-8"
             {
                 h1 ."text-2xl" {"Trips"}
-                (TripTable::build(trips))
-                (NewTrip::build())
+                (TripTable::build(&trips))
+                (NewTrip::build(&trips))
             }
         )
     }
@@ -62,7 +62,7 @@ pub struct TripTable;
 
 impl TripTable {
     #[tracing::instrument]
-    pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
+    pub fn build(trips: &Vec<models::trips::Trip>) -> Markup {
         html!(
             table
                 ."table"
@@ -125,8 +125,8 @@ impl TripTableRow {
 pub struct NewTrip;
 
 impl NewTrip {
-    #[tracing::instrument]
-    pub fn build() -> Markup {
+    #[tracing::instrument(skip(trips))]
+    pub fn build(trips: &Vec<models::trips::Trip>) -> Markup {
         html!(
             form
                 name="new_trip"
@@ -161,7 +161,7 @@ impl NewTrip {
                     }
                     div ."mx-auto" ."pb-8" {
                         div ."flex" ."flex-row" ."justify-center" {
-                            label for="trip-name" ."font-bold" ."w-1/2" ."p-2" ."text-center" { "Start date" }
+                            label for="start-date" ."font-bold" ."w-1/2" ."p-2" ."text-center" { "Start date" }
                             span ."w-1/2" {
                                 input
                                     type="date"
@@ -183,7 +183,7 @@ impl NewTrip {
                     }
                     div ."mx-auto" ."pb-8" {
                         div ."flex" ."flex-row" ."justify-center" {
-                            label for="trip-name" ."font-bold" ."w-1/2" ."p-2" ."text-center" { "Start date" }
+                            label for="end-date" ."font-bold" ."w-1/2" ."p-2" ."text-center" { "End date" }
                             span ."w-1/2" {
                                 input
                                     type="date"
@@ -200,6 +200,37 @@ impl NewTrip {
                                     ."focus:bg-white"
                                     ."focus:border-purple-500"
                                 {}
+                            }
+                        }
+                    }
+                    div ."mx-auto" ."pb-8" {
+                        div ."flex" ."flex-row" ."justify-center" {
+                            label for="copy-from" ."font-bold" ."w-1/2" ."p-2" ."text-center" { "Reuse trip" }
+                            span ."w-1/2" {
+                                select
+                                    id="copy-from"
+                                    name="new-trip-copy-from"
+                                    ."block"
+                                    ."w-full"
+                                    ."p-2"
+                                    ."bg-gray-50"
+                                    ."border-2"
+                                    ."border-gray-300"
+                                    ."focus:outline-none"
+                                    ."focus:bg-white"
+                                    ."focus:border-purple-500"
+                                {
+                                    option value="" { "[None]" }
+                                    @for trip in trips.iter().rev() {
+                                        option value=(trip.id) {
+                                            (format!("{year}-{month:02} {name}",
+                                                year = trip.date_start.year(),
+                                                month = trip.date_start.month() as u8,
+                                                name = trip.name
+                                            ))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

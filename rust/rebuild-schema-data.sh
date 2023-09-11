@@ -1,6 +1,12 @@
-db="$(mktemp)"
+#!/usr/bin/env bash
 
-export DATABASE_URL="sqlite://${db}"
+if [[ -n "$1" ]] ; then
+    export DATABASE_URL="sqlite://${1}"
+else
+    db="$(mktemp)"
+
+    export DATABASE_URL="sqlite://${db}"
+fi
 
 cargo sqlx database create
 cargo sqlx migrate run

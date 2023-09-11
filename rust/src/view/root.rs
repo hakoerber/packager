@@ -64,6 +64,7 @@ impl<'a> Component for HeaderLink<'a> {
                 hx-get=(self.args.item.path())
                 hx-target={ "#" (self.htmx.target().html_id()) }
                 hx-swap="outerHtml"
+                hx-push-url="true"
                 #{"header-link-" (self.args.item.id())}
                 ."px-5"
                 ."flex"
