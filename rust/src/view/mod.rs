@@ -23,7 +23,7 @@ pub enum HtmxAction {
 impl fmt::Display for HtmxAction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Get(path) => write!(f, "{}", path),
+            Self::Get(path) => write!(f, "{path}"),
         }
     }
 }
@@ -36,7 +36,7 @@ pub enum FallbackAction {
 impl fmt::Display for FallbackAction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Get(path) => write!(f, "{}", path),
+            Self::Get(path) => write!(f, "{path}"),
         }
     }
 }
@@ -66,9 +66,7 @@ impl ComponentId {
         let id = &id[..9];
 
         // URL_SAFE because we cannot have slashes in the output
-        let id = base64::engine::general_purpose::URL_SAFE.encode(id);
-
-        id
+        base64::engine::general_purpose::URL_SAFE.encode(id)
     }
 }
 

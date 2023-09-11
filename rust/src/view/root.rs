@@ -161,7 +161,7 @@ impl<'a> Component for Body<'a> {
                                     item: TopLevelPage::Inventory,
                                     active_page: self.args.active_page
                                 }
-                            ).build(&context)
+                            ).build(context)
                         )
                         (
                             HeaderLink::init(
@@ -170,7 +170,7 @@ impl<'a> Component for Body<'a> {
                                     item: TopLevelPage::Trips,
                                     active_page: self.args.active_page
                                 }
-                            ).build(&context)
+                            ).build(context)
                         )
                     }
                     a
@@ -210,7 +210,7 @@ impl Root {
                 (Body::init(Parent::Root, BodyArgs {
                     body,
                     active_page
-                }).build(&context))
+                }).build(context))
             }
         )
     }

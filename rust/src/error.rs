@@ -73,8 +73,8 @@ impl<'a> AuthError {
     pub fn to_prom_labels(&'a self) -> Vec<(&'static str, String)> {
         match self {
             Self::AuthenticationUserNotFound { username } => vec![("username", username.clone())],
-            Self::AuthenticationHeaderMissing => vec![],
-            Self::AuthenticationHeaderInvalid { message: _ } => vec![],
+            Self::AuthenticationHeaderMissing
+            | Self::AuthenticationHeaderInvalid { message: _ } => vec![],
         }
     }
 }

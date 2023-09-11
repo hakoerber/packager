@@ -69,7 +69,7 @@ trait Forwarder {
 
     fn build(
         config: Self::Config,
-        shutdown_functions: &mut Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>>,
+        shutdown_functions: &mut Vec<ShutdownFunction>,
     ) -> Option<Box<dyn tracing_subscriber::Layer<dyn tracing::Subscriber>>>;
 }
 
@@ -77,8 +77,8 @@ trait Forwarder {
 fn get_jaeger_layer<
     T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
 >(
-    config: OpenTelemetryConfig,
-    shutdown_functions: &mut Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>>,
+    config: &OpenTelemetryConfig,
+    shutdown_functions: &mut Vec<ShutdownFunction>,
 ) -> Option<impl tracing_subscriber::Layer<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
@@ -119,6 +119,8 @@ fn get_jaeger_layer<
     }
 }
 
+type ShutdownFunction = Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>;
+
 pub async fn init<Func, T>(
     #[cfg(feature = "jaeger")] opentelemetry_config: OpenTelemetryConfig,
     #[cfg(feature = "tokio-console")] tokio_console_config: TokioConsoleConfig,
@@ -132,13 +134,10 @@ where
     // mut is dependent on features (it's only required when jaeger is set), so
     // let's just disable the lint
     #[cfg(feature = "jaeger")]
-    let mut shutdown_functions: Vec<
-        Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>,
-    > = vec![];
+    let mut shutdown_functions: Vec<ShutdownFunction> = vec![];
 
     #[cfg(not(feature = "jaeger"))]
-    let shutdown_functions: Vec<Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>> =
-        vec![];
+    let shutdown_functions: Vec<ShutdownFunction> = vec![];
 
     #[cfg(feature = "tokio-console")]
     let console_layer = match tokio_console_config {
@@ -149,7 +148,7 @@ where
     let stdout_layer = get_stdout_layer();
 
     #[cfg(feature = "jaeger")]
-    let jaeger_layer = get_jaeger_layer(opentelemetry_config, &mut shutdown_functions);
+    let jaeger_layer = get_jaeger_layer(&opentelemetry_config, &mut shutdown_functions);
 
     let registry = Registry::default();
 

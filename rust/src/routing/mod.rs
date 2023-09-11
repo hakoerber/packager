@@ -51,7 +51,7 @@ where
                 Ok(None)
             } else {
                 Ok(Some(Uuid::try_from(value).map_err(|e| {
-                    E::custom(format!("UUID parsing failed: {}", e))
+                    E::custom(format!("UUID parsing failed: {e}"))
                 })?))
             }
         }

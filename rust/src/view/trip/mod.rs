@@ -126,7 +126,7 @@ pub struct NewTrip;
 
 impl NewTrip {
     #[tracing::instrument(skip(trips))]
-    pub fn build(trips: &Vec<models::trips::Trip>) -> Markup {
+    pub fn build(trips: &[models::trips::Trip]) -> Markup {
         html!(
             form
                 name="new_trip"
