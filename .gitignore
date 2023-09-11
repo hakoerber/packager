@@ -1,1 +1,5 @@
-*.bundle
+/target/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
