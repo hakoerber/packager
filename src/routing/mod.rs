@@ -139,6 +139,14 @@ pub fn router(state: AppState) -> Router {
                         .route(
                             "/:id/items/:id/unready",
                             get(trip_item_set_unready).post(trip_item_set_unready_htmx),
+                        )
+                        .route(
+                            "/:id/todo/:id/done",
+                            get(trip_todo_done).post(trip_todo_done_htmx),
+                        )
+                        .route(
+                            "/:id/todo/:id/undone",
+                            get(trip_todo_undone).post(trip_todo_undone_htmx),
                         ),
                 )
                 .nest(

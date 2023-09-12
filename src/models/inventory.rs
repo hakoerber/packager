@@ -1,7 +1,6 @@
 use super::Error;
 use crate::{sqlite, Context};
 
-use futures::{TryFutureExt, TryStreamExt};
 use uuid::Uuid;
 
 pub struct Inventory {

@@ -437,6 +437,8 @@ pub async fn trip(
 
     trip.load_trips_types(&ctx, &state.database_pool).await?;
 
+    trip.load_todos(&ctx, &state.database_pool).await?;
+
     trip.sync_trip_items_with_inventory(&ctx, &state.database_pool)
         .await?;
 
@@ -1237,4 +1239,98 @@ pub async fn trip_item_packagelist_set_unready_htmx(
     Ok(view::trip::packagelist::TripPackageListRowUnready::build(
         trip_id, &item,
     ))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_done_htmx(
+    Extension(current_user): Extension<models::user::User>,
+    State(state): State<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
+    models::trips::todos::Todo::set_state(
+        &ctx,
+        &state.database_pool,
+        trip_id,
+        todo_id,
+        models::trips::todos::State::Done,
+    )
+    .await?;
+
+    let todo_item = models::trips::todos::Todo::find(&ctx, &state.database_pool, trip_id, todo_id)
+        .await?
+        .ok_or_else(|| {
+            Error::Request(RequestError::NotFound {
+                message: format!("todo with id {todo_id} not found"),
+            })
+        })?;
+
+    Ok(view::trip::TripTodo::build(&trip_id, &todo_item))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_done(
+    Extension(current_user): Extension<models::user::User>,
+    State(state): State<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
+    models::trips::todos::Todo::set_state(
+        &ctx,
+        &state.database_pool,
+        trip_id,
+        todo_id,
+        models::trips::todos::State::Done,
+    )
+    .await?;
+
+    Ok(Redirect::to(get_referer(&headers)?))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_undone_htmx(
+    Extension(current_user): Extension<models::user::User>,
+    State(state): State<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
+    models::trips::todos::Todo::set_state(
+        &ctx,
+        &state.database_pool,
+        trip_id,
+        todo_id,
+        models::trips::todos::State::Todo,
+    )
+    .await?;
+
+    let todo_item = models::trips::todos::Todo::find(&ctx, &state.database_pool, trip_id, todo_id)
+        .await?
+        .ok_or_else(|| {
+            Error::Request(RequestError::NotFound {
+                message: format!("todo with id {todo_id} not found"),
+            })
+        })?;
+
+    Ok(view::trip::TripTodo::build(&trip_id, &todo_item))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_undone(
+    Extension(current_user): Extension<models::user::User>,
+    State(state): State<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, Error> {
+    let ctx = Context::build(current_user);
+    models::trips::todos::Todo::set_state(
+        &ctx,
+        &state.database_pool,
+        trip_id,
+        todo_id,
+        models::trips::todos::State::Todo,
+    )
+    .await?;
+
+    Ok(Redirect::to(get_referer(&headers)?))
 }

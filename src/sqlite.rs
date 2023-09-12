@@ -89,6 +89,7 @@ pub enum Component {
     Inventory,
     User,
     Trips,
+    Todo,
 }
 
 impl fmt::Display for Component {
@@ -100,6 +101,7 @@ impl fmt::Display for Component {
                 Self::Inventory => "inventory",
                 Self::User => "user",
                 Self::Trips => "trips",
+                Self::Todo => "todo",
             }
         )
     }
@@ -167,6 +169,7 @@ macro_rules! query_all {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
         {
             use tracing::Instrument as _;
+            use futures::TryStreamExt as _;
             async {
                 $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
@@ -293,6 +296,7 @@ macro_rules! execute_returning {
     ( $class:expr, $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:tt )*) => {
         {
             use tracing::Instrument as _;
+            use futures::TryFutureExt as _;
             async {
                 $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<$t, Error> = sqlx::query!(
@@ -317,6 +321,7 @@ macro_rules! execute_returning_uuid {
     ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
         {
             use tracing::Instrument as _;
+            use futures::TryFutureExt as _;
             async {
                 $crate::sqlite::sqlx_query($class, $query, &[]);
                 let result: Result<Uuid, Error> = sqlx::query!(

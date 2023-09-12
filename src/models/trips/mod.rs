@@ -8,10 +8,11 @@ use super::{
 
 use crate::{sqlite, Context};
 
-use futures::{TryFutureExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
+
+pub mod todos;
 
 // #[macro_use]
 // mod macros {
@@ -491,6 +492,7 @@ impl TryFrom<DbTripRow> for Trip {
             temp_min: row.temp_min,
             temp_max: row.temp_max,
             comment: row.comment,
+            todos: None,
             types: None,
             categories: None,
         })
@@ -508,8 +510,9 @@ pub struct Trip {
     pub temp_min: Option<i64>,
     pub temp_max: Option<i64>,
     pub comment: Option<String>,
-    pub(crate) types: Option<Vec<TripType>>,
-    pub(crate) categories: Option<Vec<TripCategory>>,
+    pub todos: Option<Vec<todos::Todo>>,
+    pub types: Option<Vec<TripType>>,
+    pub categories: Option<Vec<TripCategory>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -990,7 +993,12 @@ impl Trip {
     pub fn categories(&self) -> &Vec<TripCategory> {
         self.categories
             .as_ref()
-            .expect("you need to call load_trips_types()")
+            .expect("you need to call load_categories()")
+    }
+
+    #[tracing::instrument]
+    pub fn todos(&self) -> &Vec<todos::Todo> {
+        self.todos.as_ref().expect("you need to call load_todos()")
     }
 
     #[tracing::instrument]
@@ -1007,6 +1015,12 @@ impl Trip {
                     .sum::<i64>()
             })
             .sum::<i64>()
+    }
+
+    #[tracing::instrument]
+    pub async fn load_todos(&mut self, ctx: &Context, pool: &sqlite::Pool) -> Result<(), Error> {
+        self.todos = Some(todos::Todo::load(ctx, pool, self.id).await?);
+        Ok(())
     }
 
     #[tracing::instrument]
