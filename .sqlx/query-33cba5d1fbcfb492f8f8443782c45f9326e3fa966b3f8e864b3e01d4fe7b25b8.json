@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE trip_todos\n            SET description = ?\n            WHERE \n                id = ? \n                AND trip_id = ?\n                AND EXISTS(SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)\n            RETURNING\n                id,\n                description,\n                done\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "done",
+        "ordinal": 2,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "33cba5d1fbcfb492f8f8443782c45f9326e3fa966b3f8e864b3e01d4fe7b25b8"
+}

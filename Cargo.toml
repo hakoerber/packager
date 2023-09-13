@@ -8,9 +8,14 @@ name = "packager"
 path = "src/main.rs"
 
 [features]
-jaeger = []
-prometheus = []
-tokio-console = []
+jaeger = [
+  "dep:opentelemetry", 
+  "dep:tracing-opentelemetry", 
+  "dep:opentelemetry-jaeger", 
+  "tokio/tracing"
+]
+prometheus = ["dep:axum-prometheus"]
+tokio-console = ["dep:console-subscriber"]
 
 default = ["jaeger", "prometheus", "tokio-console"]
 
@@ -20,9 +25,11 @@ lto = "off"
 
 [dependencies.opentelemetry]
 version = "0.20"
+optional = true
 
 [dependencies.tracing-opentelemetry]
 version = "0.21"
+optional = true
 
 [dependencies.tracing-log]
 version = "0.1"
@@ -30,6 +37,7 @@ version = "0.1"
 [dependencies.opentelemetry-jaeger]
 version = "0.19"
 features = ["rt-tokio"]
+optional = true
 
 [dependencies.http]
 version = "0.2"
@@ -47,10 +55,11 @@ features = ["headers"]
 
 [dependencies.tokio]
 version = "1"
-features = ["macros", "rt-multi-thread", "tracing"]
+features = ["macros", "rt-multi-thread"]
 
 [dependencies.console-subscriber]
 version = "0.1"
+optional = true
 
 [dependencies.hyper]
 version = "0.14"
@@ -58,6 +67,7 @@ features = ["full"]
 
 [dependencies.tower]
 version = "0.4"
+features = ["timeout"]
 
 [dependencies.tower-http]
 version = "0.4"
@@ -114,6 +124,7 @@ version = "0.1"
 
 [dependencies.axum-prometheus]
 version = "0.4"
+optional = true
 
 [dependencies.metrics]
 version = "0.21"

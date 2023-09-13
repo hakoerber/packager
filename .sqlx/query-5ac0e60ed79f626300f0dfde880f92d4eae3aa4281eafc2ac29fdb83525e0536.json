@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM trip_todos\n            WHERE \n                id = ?\n                AND EXISTS (SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "5ac0e60ed79f626300f0dfde880f92d4eae3aa4281eafc2ac29fdb83525e0536"
+}

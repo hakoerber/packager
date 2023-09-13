@@ -257,6 +257,7 @@ impl Trip {
         trip: &models::trips::Trip,
         trip_edit_attribute: Option<&models::trips::TripAttribute>,
         active_category: Option<&models::trips::TripCategory>,
+        edit_todo: Option<Uuid>,
     ) -> Markup {
         html!(
             div ."p-8" ."flex" ."flex-col" ."gap-8" {
@@ -370,7 +371,7 @@ impl Trip {
                     }
                 }
                 (TripInfo::build(trip_edit_attribute, trip))
-                (TripTodoList::build(trip))
+                (crate::models::trips::todos::TodoList{todos: trip.todos(), trip: &trip}.build(edit_todo))
                 (TripComment::build(trip))
                 (TripItems::build(active_category, trip))
             }
@@ -787,113 +788,6 @@ impl TripInfo {
                             ."p-2"
                         {
                             (TripInfoTotalWeightRow::build(trip.id, trip.total_picked_weight()))
-                        }
-                    }
-                }
-            }
-        )
-    }
-}
-
-pub struct TripTodo;
-
-impl TripTodo {
-    #[tracing::instrument]
-    pub fn build(trip_id: &Uuid, todo: &models::trips::todos::Todo) -> Markup {
-        let done = todo.is_done();
-        html!(
-            li
-                ."flex"
-                ."flex-row"
-                ."justify-start"
-                ."items-stretch"
-                ."bg-green-50"[done]
-                ."bg-red-50"[!done]
-                ."hover:bg-white"[!done]
-                ."h-full"
-            {
-                @if done {
-                    a
-                        ."flex"
-                        ."flex-row"
-                        ."aspect-square"
-                        href={
-                            "/trips/" (trip_id)
-                            "/todo/" (todo.id)
-                            "/undone"
-                        }
-                        hx-post={
-                            "/trips/" (trip_id)
-                            "/todo/" (todo.id)
-                            "/undone"
-                        }
-                        hx-target="closest li"
-                        hx-swap="outerHTML"
-                    {
-                        span
-                            ."mdi"
-                            ."m-auto"
-                            ."text-xl"
-                            ."mdi-check"
-                        {}
-                    }
-                } @else {
-                    a
-                        ."flex"
-                        ."flex-row"
-                        ."aspect-square"
-                        href={
-                            "/trips/" (trip_id)
-                            "/todo/" (todo.id)
-                            "/done"
-                        }
-                        hx-post={
-                            "/trips/" (trip_id)
-                            "/todo/" (todo.id)
-                            "/done"
-                        }
-                        hx-target="closest li"
-                        hx-swap="outerHTML"
-                    {
-                        span
-                            ."mdi"
-                            ."m-auto"
-                            ."text-xl"
-                            ."mdi-checkbox-blank-outline"
-                        {}
-                    }
-                }
-                span
-                    ."p-2"
-                {
-                    (todo.description)
-                }
-            }
-        )
-    }
-}
-
-pub struct TripTodoList;
-
-impl TripTodoList {
-    #[tracing::instrument]
-    pub fn build(trip: &models::trips::Trip) -> Markup {
-        let todos = trip.todos();
-        html!(
-            div {
-                h1 ."text-xl" ."mb-5" { "Todos" }
-
-                @if todos.is_empty() {
-                    p { "no todos" }
-
-                } @else {
-
-                    ul
-                        ."flex"
-                        ."flex-col"
-                    {
-                        @for todo in trip.todos() {
-                            (TripTodo::build(&trip.id, &todo))
                         }
                     }
                 }

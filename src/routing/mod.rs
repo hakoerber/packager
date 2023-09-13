@@ -147,7 +147,12 @@ pub fn router(state: AppState) -> Router {
                         .route(
                             "/:id/todo/:id/undone",
                             get(trip_todo_undone).post(trip_todo_undone_htmx),
-                        ),
+                        )
+                        .route("/:id/todo/:id/edit", post(trip_todo_edit))
+                        .route("/:id/todo/:id/edit/save", post(trip_todo_edit_save))
+                        .route("/:id/todo/:id/edit/cancel", post(trip_todo_edit_cancel))
+                        .route("/:id/todo/new", post(trip_todo_new))
+                        .route("/:id/todo/:id/delete", post(trip_todo_delete)),
                 )
                 .nest(
                     (&TopLevelPage::Inventory.path()).into(),
