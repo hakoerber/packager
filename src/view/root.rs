@@ -62,7 +62,7 @@ impl<'a> Component for HeaderLink<'a> {
             a
                 href=(self.args.item.path())
                 hx-get=(self.args.item.path())
-                hx-target={ "#" (self.htmx.target().html_id()) }
+                hx-target=(self.htmx.target().selector())
                 hx-swap="outerHtml"
                 hx-push-url="true"
                 #{"header-link-" (self.args.item.id())}
@@ -129,7 +129,7 @@ impl<'a> Component for Body<'a> {
                         #home
                         href=(self.htmx.fallback_action)
                         hx-get=(self.htmx.action)
-                        hx-target={ "#" (self.htmx.target()) }
+                        hx-target=(self.htmx.target().selector())
                         hx-swap="outerHTML"
                         ."flex"
                         ."flex-row"

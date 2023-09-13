@@ -99,6 +99,11 @@ impl ComponentId {
         // URL_SAFE because we cannot have slashes in the output
         base64::engine::general_purpose::URL_SAFE.encode(id)
     }
+
+    #[tracing::instrument]
+    fn selector(&self) -> String {
+        format!("#{}", self.html_id())
+    }
 }
 
 impl fmt::Display for ComponentId {
