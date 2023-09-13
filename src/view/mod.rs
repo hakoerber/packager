@@ -1,3 +1,34 @@
+/*!
+Each component is a struct that can be rendered
+
+They form a tree, with a "build of" relationship
+
+So each component can contain multiple other components
+Each component has a parent, except the `root` element
+
+Each component can send a single request (called action) which is
+either done with or without Htmx.
+
+Each component implements the [`Component`] trait. It has two
+functions:
+
+* `init()` to pass a reference to the parent and component-specific
+  arguments (implemented as an associated type of the trait)
+* `build()` that receives [`Context`] and emits Markup to render.
+
+## Actions
+
+Actions can either be done using Htmx or the standard way. To do this,
+each component is supposed to contain a `HtmxComponent` struct. A `HtmxComponent`
+contains the following information:
+
+* `ComponentId` that uniquely (and stably) identifies the component (used for the
+  HTML target ID)
+* `action`: The action to take (HTTP method & URL)
+* `fallback_action`: The action to take when Htmx is not available (HTTP method & URL)
+* `target`: What to target for Htmx swap (either itself or a reference to another component)
+*/
+
 use std::fmt;
 
 use base64::Engine as _;
