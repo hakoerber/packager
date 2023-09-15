@@ -294,29 +294,33 @@ impl crud::Update for Todo {
 }
 
 #[async_trait]
-impl crud::Delete for Todo {
+impl<'c> crud::Delete<'c> for Todo {
     type Id = Uuid;
     type Filter = TodoFilter;
 
     #[tracing::instrument]
-    async fn delete(
-        ctx: &Context,
-        pool: &sqlite::Pool,
-        filter: TodoFilter,
-        id: Uuid,
-    ) -> Result<bool, Error> {
+    async fn delete<T>(ctx: &Context, db: T, filter: TodoFilter, id: Uuid) -> Result<bool, Error>
+    where
+        T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug,
+    {
+        use sqlx::Acquire;
+
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         let trip_id_param = filter.trip_id.to_string();
+
+        let mut transaction = db.begin().await?;
+        let conn = transaction.acquire().await?;
+
         let results = crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Delete,
                 component: sqlite::Component::Todo,
             },
-            pool,
+            conn,
             r#"
                 DELETE FROM trip_todos
-                WHERE 
+                WHERE
                     id = ?
                     AND EXISTS (SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
             "#,

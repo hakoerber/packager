@@ -52,29 +52,41 @@ pub mod crud {
     }
 
     #[async_trait]
-    pub trait Delete: Sized {
+    pub trait Delete<'c>: Sized {
         type Id;
         type Filter;
 
-        async fn delete(
+        async fn delete<T>(
             ctx: &Context,
-            pool: impl sqlx::Acquire,
+            db: T,
             filter: Self::Filter,
             id: Self::Id,
-        ) -> Result<bool, Error>;
+        ) -> Result<bool, Error>
+        where
+            // we require something that allows us to get something that implements
+            // executor from a Sqlite database
+            //
+            // in practice, this will either be a pool or a transaction
+            //
+            // * A pool will let us begin() a new transaction directly and then
+            //   acquire() a new conncetion
+            //
+            // * A transaction will begin() (a noop) and then acquire() a new connection
+            T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug;
 
-        async fn delete_all(
-            ctx: &Context,
-            pool: &sqlite::Pool,
-            filter: Self::Filter,
-            ids: Vec<Self::Id>,
-        ) -> Result<bool, Error> {
-            let mut transaction = pool.begin().await?;
+        // async fn delete_all(
+        //     ctx: &Context,
+        //     pool: &sqlite::Pool,
+        //     filter: Self::Filter,
+        //     ids: Vec<Self::Id>,
+        // ) -> Result<bool, Error> {
+        //     let mut transaction = pool.begin().await?;
 
-            for id in ids {
-                Self::delete(ctx, &mut transaction, filter, id).await?;
-            }
-        }
+        //     for id in ids {
+        //         Self::delete(ctx, Box::new(&mut *transaction), filter, id).await?;
+        //     }
+        //     unimplemented!()
+        // }
     }
 }
 
