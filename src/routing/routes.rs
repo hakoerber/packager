@@ -440,7 +440,7 @@ pub async fn trip(
         let deleted = models::trips::todos::Todo::delete(
             &ctx,
             &state.database_pool,
-            TodoFilter { trip_id: id },
+            &TodoFilter { trip_id: id },
             delete_todo,
         )
         .await?;
@@ -1539,7 +1539,7 @@ pub async fn trip_todo_delete(
     let deleted = models::trips::todos::Todo::delete(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        &TodoFilter { trip_id },
         todo_id,
     )
     .await?;

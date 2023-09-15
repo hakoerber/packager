@@ -60,7 +60,7 @@ impl TryFrom<TodoRow> for Todo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TodoFilter {
     pub trip_id: Uuid,
 }
@@ -294,30 +294,30 @@ impl crud::Update for Todo {
 }
 
 #[async_trait]
-impl<'c> crud::Delete<'c> for Todo {
+impl crud::Delete for Todo {
     type Id = Uuid;
     type Filter = TodoFilter;
 
     #[tracing::instrument]
-    async fn delete<T>(ctx: &Context, db: T, filter: TodoFilter, id: Uuid) -> Result<bool, Error>
+    async fn delete<'c, T>(
+        ctx: &Context,
+        db: T,
+        filter: &TodoFilter,
+        id: Uuid,
+    ) -> Result<bool, Error>
     where
         T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug,
     {
-        use sqlx::Acquire;
-
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         let trip_id_param = filter.trip_id.to_string();
-
-        let mut transaction = db.begin().await?;
-        let conn = transaction.acquire().await?;
 
         let results = crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Delete,
                 component: sqlite::Component::Todo,
             },
-            conn,
+            &mut *(db.acquire().await?),
             r#"
                 DELETE FROM trip_todos
                 WHERE
