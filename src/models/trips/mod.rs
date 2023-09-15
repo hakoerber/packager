@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::components::crud::*;
+
 use super::{
     consts,
     error::{DatabaseError, Error, QueryError},
@@ -1019,7 +1021,8 @@ impl Trip {
 
     #[tracing::instrument]
     pub async fn load_todos(&mut self, ctx: &Context, pool: &sqlite::Pool) -> Result<(), Error> {
-        self.todos = Some(todos::Todo::load(ctx, pool, self.id).await?);
+        self.todos =
+            Some(todos::Todo::findall(ctx, pool, todos::TodoFilter { trip_id: self.id }).await?);
         Ok(())
     }
 

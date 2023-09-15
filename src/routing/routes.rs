@@ -5,6 +5,10 @@ use axum::{
     Form,
 };
 
+use crate::components::crud::*;
+use crate::components::view::*;
+use crate::models::trips::todos::{TodoBuildInput, TodoFilter, TodoNew, TodoUpdate};
+
 use crate::view::Component;
 
 use serde::Deserialize;
@@ -433,8 +437,13 @@ pub async fn trip(
     state.client_state.active_category_id = trip_query.category;
 
     if let Some(delete_todo) = trip_query.delete_todo {
-        let deleted =
-            models::trips::todos::Todo::delete(&ctx, &state.database_pool, id, delete_todo).await?;
+        let deleted = models::trips::todos::Todo::delete(
+            &ctx,
+            &state.database_pool,
+            TodoFilter { trip_id: id },
+            delete_todo,
+        )
+        .await?;
 
         return if deleted {
             Ok(Redirect::to(get_referer(&headers)?).into_response())
@@ -1266,24 +1275,32 @@ pub async fn trip_todo_done_htmx(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::set_state(
+    models::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        trip_id,
+        TodoFilter { trip_id },
         todo_id,
-        models::trips::todos::State::Done,
+        TodoUpdate::State(models::trips::todos::State::Done),
     )
     .await?;
 
-    let todo_item = models::trips::todos::Todo::find(&ctx, &state.database_pool, trip_id, todo_id)
-        .await?
-        .ok_or_else(|| {
-            Error::Request(RequestError::NotFound {
-                message: format!("todo with id {todo_id} not found"),
-            })
-        })?;
+    let todo_item = models::trips::todos::Todo::find(
+        &ctx,
+        &state.database_pool,
+        TodoFilter { trip_id },
+        todo_id,
+    )
+    .await?
+    .ok_or_else(|| {
+        Error::Request(RequestError::NotFound {
+            message: format!("todo with id {todo_id} not found"),
+        })
+    })?;
 
-    Ok(todo_item.build(&trip_id, models::trips::todos::TodoUiState::Default))
+    Ok(todo_item.build(TodoBuildInput {
+        trip_id,
+        state: models::trips::todos::TodoUiState::Default,
+    }))
 }
 
 #[tracing::instrument]
@@ -1294,12 +1311,12 @@ pub async fn trip_todo_done(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::set_state(
+    models::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        trip_id,
+        TodoFilter { trip_id },
         todo_id,
-        models::trips::todos::State::Done,
+        TodoUpdate::State(models::trips::todos::State::Done),
     )
     .await?;
 
@@ -1313,24 +1330,32 @@ pub async fn trip_todo_undone_htmx(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::set_state(
+    models::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        trip_id,
+        TodoFilter { trip_id },
         todo_id,
-        models::trips::todos::State::Todo,
+        TodoUpdate::State(models::trips::todos::State::Todo),
     )
     .await?;
 
-    let todo_item = models::trips::todos::Todo::find(&ctx, &state.database_pool, trip_id, todo_id)
-        .await?
-        .ok_or_else(|| {
-            Error::Request(RequestError::NotFound {
-                message: format!("todo with id {todo_id} not found"),
-            })
-        })?;
+    let todo_item = models::trips::todos::Todo::find(
+        &ctx,
+        &state.database_pool,
+        TodoFilter { trip_id },
+        todo_id,
+    )
+    .await?
+    .ok_or_else(|| {
+        Error::Request(RequestError::NotFound {
+            message: format!("todo with id {todo_id} not found"),
+        })
+    })?;
 
-    Ok(todo_item.build(&trip_id, models::trips::todos::TodoUiState::Default))
+    Ok(todo_item.build(TodoBuildInput {
+        trip_id,
+        state: models::trips::todos::TodoUiState::Default,
+    }))
 }
 
 #[tracing::instrument]
@@ -1341,12 +1366,12 @@ pub async fn trip_todo_undone(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::set_state(
+    models::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        trip_id,
+        TodoFilter { trip_id },
         todo_id,
-        models::trips::todos::State::Todo,
+        TodoUpdate::State(models::trips::todos::State::Todo),
     )
     .await?;
 
@@ -1368,15 +1393,23 @@ pub async fn trip_todo_edit(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let todo_item =
-        models::trips::todos::Todo::find(&ctx, &state.database_pool, trip_id, todo_id).await?;
+    let todo_item = models::trips::todos::Todo::find(
+        &ctx,
+        &state.database_pool,
+        TodoFilter { trip_id },
+        todo_id,
+    )
+    .await?;
 
     match todo_item {
         None => Err(Error::Request(RequestError::NotFound {
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => Ok(todo_item
-            .build(&trip_id, models::trips::todos::TodoUiState::Edit)
+            .build(TodoBuildInput {
+                trip_id,
+                state: models::trips::todos::TodoUiState::Edit,
+            })
             .into_response()),
     }
 }
@@ -1390,12 +1423,12 @@ pub async fn trip_todo_edit_save(
     Form(form): Form<TripTodoDescription>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let todo_item = models::trips::todos::Todo::set_description(
+    let todo_item = models::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        trip_id,
+        TodoFilter { trip_id },
         todo_id,
-        form.description,
+        TodoUpdate::Description(form.description),
     )
     .await?;
 
@@ -1406,7 +1439,10 @@ pub async fn trip_todo_edit_save(
         Some(todo_item) => {
             if htmx::is_htmx(&headers) {
                 Ok(todo_item
-                    .build(&trip_id, models::trips::todos::TodoUiState::Default)
+                    .build(TodoBuildInput {
+                        trip_id,
+                        state: models::trips::todos::TodoUiState::Default,
+                    })
                     .into_response())
             } else {
                 Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
@@ -1423,15 +1459,23 @@ pub async fn trip_todo_edit_cancel(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let todo_item =
-        models::trips::todos::Todo::find(&ctx, &state.database_pool, trip_id, todo_id).await?;
+    let todo_item = models::trips::todos::Todo::find(
+        &ctx,
+        &state.database_pool,
+        TodoFilter { trip_id },
+        todo_id,
+    )
+    .await?;
 
     match todo_item {
         None => Err(Error::Request(RequestError::NotFound {
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => Ok(todo_item
-            .build(&trip_id, models::trips::todos::TodoUiState::Default)
+            .build(TodoBuildInput {
+                trip_id,
+                state: models::trips::todos::TodoUiState::Default,
+            })
             .into_response()),
     }
 }
@@ -1453,9 +1497,15 @@ pub async fn trip_todo_new(
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
     // method output is not required as we reload the whole trip todos anyway
-    let _todo_item =
-        models::trips::todos::Todo::new(&ctx, &state.database_pool, trip_id, form.description)
-            .await?;
+    let _todo_item = models::trips::todos::Todo::create(
+        &ctx,
+        &state.database_pool,
+        TodoFilter { trip_id },
+        TodoNew {
+            description: form.description,
+        },
+    )
+    .await?;
 
     if htmx::is_htmx(&headers) {
         let trip = models::trips::Trip::find(&ctx, &state.database_pool, trip_id).await?;
@@ -1486,8 +1536,13 @@ pub async fn trip_todo_delete(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let deleted =
-        models::trips::todos::Todo::delete(&ctx, &state.database_pool, trip_id, todo_id).await?;
+    let deleted = models::trips::todos::Todo::delete(
+        &ctx,
+        &state.database_pool,
+        TodoFilter { trip_id },
+        todo_id,
+    )
+    .await?;
 
     if !deleted {
         return Err(Error::Request(RequestError::NotFound {

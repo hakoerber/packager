@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO trip_todos\n                    (id, description, done, trip_id)\n                SELECT ?, ?, false, id as trip_id\n                FROM trips\n                WHERE trip_id = ? AND EXISTS(SELECT 1 FROM trips WHERE id = ? and user_id = ?)\n                LIMIT 1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "4b087f9afbc94acbdf09a04c934b158668704d4497c2f7fef327d56559c5ee8a"
+}

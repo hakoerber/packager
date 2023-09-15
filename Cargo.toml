@@ -23,6 +23,9 @@ default = ["jaeger", "prometheus", "tokio-console"]
 opt-level = 0
 lto = "off"
 
+[dependencies.async-trait]
+version = "0.1"
+
 [dependencies.opentelemetry]
 version = "0.20"
 optional = true

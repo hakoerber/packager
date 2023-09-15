@@ -1,10 +1,12 @@
 use maud::{html, Markup};
 use uuid::Uuid;
 
-use crate::{
-    models::{Error, QueryError},
-    sqlite, Context,
-};
+use crate::components::crud;
+use crate::components::view::{self, *};
+
+use async_trait::async_trait;
+
+use crate::{models::Error, sqlite, Context};
 
 use super::Trip;
 
@@ -58,17 +60,28 @@ impl TryFrom<TodoRow> for Todo {
     }
 }
 
+#[derive(Debug)]
+pub struct TodoFilter {
+    pub trip_id: Uuid,
+}
+
 impl Todo {
     pub fn is_done(&self) -> bool {
         self.state == State::Done
     }
+}
 
-    pub async fn load(
+#[async_trait]
+impl crud::Read for Todo {
+    type Filter = TodoFilter;
+    type Id = Uuid;
+
+    async fn findall(
         ctx: &Context,
         pool: &sqlite::Pool,
-        trip_id: Uuid,
+        filter: TodoFilter,
     ) -> Result<Vec<Self>, Error> {
-        let trip_id_param = trip_id.to_string();
+        let trip_id_param = filter.trip_id.to_string();
         let user_id = ctx.user.id.to_string();
 
         let todos: Vec<Todo> = crate::query_all!(
@@ -100,13 +113,13 @@ impl Todo {
     }
 
     #[tracing::instrument]
-    pub async fn find(
+    async fn find(
         ctx: &Context,
         pool: &sqlite::Pool,
-        trip_id: Uuid,
+        filter: TodoFilter,
         todo_id: Uuid,
     ) -> Result<Option<Self>, Error> {
-        let trip_id_param = trip_id.to_string();
+        let trip_id_param = filter.trip_id.to_string();
         let todo_id_param = todo_id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
@@ -136,72 +149,45 @@ impl Todo {
         )
         .await
     }
+}
 
-    #[tracing::instrument]
-    pub async fn set_state(
+pub struct TodoNew {
+    pub description: String,
+}
+
+#[async_trait]
+impl crud::Create for Todo {
+    type Id = Uuid;
+    type Filter = TodoFilter;
+    type Info = TodoNew;
+
+    async fn create(
         ctx: &Context,
         pool: &sqlite::Pool,
-        trip_id: Uuid,
-        todo_id: Uuid,
-        state: State,
-    ) -> Result<(), Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
-        let todo_id_param = todo_id.to_string();
-        let done = state == State::Done;
-
-        let result = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Update,
-                component: sqlite::Component::Trips,
-            },
-            pool,
-            r#"
-                UPDATE trip_todos
-                    SET done = ?
-                WHERE trip_id = ?
-                AND id = ?
-                AND EXISTS(SELECT 1 FROM trips WHERE id = ? AND user_id = ?)"#,
-            done,
-            trip_id_param,
-            todo_id_param,
-            trip_id_param,
-            user_id
-        )
-        .await?;
-
-        (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-            Error::Query(QueryError::NotFound {
-                description: format!("todo {todo_id} not found for trip {trip_id}"),
-            })
-        })
-    }
-
-    pub async fn new(
-        ctx: &Context,
-        pool: &sqlite::Pool,
-        trip_id: Uuid,
-        description: String,
-    ) -> Result<Uuid, Error> {
+        filter: Self::Filter,
+        info: Self::Info,
+    ) -> Result<Self::Id, Error> {
         let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         tracing::info!("adding new todo with id {id}");
         let id_param = id.to_string();
-        let trip_id_param = trip_id.to_string();
+        let trip_id_param = filter.trip_id.to_string();
         crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
                 component: sqlite::Component::Todo,
             },
             pool,
-            "INSERT INTO trip_todos
-                (id, description, done, trip_id)
-            SELECT ?, ?, false, id as trip_id
-            FROM trips
-            WHERE trip_id = ? AND EXISTS(SELECT 1 FROM trips WHERE id = ? and user_id = ?)
-            LIMIT 1",
+            r#"
+                INSERT INTO trip_todos
+                    (id, description, done, trip_id)
+                SELECT ?, ?, false, id as trip_id
+                FROM trips
+                WHERE trip_id = ? AND EXISTS(SELECT 1 FROM trips WHERE id = ? and user_id = ?)
+                LIMIT 1
+            "#,
             id_param,
-            description,
+            info.description,
             trip_id_param,
             trip_id_param,
             user_id,
@@ -210,27 +196,130 @@ impl Todo {
 
         Ok(id)
     }
+}
+
+#[derive(Debug)]
+pub enum TodoUpdate {
+    State(State),
+    Description(String),
+}
+
+#[async_trait]
+impl crud::Update for Todo {
+    type Id = Uuid;
+    type Filter = TodoFilter;
+    type Update = TodoUpdate;
 
     #[tracing::instrument]
-    pub async fn delete(
+    async fn update(
         ctx: &Context,
         pool: &sqlite::Pool,
-        trip_id: Uuid,
+        filter: Self::Filter,
+        id: Self::Id,
+        update: Self::Update,
+    ) -> Result<Option<Self>, Error> {
+        let user_id = ctx.user.id.to_string();
+        let trip_id_param = filter.trip_id.to_string();
+        let todo_id_param = id.to_string();
+        match update {
+            TodoUpdate::State(state) => {
+                let done = state == State::Done;
+
+                let result = crate::query_one!(
+                    &sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Trips,
+                    },
+                    pool,
+                    TodoRow,
+                    Todo,
+                    r#"
+                        UPDATE trip_todos
+                            SET done = ?
+                        WHERE trip_id = ?
+                        AND id = ?
+                        AND EXISTS(SELECT 1 FROM trips WHERE id = ? AND user_id = ?)
+                        RETURNING
+                            id,
+                            description,
+                            done
+                    "#,
+                    done,
+                    trip_id_param,
+                    todo_id_param,
+                    trip_id_param,
+                    user_id
+                )
+                .await?;
+
+                Ok(result)
+            }
+            TodoUpdate::Description(new_description) => {
+                let user_id = ctx.user.id.to_string();
+                let trip_id_param = filter.trip_id.to_string();
+                let todo_id_param = id.to_string();
+
+                let result = crate::query_one!(
+                    &sqlite::QueryClassification {
+                        query_type: sqlite::QueryType::Update,
+                        component: sqlite::Component::Todo,
+                    },
+                    pool,
+                    TodoRow,
+                    Todo,
+                    r#"
+                        UPDATE trip_todos
+                        SET description = ?
+                        WHERE 
+                            id = ? 
+                            AND trip_id = ?
+                            AND EXISTS(SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
+                        RETURNING
+                            id,
+                            description,
+                            done
+                    "#,
+                    new_description,
+                    todo_id_param,
+                    trip_id_param,
+                    trip_id_param,
+                    user_id,
+                )
+                .await?;
+
+                Ok(result)
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crud::Delete for Todo {
+    type Id = Uuid;
+    type Filter = TodoFilter;
+
+    #[tracing::instrument]
+    async fn delete(
+        ctx: &Context,
+        pool: &sqlite::Pool,
+        filter: TodoFilter,
         id: Uuid,
     ) -> Result<bool, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
+        let trip_id_param = filter.trip_id.to_string();
         let results = crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Delete,
                 component: sqlite::Component::Todo,
             },
             pool,
-            "DELETE FROM trip_todos
-            WHERE 
-                id = ?
-                AND EXISTS (SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)",
+            r#"
+                DELETE FROM trip_todos
+                WHERE 
+                    id = ?
+                    AND EXISTS (SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
+            "#,
             id_param,
             trip_id_param,
             user_id,
@@ -247,9 +336,17 @@ pub enum TodoUiState {
     Edit,
 }
 
-impl Todo {
+#[derive(Debug)]
+pub struct TodoBuildInput {
+    pub trip_id: Uuid,
+    pub state: TodoUiState,
+}
+
+impl view::View for Todo {
+    type Input = TodoBuildInput;
+
     #[tracing::instrument]
-    pub fn build(&self, trip_id: &Uuid, state: TodoUiState) -> Markup {
+    fn build(&self, input: Self::Input) -> Markup {
         let done = self.is_done();
         html!(
             li
@@ -261,19 +358,19 @@ impl Todo {
                 ."bg-red-50"[!done]
                 ."h-full"
             {
-                @if state == TodoUiState::Edit {
+                @if input.state == TodoUiState::Edit {
                     form
                         name="edit-todo"
                         id="edit-todo"
                         action={
-                            "/trips/" (trip_id)
+                            "/trips/" (input.trip_id)
                             "/todo/" (self.id)
                             "/edit/save"
                         }
                         target="_self"
                         method="post"
                         hx-post={
-                            "/trips/" (trip_id)
+                            "/trips/" (input.trip_id)
                             "/todo/" (self.id)
                             "/edit/save"
                         }
@@ -325,7 +422,7 @@ impl Todo {
                     a
                         href="."
                         hx-post={
-                            "/trips/" (trip_id)
+                            "/trips/" (input.trip_id)
                             "/todo/" (self.id)
                             "/edit/cancel"
                         }
@@ -352,12 +449,12 @@ impl Todo {
                             ."aspect-square"
                             ."hover:bg-red-50"
                             href={
-                                "/trips/" (trip_id)
+                                "/trips/" (input.trip_id)
                                 "/todo/" (self.id)
                                 "/undone"
                             }
                             hx-post={
-                                "/trips/" (trip_id)
+                                "/trips/" (input.trip_id)
                                 "/todo/" (self.id)
                                 "/undone"
                             }
@@ -378,12 +475,12 @@ impl Todo {
                             ."aspect-square"
                             ."hover:bg-green-50"
                             href={
-                                "/trips/" (trip_id)
+                                "/trips/" (input.trip_id)
                                 "/todo/" (self.id)
                                 "/done"
                             }
                             hx-post={
-                                "/trips/" (trip_id)
+                                "/trips/" (input.trip_id)
                                 "/todo/" (self.id)
                                 "/done"
                             }
@@ -412,7 +509,7 @@ impl Todo {
                         ."hover:bg-blue-400"
                         href=(format!("?edit_todo={id}", id = self.id))
                         hx-post={
-                            "/trips/" (trip_id)
+                            "/trips/" (input.trip_id)
                             "/todo/" (self.id)
                             "/edit"
                         }
@@ -429,7 +526,7 @@ impl Todo {
                         ."hover:bg-red-200"
                         href=(format!("?delete_todo={id}", id = self.id))
                         hx-post={
-                            "/trips/" (trip_id)
+                            "/trips/" (input.trip_id)
                             "/todo/" (self.id)
                             "/delete"
                         }
@@ -441,48 +538,6 @@ impl Todo {
                 }
             }
         )
-    }
-
-    #[tracing::instrument]
-    pub async fn set_description(
-        ctx: &Context,
-        pool: &sqlite::Pool,
-        trip_id: Uuid,
-        todo_id: Uuid,
-        new_description: String,
-    ) -> Result<Option<Self>, Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
-        let todo_id_param = todo_id.to_string();
-
-        let result = crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Update,
-                component: sqlite::Component::Todo,
-            },
-            pool,
-            TodoRow,
-            Todo,
-            "UPDATE trip_todos
-            SET description = ?
-            WHERE 
-                id = ? 
-                AND trip_id = ?
-                AND EXISTS(SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
-            RETURNING
-                id,
-                description,
-                done
-            ",
-            new_description,
-            todo_id_param,
-            trip_id_param,
-            trip_id_param,
-            user_id,
-        )
-        .await?;
-
-        Ok(result)
     }
 }
 
@@ -573,7 +628,7 @@ impl<'a> TodoList<'a> {
                             } else {
                                 TodoUiState::Default
                             }).unwrap_or(TodoUiState::Default);
-                        (todo.build(&self.trip.id, state))
+                        (todo.build(TodoBuildInput{trip_id:self.trip.id, state}))
                     }
                     (NewTodo::build(&self.trip.id))
                 }
