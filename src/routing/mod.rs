@@ -12,7 +12,7 @@ use uuid::Uuid;
 use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
-use crate::{AppState, Error, RequestError, TopLevelPage};
+use crate::{components::route, AppState, Error, RequestError, TopLevelPage};
 
 use super::auth;
 
@@ -151,7 +151,10 @@ pub fn router(state: AppState) -> Router {
                         .route("/:id/todo/:id/edit", post(trip_todo_edit))
                         .route("/:id/todo/:id/edit/save", post(trip_todo_edit_save))
                         .route("/:id/todo/:id/edit/cancel", post(trip_todo_edit_cancel))
-                        .route("/:id/todo/new", post(trip_todo_new))
+                        .route(
+                            "/:id/todo/new",
+                            post(<crate::models::trips::todos::Todo as route::Create>::create),
+                        )
                         .route("/:id/todo/:id/delete", post(trip_todo_delete)),
                 )
                 .nest(

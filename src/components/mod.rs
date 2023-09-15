@@ -75,7 +75,6 @@ pub mod crud {
             T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug;
 
         async fn delete_all<'c>(
-            // &self,
             ctx: &Context,
             pool: &'c sqlite::Pool,
             filter: Self::Filter,
@@ -107,5 +106,39 @@ pub mod view {
         type Input;
 
         fn build(&self, input: Self::Input) -> Markup;
+    }
+}
+
+pub mod route {
+    use async_trait::async_trait;
+
+    use crate::AppState;
+    use axum::{
+        body::BoxBody,
+        extract::{Path, State},
+        http::HeaderMap,
+        response::Response,
+        Extension, Form,
+    };
+
+    pub enum Method {
+        Get,
+        Post,
+    }
+
+    #[async_trait]
+    pub trait Create: super::crud::Create {
+        type FormX: Send + Sync + 'static;
+        type UrlParams: Send + Sync + 'static;
+
+        const URL: &'static str;
+
+        async fn create(
+            user: Extension<crate::models::user::User>,
+            state: State<AppState>,
+            headers: HeaderMap,
+            path: Path<Self::UrlParams>,
+            form: Form<Self::FormX>,
+        ) -> Result<Response<BoxBody>, crate::Error>;
     }
 }

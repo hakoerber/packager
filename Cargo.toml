@@ -8,12 +8,7 @@ name = "packager"
 path = "src/main.rs"
 
 [features]
-jaeger = [
-  "dep:opentelemetry", 
-  "dep:tracing-opentelemetry", 
-  "dep:opentelemetry-jaeger", 
-  "tokio/tracing"
-]
+jaeger = ["dep:opentelemetry", "dep:tracing-opentelemetry", "dep:opentelemetry-jaeger", "tokio/tracing"]
 prometheus = ["dep:axum-prometheus"]
 tokio-console = ["dep:console-subscriber"]
 
@@ -54,7 +49,7 @@ features = ["derive"]
 
 [dependencies.axum]
 version = "0.6"
-features = ["headers"]
+features = ["headers", "macros"]
 
 [dependencies.tokio]
 version = "1"

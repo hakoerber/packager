@@ -1,12 +1,25 @@
+use axum::{
+    body::BoxBody,
+    extract::{Form, Path},
+    http::HeaderMap,
+    response::{IntoResponse, Redirect, Response},
+    Extension,
+};
 use maud::{html, Markup};
+use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::components::crud;
-use crate::components::view::{self, *};
+use crate::{
+    components::{
+        crud, route,
+        view::{self, *},
+    },
+    htmx,
+    models::Error,
+    sqlite, AppState, Context, RequestError,
+};
 
 use async_trait::async_trait;
-
-use crate::{models::Error, sqlite, Context};
 
 use super::Trip;
 
@@ -542,6 +555,62 @@ impl view::View for Todo {
                 }
             }
         )
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TripTodoNew {
+    #[serde(rename = "new-todo-description")]
+    description: String,
+}
+
+#[async_trait]
+impl route::Create for Todo {
+    type FormX = TripTodoNew;
+    type UrlParams = (Uuid,);
+
+    const URL: &'static str = "/:id/todo/new";
+
+    #[tracing::instrument]
+    async fn create(
+        Extension(current_user): Extension<crate::models::user::User>,
+        axum::extract::State(state): axum::extract::State<AppState>,
+        headers: HeaderMap,
+        Path((trip_id,)): Path<(Uuid,)>,
+        Form(form): Form<TripTodoNew>,
+    ) -> Result<Response<BoxBody>, crate::Error> {
+        let ctx = Context::build(current_user);
+        // method output is not required as we reload the whole trip todos anyway
+        let _todo_item = <Self as crud::Create>::create(
+            &ctx,
+            &state.database_pool,
+            TodoFilter { trip_id },
+            TodoNew {
+                description: form.description,
+            },
+        )
+        .await?;
+
+        if htmx::is_htmx(&headers) {
+            let trip = Trip::find(&ctx, &state.database_pool, trip_id).await?;
+            match trip {
+                None => Err(crate::Error::Request(RequestError::NotFound {
+                    message: format!("trip with id {trip_id} not found"),
+                })),
+                Some(mut trip) => {
+                    trip.load_todos(&ctx, &state.database_pool).await?;
+                    Ok(crate::models::trips::todos::TodoList {
+                        trip: &trip,
+                        todos: &trip.todos(),
+                    }
+                    .build(None)
+                    .into_response())
+                }
+            }
+        } else {
+            Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
+        }
     }
 }
 

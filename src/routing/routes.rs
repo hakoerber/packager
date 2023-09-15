@@ -7,7 +7,7 @@ use axum::{
 
 use crate::components::crud::*;
 use crate::components::view::*;
-use crate::models::trips::todos::{TodoBuildInput, TodoFilter, TodoNew, TodoUpdate};
+use crate::models::trips::todos::{TodoBuildInput, TodoFilter, TodoUpdate};
 
 use crate::view::Component;
 
@@ -1477,54 +1477,6 @@ pub async fn trip_todo_edit_cancel(
                 state: models::trips::todos::TodoUiState::Default,
             })
             .into_response()),
-    }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct TripTodoNew {
-    #[serde(rename = "new-todo-description")]
-    description: String,
-}
-
-#[tracing::instrument]
-pub async fn trip_todo_new(
-    Extension(current_user): Extension<models::user::User>,
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(trip_id): Path<Uuid>,
-    Form(form): Form<TripTodoNew>,
-) -> Result<impl IntoResponse, Error> {
-    let ctx = Context::build(current_user);
-    // method output is not required as we reload the whole trip todos anyway
-    let _todo_item = models::trips::todos::Todo::create(
-        &ctx,
-        &state.database_pool,
-        TodoFilter { trip_id },
-        TodoNew {
-            description: form.description,
-        },
-    )
-    .await?;
-
-    if htmx::is_htmx(&headers) {
-        let trip = models::trips::Trip::find(&ctx, &state.database_pool, trip_id).await?;
-        match trip {
-            None => Err(Error::Request(RequestError::NotFound {
-                message: format!("trip with id {trip_id} not found"),
-            })),
-            Some(mut trip) => {
-                trip.load_todos(&ctx, &state.database_pool).await?;
-                Ok(models::trips::todos::TodoList {
-                    trip: &trip,
-                    todos: &trip.todos(),
-                }
-                .build(None)
-                .into_response())
-            }
-        }
-    } else {
-        Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
     }
 }
 
