@@ -567,18 +567,19 @@ pub struct TripTodoNew {
 
 #[async_trait]
 impl route::Create for Todo {
-    type FormX = TripTodoNew;
-    type UrlParams = (Uuid,);
+    type Form = TripTodoNew;
+    type ParentUrlParams = (Uuid,);
+    type UrlParams = ();
 
-    const URL: &'static str = "/:id/todo/new";
+    const URL: &'static str = "/new";
 
     #[tracing::instrument]
     async fn create(
         Extension(current_user): Extension<crate::models::user::User>,
         axum::extract::State(state): axum::extract::State<AppState>,
         headers: HeaderMap,
-        Path((trip_id,)): Path<(Uuid,)>,
-        Form(form): Form<TripTodoNew>,
+        Path(((trip_id,), ())): Path<(Self::ParentUrlParams, Self::UrlParams)>,
+        Form(form): Form<Self::Form>,
     ) -> Result<Response<BoxBody>, crate::Error> {
         let ctx = Context::build(current_user);
         // method output is not required as we reload the whole trip todos anyway
@@ -610,6 +611,53 @@ impl route::Create for Todo {
             }
         } else {
             Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
+        }
+    }
+}
+
+#[async_trait]
+impl route::Delete for Todo {
+    type ParentUrlParams = (Uuid,);
+    type UrlParams = (Uuid,);
+
+    const URL: &'static str = "/:id/delete";
+
+    #[tracing::instrument]
+    async fn delete(
+        Extension(current_user): Extension<crate::models::user::User>,
+        axum::extract::State(state): axum::extract::State<AppState>,
+        _headers: HeaderMap,
+        Path(((trip_id,), (todo_id,))): Path<(Self::ParentUrlParams, Self::UrlParams)>,
+    ) -> Result<Response<BoxBody>, crate::Error> {
+        let ctx = Context::build(current_user);
+        let deleted = <Self as crud::Delete>::delete(
+            &ctx,
+            &state.database_pool,
+            &TodoFilter { trip_id },
+            todo_id,
+        )
+        .await?;
+
+        if !deleted {
+            return Err(crate::Error::Request(RequestError::NotFound {
+                message: format!("todo with id {todo_id} not found"),
+            }));
+        }
+
+        let trip = crate::models::trips::Trip::find(&ctx, &state.database_pool, trip_id).await?;
+        match trip {
+            None => Err(crate::Error::Request(RequestError::NotFound {
+                message: format!("trip with id {trip_id} not found"),
+            })),
+            Some(mut trip) => {
+                trip.load_todos(&ctx, &state.database_pool).await?;
+                Ok(TodoList {
+                    trip: &trip,
+                    todos: &trip.todos(),
+                }
+                .build(None)
+                .into_response())
+            }
         }
     }
 }

@@ -18,6 +18,8 @@ default = ["jaeger", "prometheus", "tokio-console"]
 opt-level = 0
 lto = "off"
 
+[dependencies]
+
 [dependencies.async-trait]
 version = "0.1"
 
@@ -49,7 +51,7 @@ features = ["derive"]
 
 [dependencies.axum]
 version = "0.6"
-features = ["headers", "macros"]
+features = ["headers"]
 
 [dependencies.tokio]
 version = "1"

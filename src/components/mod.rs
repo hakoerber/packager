@@ -115,7 +115,7 @@ pub mod route {
     use crate::AppState;
     use axum::{
         body::BoxBody,
-        extract::{Path, State},
+        extract::{Path, Query, State},
         http::HeaderMap,
         response::Response,
         Extension, Form,
@@ -128,7 +128,9 @@ pub mod route {
 
     #[async_trait]
     pub trait Create: super::crud::Create {
-        type FormX: Send + Sync + 'static;
+        type Form: Send + Sync + 'static;
+
+        type ParentUrlParams: Send + Sync + 'static;
         type UrlParams: Send + Sync + 'static;
 
         const URL: &'static str;
@@ -137,8 +139,51 @@ pub mod route {
             user: Extension<crate::models::user::User>,
             state: State<AppState>,
             headers: HeaderMap,
-            path: Path<Self::UrlParams>,
-            form: Form<Self::FormX>,
+            path: Path<(Self::ParentUrlParams, Self::UrlParams)>,
+            form: Form<Self::Form>,
         ) -> Result<Response<BoxBody>, crate::Error>;
+
+        fn with_prefix(prefix: &'static str) -> String {
+            format!("{}{}", prefix, Self::URL)
+        }
+    }
+
+    #[async_trait]
+    pub trait Read: super::crud::Read {
+        type UrlParams: Send + Sync + 'static;
+        type QueryParams: Send + Sync + 'static;
+
+        const URL: &'static str;
+
+        async fn read(
+            user: Extension<crate::models::user::User>,
+            state: State<AppState>,
+            headers: HeaderMap,
+            query: Query<Self::QueryParams>,
+            path: Path<Self::UrlParams>,
+        ) -> Result<Response<BoxBody>, crate::Error>;
+
+        fn with_prefix(prefix: &'static str) -> String {
+            format!("{}{}", prefix, Self::URL)
+        }
+    }
+
+    #[async_trait]
+    pub trait Delete: super::crud::Delete {
+        type ParentUrlParams: Send + Sync + 'static;
+        type UrlParams: Send + Sync + 'static;
+
+        const URL: &'static str;
+
+        async fn delete(
+            user: Extension<crate::models::user::User>,
+            state: State<AppState>,
+            headers: HeaderMap,
+            path: Path<(Self::ParentUrlParams, Self::UrlParams)>,
+        ) -> Result<Response<BoxBody>, crate::Error>;
+
+        fn with_prefix(prefix: &'static str) -> String {
+            format!("{}{}", prefix, Self::URL)
+        }
     }
 }
