@@ -373,7 +373,7 @@ impl Trip {
                     }
                 }
                 (TripInfo::build(trip_edit_attribute, trip))
-                (crate::components::trips::todos::List{todos: trip.todos(), trip: &trip}.build(crate::components::trips::todos::list::BuildInput { edit_todo}))
+                (crate::components::trips::todos::List{todos: trip.todos(), trip}.build(crate::components::trips::todos::list::BuildInput { edit_todo}))
                 (TripComment::build(trip))
                 (TripItems::build(active_category, trip))
             }

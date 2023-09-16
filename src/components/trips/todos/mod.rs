@@ -601,7 +601,7 @@ impl route::Create for Todo {
                     trip.load_todos(&ctx, &state.database_pool).await?;
                     Ok(list::List {
                         trip: &trip,
-                        todos: &trip.todos(),
+                        todos: trip.todos(),
                     }
                     .build(list::BuildInput { edit_todo: None })
                     .into_response())
@@ -651,7 +651,7 @@ impl route::Delete for Todo {
                 trip.load_todos(&ctx, &state.database_pool).await?;
                 Ok(list::List {
                     trip: &trip,
-                    todos: &trip.todos(),
+                    todos: trip.todos(),
                 }
                 .build(list::BuildInput { edit_todo: None })
                 .into_response())
