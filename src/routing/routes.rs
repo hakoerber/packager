@@ -5,9 +5,10 @@ use axum::{
     Form,
 };
 
+use crate::components;
 use crate::components::crud::*;
+use crate::components::trips::todos;
 use crate::components::view::*;
-use crate::models::trips::todos::{TodoBuildInput, TodoFilter, TodoUpdate};
 
 use crate::view::Component;
 
@@ -437,10 +438,10 @@ pub async fn trip(
     state.client_state.active_category_id = trip_query.category;
 
     if let Some(delete_todo) = trip_query.delete_todo {
-        let deleted = models::trips::todos::Todo::delete(
+        let deleted = components::trips::todos::Todo::delete(
             &ctx,
             &state.database_pool,
-            &TodoFilter { trip_id: id },
+            &todos::Filter { trip_id: id },
             delete_todo,
         )
         .await?;
@@ -1275,19 +1276,19 @@ pub async fn trip_todo_done_htmx(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::update(
+    components::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
-        TodoUpdate::State(models::trips::todos::State::Done),
+        todos::Update::State(components::trips::todos::State::Done),
     )
     .await?;
 
-    let todo_item = models::trips::todos::Todo::find(
+    let todo_item = components::trips::todos::Todo::find(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
     )
     .await?
@@ -1297,9 +1298,9 @@ pub async fn trip_todo_done_htmx(
         })
     })?;
 
-    Ok(todo_item.build(TodoBuildInput {
+    Ok(todo_item.build(todos::BuildInput {
         trip_id,
-        state: models::trips::todos::TodoUiState::Default,
+        state: components::trips::todos::UiState::Default,
     }))
 }
 
@@ -1311,12 +1312,12 @@ pub async fn trip_todo_done(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::update(
+    components::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
-        TodoUpdate::State(models::trips::todos::State::Done),
+        todos::Update::State(components::trips::todos::State::Done),
     )
     .await?;
 
@@ -1330,19 +1331,19 @@ pub async fn trip_todo_undone_htmx(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::update(
+    components::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
-        TodoUpdate::State(models::trips::todos::State::Todo),
+        todos::Update::State(components::trips::todos::State::Todo),
     )
     .await?;
 
-    let todo_item = models::trips::todos::Todo::find(
+    let todo_item = components::trips::todos::Todo::find(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
     )
     .await?
@@ -1352,9 +1353,9 @@ pub async fn trip_todo_undone_htmx(
         })
     })?;
 
-    Ok(todo_item.build(TodoBuildInput {
+    Ok(todo_item.build(todos::BuildInput {
         trip_id,
-        state: models::trips::todos::TodoUiState::Default,
+        state: components::trips::todos::UiState::Default,
     }))
 }
 
@@ -1366,12 +1367,12 @@ pub async fn trip_todo_undone(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    models::trips::todos::Todo::update(
+    components::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
-        TodoUpdate::State(models::trips::todos::State::Todo),
+        todos::Update::State(components::trips::todos::State::Todo),
     )
     .await?;
 
@@ -1393,10 +1394,10 @@ pub async fn trip_todo_edit(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let todo_item = models::trips::todos::Todo::find(
+    let todo_item = components::trips::todos::Todo::find(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
     )
     .await?;
@@ -1406,9 +1407,9 @@ pub async fn trip_todo_edit(
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => Ok(todo_item
-            .build(TodoBuildInput {
+            .build(todos::BuildInput {
                 trip_id,
-                state: models::trips::todos::TodoUiState::Edit,
+                state: components::trips::todos::UiState::Edit,
             })
             .into_response()),
     }
@@ -1423,12 +1424,12 @@ pub async fn trip_todo_edit_save(
     Form(form): Form<TripTodoDescription>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let todo_item = models::trips::todos::Todo::update(
+    let todo_item = components::trips::todos::Todo::update(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
-        TodoUpdate::Description(form.description),
+        todos::Update::Description(form.description),
     )
     .await?;
 
@@ -1439,9 +1440,9 @@ pub async fn trip_todo_edit_save(
         Some(todo_item) => {
             if htmx::is_htmx(&headers) {
                 Ok(todo_item
-                    .build(TodoBuildInput {
+                    .build(todos::BuildInput {
                         trip_id,
-                        state: models::trips::todos::TodoUiState::Default,
+                        state: components::trips::todos::UiState::Default,
                     })
                     .into_response())
             } else {
@@ -1459,10 +1460,10 @@ pub async fn trip_todo_edit_cancel(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, Error> {
     let ctx = Context::build(current_user);
-    let todo_item = models::trips::todos::Todo::find(
+    let todo_item = components::trips::todos::Todo::find(
         &ctx,
         &state.database_pool,
-        TodoFilter { trip_id },
+        todos::Filter { trip_id },
         todo_id,
     )
     .await?;
@@ -1472,9 +1473,9 @@ pub async fn trip_todo_edit_cancel(
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => Ok(todo_item
-            .build(TodoBuildInput {
+            .build(todos::BuildInput {
                 trip_id,
-                state: models::trips::todos::TodoUiState::Default,
+                state: components::trips::todos::UiState::Default,
             })
             .into_response()),
     }

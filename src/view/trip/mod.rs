@@ -11,6 +11,8 @@ pub struct TripManager;
 pub mod packagelist;
 pub mod types;
 
+use crate::components::view::View;
+
 impl TripManager {
     #[tracing::instrument]
     pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
@@ -371,7 +373,7 @@ impl Trip {
                     }
                 }
                 (TripInfo::build(trip_edit_attribute, trip))
-                (crate::models::trips::todos::TodoList{todos: trip.todos(), trip: &trip}.build(edit_todo))
+                (crate::components::trips::todos::List{todos: trip.todos(), trip: &trip}.build(crate::components::trips::todos::list::BuildInput { edit_todo}))
                 (TripComment::build(trip))
                 (TripItems::build(active_category, trip))
             }

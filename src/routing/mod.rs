@@ -152,16 +152,16 @@ pub fn router(state: AppState) -> Router {
                         .route("/:id/todo/:id/edit/save", post(trip_todo_edit_save))
                         .route("/:id/todo/:id/edit/cancel", post(trip_todo_edit_cancel))
                         .route(
-                            &<crate::models::trips::todos::Todo as route::Create>::with_prefix(
+                            &<crate::components::trips::todos::Todo as route::Create>::with_prefix(
                                 "/:id/todo",
                             ),
-                            post(<crate::models::trips::todos::Todo as route::Create>::create),
+                            post(<crate::components::trips::todos::Todo as route::Create>::create),
                         )
                         .route(
-                            &<crate::models::trips::todos::Todo as route::Delete>::with_prefix(
+                            &<crate::components::trips::todos::Todo as route::Delete>::with_prefix(
                                 "/:id/todo",
                             ),
-                            post(<crate::models::trips::todos::Todo as route::Delete>::delete),
+                            post(<crate::components::trips::todos::Todo as route::Delete>::delete),
                         ),
                 )
                 .nest(

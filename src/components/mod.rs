@@ -1,3 +1,5 @@
+pub mod trips;
+
 pub mod crud {
     use async_trait::async_trait;
 

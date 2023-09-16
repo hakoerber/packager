@@ -14,8 +14,6 @@ use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
 
-pub mod todos;
-
 // #[macro_use]
 // mod macros {
 //     macro_rules! build_state_query {
@@ -512,7 +510,7 @@ pub struct Trip {
     pub temp_min: Option<i64>,
     pub temp_max: Option<i64>,
     pub comment: Option<String>,
-    pub todos: Option<Vec<todos::Todo>>,
+    pub todos: Option<Vec<crate::components::trips::todos::Todo>>,
     pub types: Option<Vec<TripType>>,
     pub categories: Option<Vec<TripCategory>>,
 }
@@ -999,7 +997,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub fn todos(&self) -> &Vec<todos::Todo> {
+    pub fn todos(&self) -> &Vec<crate::components::trips::todos::Todo> {
         self.todos.as_ref().expect("you need to call load_todos()")
     }
 
@@ -1021,8 +1019,14 @@ impl Trip {
 
     #[tracing::instrument]
     pub async fn load_todos(&mut self, ctx: &Context, pool: &sqlite::Pool) -> Result<(), Error> {
-        self.todos =
-            Some(todos::Todo::findall(ctx, pool, todos::TodoFilter { trip_id: self.id }).await?);
+        self.todos = Some(
+            crate::components::trips::todos::Todo::findall(
+                ctx,
+                pool,
+                crate::components::trips::todos::Filter { trip_id: self.id },
+            )
+            .await?,
+        );
         Ok(())
     }
 

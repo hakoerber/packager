@@ -1,3 +1,6 @@
+pub mod list;
+pub use list::List;
+
 use axum::{
     body::BoxBody,
     extract::{Form, Path},
@@ -12,7 +15,7 @@ use uuid::Uuid;
 use crate::{
     components::{
         crud, route,
-        view::{self, *},
+        view::{self, View},
     },
     htmx,
     models::Error,
@@ -21,7 +24,7 @@ use crate::{
 
 use async_trait::async_trait;
 
-use super::Trip;
+use crate::models::trips::Trip;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum State {
@@ -74,7 +77,7 @@ impl TryFrom<TodoRow> for Todo {
 }
 
 #[derive(Debug, Clone)]
-pub struct TodoFilter {
+pub struct Filter {
     pub trip_id: Uuid,
 }
 
@@ -86,13 +89,13 @@ impl Todo {
 
 #[async_trait]
 impl crud::Read for Todo {
-    type Filter = TodoFilter;
+    type Filter = Filter;
     type Id = Uuid;
 
     async fn findall(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: TodoFilter,
+        filter: Filter,
     ) -> Result<Vec<Self>, Error> {
         let trip_id_param = filter.trip_id.to_string();
         let user_id = ctx.user.id.to_string();
@@ -129,7 +132,7 @@ impl crud::Read for Todo {
     async fn find(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: TodoFilter,
+        filter: Filter,
         todo_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         let trip_id_param = filter.trip_id.to_string();
@@ -171,7 +174,7 @@ pub struct TodoNew {
 #[async_trait]
 impl crud::Create for Todo {
     type Id = Uuid;
-    type Filter = TodoFilter;
+    type Filter = Filter;
     type Info = TodoNew;
 
     async fn create(
@@ -212,7 +215,7 @@ impl crud::Create for Todo {
 }
 
 #[derive(Debug)]
-pub enum TodoUpdate {
+pub enum Update {
     State(State),
     Description(String),
 }
@@ -220,8 +223,8 @@ pub enum TodoUpdate {
 #[async_trait]
 impl crud::Update for Todo {
     type Id = Uuid;
-    type Filter = TodoFilter;
-    type Update = TodoUpdate;
+    type Filter = Filter;
+    type Update = Update;
 
     #[tracing::instrument]
     async fn update(
@@ -235,7 +238,7 @@ impl crud::Update for Todo {
         let trip_id_param = filter.trip_id.to_string();
         let todo_id_param = id.to_string();
         match update {
-            TodoUpdate::State(state) => {
+            Update::State(state) => {
                 let done = state == State::Done;
 
                 let result = crate::query_one!(
@@ -267,7 +270,7 @@ impl crud::Update for Todo {
 
                 Ok(result)
             }
-            TodoUpdate::Description(new_description) => {
+            Update::Description(new_description) => {
                 let user_id = ctx.user.id.to_string();
                 let trip_id_param = filter.trip_id.to_string();
                 let todo_id_param = id.to_string();
@@ -309,15 +312,10 @@ impl crud::Update for Todo {
 #[async_trait]
 impl crud::Delete for Todo {
     type Id = Uuid;
-    type Filter = TodoFilter;
+    type Filter = Filter;
 
     #[tracing::instrument]
-    async fn delete<'c, T>(
-        ctx: &Context,
-        db: T,
-        filter: &TodoFilter,
-        id: Uuid,
-    ) -> Result<bool, Error>
+    async fn delete<'c, T>(ctx: &Context, db: T, filter: &Filter, id: Uuid) -> Result<bool, Error>
     where
         T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug,
     {
@@ -348,19 +346,19 @@ impl crud::Delete for Todo {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum TodoUiState {
+pub enum UiState {
     Default,
     Edit,
 }
 
 #[derive(Debug)]
-pub struct TodoBuildInput {
+pub struct BuildInput {
     pub trip_id: Uuid,
-    pub state: TodoUiState,
+    pub state: UiState,
 }
 
 impl view::View for Todo {
-    type Input = TodoBuildInput;
+    type Input = BuildInput;
 
     #[tracing::instrument]
     fn build(&self, input: Self::Input) -> Markup {
@@ -375,7 +373,7 @@ impl view::View for Todo {
                 ."bg-red-50"[!done]
                 ."h-full"
             {
-                @if input.state == TodoUiState::Edit {
+                @if input.state == UiState::Edit {
                     form
                         name="edit-todo"
                         id="edit-todo"
@@ -586,7 +584,7 @@ impl route::Create for Todo {
         let _todo_item = <Self as crud::Create>::create(
             &ctx,
             &state.database_pool,
-            TodoFilter { trip_id },
+            Filter { trip_id },
             TodoNew {
                 description: form.description,
             },
@@ -601,11 +599,11 @@ impl route::Create for Todo {
                 })),
                 Some(mut trip) => {
                     trip.load_todos(&ctx, &state.database_pool).await?;
-                    Ok(crate::models::trips::todos::TodoList {
+                    Ok(list::List {
                         trip: &trip,
                         todos: &trip.todos(),
                     }
-                    .build(None)
+                    .build(list::BuildInput { edit_todo: None })
                     .into_response())
                 }
             }
@@ -633,7 +631,7 @@ impl route::Delete for Todo {
         let deleted = <Self as crud::Delete>::delete(
             &ctx,
             &state.database_pool,
-            &TodoFilter { trip_id },
+            &Filter { trip_id },
             todo_id,
         )
         .await?;
@@ -651,109 +649,13 @@ impl route::Delete for Todo {
             })),
             Some(mut trip) => {
                 trip.load_todos(&ctx, &state.database_pool).await?;
-                Ok(TodoList {
+                Ok(list::List {
                     trip: &trip,
                     todos: &trip.todos(),
                 }
-                .build(None)
+                .build(list::BuildInput { edit_todo: None })
                 .into_response())
             }
         }
-    }
-}
-
-pub struct NewTodo;
-
-impl NewTodo {
-    #[tracing::instrument]
-    pub fn build(trip_id: &Uuid) -> Markup {
-        html!(
-            li
-                ."flex"
-                ."flex-row"
-                ."justify-start"
-                ."items-stretch"
-                ."h-full"
-            {
-                form
-                    name="new-todo"
-                    id="new-todo"
-                    action={
-                        "/trips/" (trip_id)
-                        "/todo/new"
-                    }
-                    target="_self"
-                    method="post"
-                    hx-post={
-                        "/trips/" (trip_id)
-                        "/todo/new"
-                    }
-                    hx-target="#todolist"
-                    hx-swap="outerHTML"
-                {}
-                button
-                    type="submit"
-                    form="new-todo"
-                    ."bg-green-200"
-                    ."hover:bg-green-300"
-                    ."flex"
-                    ."flex-row"
-                    ."aspect-square"
-                {
-                    span
-                        ."mdi"
-                        ."m-auto"
-                        ."mdi-plus"
-                        ."text-xl"
-                    {}
-                }
-                div
-                    ."border-4"
-                    ."p-1"
-                    .grow
-                {
-                    input
-                        ."appearance-none"
-                        ."w-full"
-                        type="text"
-                        form="new-todo"
-                        id="new-todo-description"
-                        name="new-todo-description"
-                    {}
-                }
-            }
-        )
-    }
-}
-
-#[derive(Debug)]
-pub struct TodoList<'a> {
-    pub trip: &'a Trip,
-    pub todos: &'a Vec<Todo>,
-}
-
-impl<'a> TodoList<'a> {
-    #[tracing::instrument]
-    pub fn build(&self, edit_todo: Option<Uuid>) -> Markup {
-        html!(
-            div #todolist {
-                h1 ."text-xl" ."mb-5" { "Todos" }
-                ul
-                    ."flex"
-                    ."flex-col"
-                {
-                    @for todo in self.todos {
-                        @let state = edit_todo
-                            .map(|id| if todo.id == id {
-                                TodoUiState::Edit
-                            } else {
-                                TodoUiState::Default
-                            }).unwrap_or(TodoUiState::Default);
-                        (todo.build(TodoBuildInput{trip_id:self.trip.id, state}))
-                    }
-                    (NewTodo::build(&self.trip.id))
-                }
-            }
-        )
     }
 }
