@@ -442,7 +442,7 @@ pub async fn trip(
             &state.database_pool,
             &todos::Reference {
                 id: components::trips::todos::Id::new(delete_todo),
-                higher: todos::Higher { trip_id: id },
+                container: todos::Container { trip_id: id },
             },
         )
         .await?;

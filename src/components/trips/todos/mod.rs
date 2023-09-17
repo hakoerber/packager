@@ -83,30 +83,30 @@ impl TryFrom<TodoRow> for Todo {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Higher {
+pub struct Container {
     pub trip_id: Uuid,
 }
 
-impl crud::Higher for Higher {
+impl crud::Container for Container {
     type Id = Id;
     type Reference = Reference;
 
     fn with_id(&self, id: Self::Id) -> Self::Reference {
-        Reference { id, higher: *self }
+        Reference { id, container: *self }
     }
 }
 
 #[derive(Debug)]
 pub struct Reference {
     pub id: Id,
-    pub higher: Higher,
+    pub container: Container,
 }
 
 impl From<(Uuid, Uuid)> for Reference {
     fn from((trip_id, todo_id): (Uuid, Uuid)) -> Self {
         Self {
             id: Id::new(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         }
     }
 }
@@ -135,14 +135,14 @@ impl Todo {
 #[async_trait]
 impl crud::Read for Todo {
     type Reference = Reference;
-    type Higher = Higher;
+    type Container = Container;
 
     async fn findall(
         ctx: &Context,
         pool: &sqlite::Pool,
-        higher: Higher,
+        container: Container,
     ) -> Result<Vec<Self>, Error> {
-        let trip_id_param = higher.trip_id.to_string();
+        let trip_id_param = container.trip_id.to_string();
         let user_id = ctx.user.id.to_string();
 
         let todos: Vec<Todo> = crate::query_all!(
@@ -179,7 +179,7 @@ impl crud::Read for Todo {
         pool: &sqlite::Pool,
         reference: Reference,
     ) -> Result<Option<Self>, Error> {
-        let trip_id_param = reference.higher.trip_id.to_string();
+        let trip_id_param = reference.container.trip_id.to_string();
         let todo_id_param = reference.id.0.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
@@ -218,7 +218,7 @@ pub struct TodoNew {
 #[async_trait]
 impl crud::Create for Todo {
     type Id = Id;
-    type Higher = Higher;
+    type Container = Container;
     type Info = TodoNew;
 
     fn new_id() -> Self::Id {
@@ -228,14 +228,14 @@ impl crud::Create for Todo {
     async fn create(
         ctx: &Context,
         pool: &sqlite::Pool,
-        higher: Self::Higher,
+        container: Self::Container,
         info: Self::Info,
     ) -> Result<Self::Id, Error> {
         let user_id = ctx.user.id.to_string();
         let id = Self::new_id();
         tracing::info!("adding new todo with id {id}");
         let id_param = id.to_string();
-        let trip_id_param = higher.trip_id.to_string();
+        let trip_id_param = container.trip_id.to_string();
         crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
@@ -309,7 +309,7 @@ impl crud::Update for Todo {
         update_element: Self::UpdateElement,
     ) -> Result<Option<Self>, Error> {
         let user_id = ctx.user.id.to_string();
-        let trip_id_param = reference.higher.trip_id.to_string();
+        let trip_id_param = reference.container.trip_id.to_string();
         let todo_id_param = reference.id.to_string();
         match update_element {
             UpdateElement::State(state) => {
@@ -346,7 +346,7 @@ impl crud::Update for Todo {
             }
             UpdateElement::Description(new_description) => {
                 let user_id = ctx.user.id.to_string();
-                let trip_id_param = reference.higher.trip_id.to_string();
+                let trip_id_param = reference.container.trip_id.to_string();
                 let todo_id_param = reference.id.to_string();
 
                 let result = crate::query_one!(
@@ -386,7 +386,7 @@ impl crud::Update for Todo {
 #[async_trait]
 impl crud::Delete for Todo {
     type Id = Id;
-    type Higher = Higher;
+    type Container = Container;
     type Reference = Reference;
 
     #[tracing::instrument]
@@ -396,7 +396,7 @@ impl crud::Delete for Todo {
     {
         let id_param = reference.id.0.to_string();
         let user_id = ctx.user.id.to_string();
-        let trip_id_param = reference.higher.trip_id.to_string();
+        let trip_id_param = reference.container.trip_id.to_string();
 
         let results = crate::execute!(
             &sqlite::QueryClassification {
@@ -658,7 +658,7 @@ impl route::Create for Todo {
         let _todo_item = <Self as crud::Create>::create(
             &ctx,
             &state.database_pool,
-            Higher { trip_id },
+            Container { trip_id },
             TodoNew {
                 description: form.description,
             },
@@ -705,7 +705,7 @@ impl route::Delete for Todo {
             &ctx,
             &state.database_pool,
             &Reference {
-                higher: Higher { trip_id },
+                container: Container { trip_id },
                 id: components::trips::todos::Id(todo_id),
             },
         )
@@ -765,7 +765,7 @@ pub async fn trip_todo_done(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
         UpdateElement::State(State::Done.into()),
     )
@@ -786,7 +786,7 @@ pub async fn trip_todo_undone_htmx(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
         UpdateElement::State(State::Todo.into()),
     )
@@ -797,7 +797,7 @@ pub async fn trip_todo_undone_htmx(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
     )
     .await?
@@ -826,7 +826,7 @@ pub async fn trip_todo_undone(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
         UpdateElement::State(State::Todo.into()),
     )
@@ -855,7 +855,7 @@ pub async fn trip_todo_edit(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
     )
     .await?;
@@ -887,7 +887,7 @@ pub async fn trip_todo_edit_save(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
         UpdateElement::Description(form.description.into()),
     )
@@ -925,7 +925,7 @@ pub async fn trip_todo_edit_cancel(
         &state.database_pool,
         Reference {
             id: Id(todo_id),
-            higher: Higher { trip_id },
+            container: Container { trip_id },
         },
     )
     .await?;
@@ -978,7 +978,7 @@ impl route::ToggleFallback for StateUpdate {
             &state.database_pool,
             Reference {
                 id: Id(todo_id),
-                higher: Higher { trip_id },
+                container: Container { trip_id },
             },
             value,
         )
@@ -1029,7 +1029,7 @@ impl route::ToggleHtmx for StateUpdate {
             &state.database_pool,
             Reference {
                 id: Id(todo_id),
-                higher: Higher { trip_id },
+                container: Container { trip_id },
             },
         )
         .await?

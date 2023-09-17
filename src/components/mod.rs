@@ -8,7 +8,7 @@ pub mod crud {
     #[async_trait]
     pub trait Create: Sized {
         type Id: Sized + Send + Sync + 'static;
-        type Higher: Sized + Send + Sync + 'static;
+        type Container: Sized + Send + Sync + 'static;
         type Info: Sized + Send + Sync + 'static;
 
         fn new_id() -> Self::Id;
@@ -16,7 +16,7 @@ pub mod crud {
         async fn create(
             ctx: &Context,
             pool: &sqlite::Pool,
-            higher: Self::Higher,
+            container: Self::Container,
             info: Self::Info,
         ) -> Result<Self::Id, Error>;
     }
@@ -24,12 +24,12 @@ pub mod crud {
     #[async_trait]
     pub trait Read: Sized {
         type Reference;
-        type Higher;
+        type Container;
 
         async fn findall(
             ctx: &Context,
             pool: &sqlite::Pool,
-            higher: Self::Higher,
+            container: Self::Container,
         ) -> Result<Vec<Self>, Error>;
 
         async fn find(
@@ -52,7 +52,7 @@ pub mod crud {
         ) -> Result<Option<Self>, Error>;
     }
 
-    pub trait Higher {
+    pub trait Container {
         type Id: Copy;
         type Reference;
 
@@ -62,7 +62,7 @@ pub mod crud {
     #[async_trait]
     pub trait Delete: Sized {
         type Id: Send + Copy;
-        type Higher: Send + Sync + Higher<Reference = Self::Reference, Id = Self::Id>;
+        type Container: Send + Sync + Container<Reference = Self::Reference, Id = Self::Id>;
         type Reference: Send + Sync;
 
         async fn delete<'c, T>(
@@ -85,7 +85,7 @@ pub mod crud {
         async fn delete_all<'c>(
             ctx: &Context,
             pool: &'c sqlite::Pool,
-            higher: Self::Higher,
+            container: Self::Container,
             ids: Vec<Self::Id>,
         ) -> Result<bool, Error> {
             use sqlx::Acquire as _;
@@ -94,7 +94,7 @@ pub mod crud {
             let conn = transaction.acquire().await?;
 
             for id in ids {
-                if !Self::delete(ctx, &mut *conn, &higher.with_id(id)).await? {
+                if !Self::delete(ctx, &mut *conn, &container.with_id(id)).await? {
                     // transaction will rollback on drop
                     return Ok(false);
                 }
