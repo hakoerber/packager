@@ -441,7 +441,7 @@ pub async fn trip(
             &ctx,
             &state.database_pool,
             &todos::Filter { trip_id: id },
-            components::trips::todos::Id(delete_todo),
+            components::trips::todos::Id::new(delete_todo),
         )
         .await?;
 

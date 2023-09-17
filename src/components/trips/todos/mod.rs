@@ -94,11 +94,17 @@ impl From<(Uuid, Uuid)> for Filter {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Id(pub Uuid);
+pub struct Id(Uuid);
 
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Id {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
     }
 }
 
@@ -902,7 +908,7 @@ impl crud::Toggle for StateUpdate {
         id: Self::Id,
         value: bool,
     ) -> Result<(), crate::Error> {
-        Todo::update(ctx, pool, filter, id, UpdateElement::State(value.into())).await?;
+        Todo::update(&ctx, &pool, filter, id, UpdateElement::State(value.into())).await?;
         Ok(())
     }
 }
@@ -977,10 +983,10 @@ impl route::ToggleHtmx for StateUpdate {
     async fn response(
         ctx: &Context,
         state: AppState,
-        (trip_id, todo_id): (Uuid, Uuid),
+        (trip_id, todo_id): Self::UrlParams,
         value: bool,
     ) -> Result<Response<BoxBody>, crate::Error> {
-        let todo_item = Todo::find(ctx, &state.database_pool, Filter { trip_id }, Id(todo_id))
+        let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, Id(todo_id))
             .await?
             .ok_or_else(|| {
                 crate::Error::Request(RequestError::NotFound {
