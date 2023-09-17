@@ -24,7 +24,7 @@ mod routes;
 use routes::*;
 
 #[tracing::instrument]
-fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
+pub fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
     headers
         .get("referer")
         .ok_or(Error::Request(RequestError::RefererNotFound))?
@@ -145,15 +145,26 @@ pub fn router(state: AppState) -> Router {
                         )
                         .route(
                             "/:id/todo/:id/done",
-                            get(trip_todo_done).post(trip_todo_done_htmx),
+                            get(components::trips::todos::trip_todo_done)
+                                .post(components::trips::todos::trip_todo_done_htmx),
                         )
                         .route(
                             "/:id/todo/:id/undone",
-                            get(trip_todo_undone).post(trip_todo_undone_htmx),
+                            get(components::trips::todos::trip_todo_undone)
+                                .post(components::trips::todos::trip_todo_undone_htmx),
                         )
-                        .route("/:id/todo/:id/edit", post(trip_todo_edit))
-                        .route("/:id/todo/:id/edit/save", post(trip_todo_edit_save))
-                        .route("/:id/todo/:id/edit/cancel", post(trip_todo_edit_cancel))
+                        .route(
+                            "/:id/todo/:id/edit",
+                            post(components::trips::todos::trip_todo_edit),
+                        )
+                        .route(
+                            "/:id/todo/:id/edit/save",
+                            post(components::trips::todos::trip_todo_edit_save),
+                        )
+                        .route(
+                            "/:id/todo/:id/edit/cancel",
+                            post(components::trips::todos::trip_todo_edit_cancel),
+                        )
                         .nest("/:id/todo/", components::trips::todos::Todo::get()),
                 )
                 .nest(

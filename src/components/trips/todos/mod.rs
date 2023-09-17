@@ -3,7 +3,7 @@ pub use list::List;
 
 use axum::{
     body::{BoxBody, HttpBody},
-    extract::{Form, Path},
+    extract::{Form, Path, State as StateExtractor},
     http::HeaderMap,
     response::{IntoResponse, Redirect, Response},
     Extension,
@@ -14,11 +14,13 @@ use uuid::Uuid;
 
 use crate::{
     components::{
-        crud, route,
+        crud::{self, Read, Update},
+        route,
         view::{self, View},
     },
     htmx,
-    models::Error,
+    models::{user::User, Error},
+    routing::get_referer,
     sqlite, AppState, Context, RequestError,
 };
 
@@ -572,8 +574,8 @@ impl route::Create for Todo {
 
     #[tracing::instrument]
     async fn create(
-        Extension(current_user): Extension<crate::models::user::User>,
-        axum::extract::State(state): axum::extract::State<AppState>,
+        Extension(current_user): Extension<User>,
+        StateExtractor(state): StateExtractor<AppState>,
         headers: HeaderMap,
         Path((trip_id,)): Path<Self::UrlParams>,
         Form(form): Form<Self::Form>,
@@ -620,8 +622,8 @@ impl route::Delete for Todo {
 
     #[tracing::instrument]
     async fn delete(
-        Extension(current_user): Extension<crate::models::user::User>,
-        axum::extract::State(state): axum::extract::State<AppState>,
+        Extension(current_user): Extension<User>,
+        StateExtractor(state): StateExtractor<AppState>,
         _headers: HeaderMap,
         Path((trip_id, todo_id)): Path<Self::UrlParams>,
     ) -> Result<Response<BoxBody>, crate::Error> {
@@ -671,5 +673,195 @@ impl route::Router for Todo {
                 "/:id/delete",
                 axum::routing::post(<Self as route::Delete>::delete),
             )
+    }
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_done_htmx(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    Todo::update(
+        &ctx,
+        &state.database_pool,
+        Filter { trip_id },
+        todo_id,
+        UpdateElement::State(State::Done),
+    )
+    .await?;
+
+    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, todo_id)
+        .await?
+        .ok_or_else(|| {
+            crate::Error::Request(RequestError::NotFound {
+                message: format!("todo with id {todo_id} not found"),
+            })
+        })?;
+
+    Ok(todo_item.build(BuildInput {
+        trip_id,
+        state: UiState::Default,
+    }))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_done(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    Todo::update(
+        &ctx,
+        &state.database_pool,
+        Filter { trip_id },
+        todo_id,
+        UpdateElement::State(State::Done),
+    )
+    .await?;
+
+    Ok(Redirect::to(get_referer(&headers)?))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_undone_htmx(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    Todo::update(
+        &ctx,
+        &state.database_pool,
+        Filter { trip_id },
+        todo_id,
+        UpdateElement::State(State::Todo),
+    )
+    .await?;
+
+    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, todo_id)
+        .await?
+        .ok_or_else(|| {
+            crate::Error::Request(RequestError::NotFound {
+                message: format!("todo with id {todo_id} not found"),
+            })
+        })?;
+
+    Ok(todo_item.build(BuildInput {
+        trip_id,
+        state: UiState::Default,
+    }))
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_undone(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    Todo::update(
+        &ctx,
+        &state.database_pool,
+        Filter { trip_id },
+        todo_id,
+        UpdateElement::State(State::Todo),
+    )
+    .await?;
+
+    Ok(Redirect::to(get_referer(&headers)?))
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TripTodoDescription {
+    #[serde(rename = "todo-description")]
+    description: String,
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_edit(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    headers: HeaderMap,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, todo_id).await?;
+
+    match todo_item {
+        None => Err(crate::Error::Request(RequestError::NotFound {
+            message: format!("todo with id {todo_id} not found"),
+        })),
+        Some(todo_item) => Ok(todo_item
+            .build(BuildInput {
+                trip_id,
+                state: UiState::Edit,
+            })
+            .into_response()),
+    }
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_edit_save(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    headers: HeaderMap,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+    Form(form): Form<TripTodoDescription>,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    let todo_item = Todo::update(
+        &ctx,
+        &state.database_pool,
+        Filter { trip_id },
+        todo_id,
+        UpdateElement::Description(form.description),
+    )
+    .await?;
+
+    match todo_item {
+        None => Err(crate::Error::Request(RequestError::NotFound {
+            message: format!("todo with id {todo_id} not found"),
+        })),
+        Some(todo_item) => {
+            if htmx::is_htmx(&headers) {
+                Ok(todo_item
+                    .build(BuildInput {
+                        trip_id,
+                        state: UiState::Default,
+                    })
+                    .into_response())
+            } else {
+                Ok(Redirect::to(&format!("/trips/{trip_id}/")).into_response())
+            }
+        }
+    }
+}
+
+#[tracing::instrument]
+pub async fn trip_todo_edit_cancel(
+    Extension(current_user): Extension<User>,
+    StateExtractor(state): StateExtractor<AppState>,
+    headers: HeaderMap,
+    Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, crate::Error> {
+    let ctx = Context::build(current_user);
+    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, todo_id).await?;
+
+    match todo_item {
+        None => Err(crate::Error::Request(RequestError::NotFound {
+            message: format!("todo with id {todo_id} not found"),
+        })),
+        Some(todo_item) => Ok(todo_item
+            .build(BuildInput {
+                trip_id,
+                state: UiState::Default,
+            })
+            .into_response()),
     }
 }
