@@ -261,13 +261,12 @@ pub mod route {
             state: AppState,
             params: Self::UrlParams,
             value: bool,
-        ) -> Result<(crate::Context, AppState, Self::UrlParams, bool), crate::Error>;
+        ) -> Result<(crate::Context, AppState, Self::UrlParams), crate::Error>;
 
         async fn response(
             ctx: &crate::Context,
             state: AppState,
             params: Self::UrlParams,
-            value: bool,
         ) -> Result<Response<BoxBody>, crate::Error>;
 
         async fn on(
@@ -275,9 +274,8 @@ pub mod route {
             State(state): State<AppState>,
             Path(path): Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error> {
-            let (ctx, state, params, value) =
-                <Self as ToggleHtmx>::set(user, state, path, true).await?;
-            <Self as ToggleHtmx>::response(&ctx, state, params, value).await
+            let (ctx, state, params) = <Self as ToggleHtmx>::set(user, state, path, true).await?;
+            <Self as ToggleHtmx>::response(&ctx, state, params).await
         }
 
         async fn off(
@@ -285,9 +283,8 @@ pub mod route {
             State(state): State<AppState>,
             Path(path): Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error> {
-            let (ctx, state, params, value) =
-                <Self as ToggleHtmx>::set(user, state, path, false).await?;
-            <Self as ToggleHtmx>::response(&ctx, state, params, value).await
+            let (ctx, state, params) = <Self as ToggleHtmx>::set(user, state, path, false).await?;
+            <Self as ToggleHtmx>::response(&ctx, state, params).await
         }
 
         fn router<B>() -> axum::Router<AppState, B>

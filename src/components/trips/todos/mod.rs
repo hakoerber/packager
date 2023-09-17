@@ -1,5 +1,3 @@
-#![allow(unused_variables)]
-
 pub mod list;
 pub use list::List;
 
@@ -92,7 +90,10 @@ impl crud::Container for Container {
     type Reference = Reference;
 
     fn with_id(&self, id: Self::Id) -> Self::Reference {
-        Reference { id, container: *self }
+        Reference {
+            id,
+            container: *self,
+        }
     }
 }
 
@@ -1011,18 +1012,17 @@ impl route::ToggleHtmx for StateUpdate {
         state: AppState,
         params: Self::UrlParams,
         value: bool,
-    ) -> Result<(crate::Context, AppState, Self::UrlParams, bool), crate::Error> {
+    ) -> Result<(crate::Context, AppState, Self::UrlParams), crate::Error> {
         let ctx = Context::build(current_user);
         <Self as crud::Toggle>::set(&ctx, &state.database_pool, params.into(), value).await?;
 
-        Ok((ctx, state, params, value))
+        Ok((ctx, state, params))
     }
 
     async fn response(
         ctx: &Context,
         state: AppState,
         (trip_id, todo_id): Self::UrlParams,
-        value: bool,
     ) -> Result<Response<BoxBody>, crate::Error> {
         let todo_item = Todo::find(
             ctx,
