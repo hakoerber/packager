@@ -13,7 +13,10 @@ use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
 use crate::{
-    components::{self, route::Router as _},
+    components::{
+        self,
+        route::{Router as _, Toggle},
+    },
     AppState, Error, RequestError, TopLevelPage,
 };
 
@@ -143,16 +146,16 @@ pub fn router(state: AppState) -> Router {
                             "/:id/items/:id/unready",
                             get(trip_item_set_unready).post(trip_item_set_unready_htmx),
                         )
-                        .route(
-                            "/:id/todo/:id/done",
-                            get(components::trips::todos::trip_todo_done)
-                                .post(components::trips::todos::trip_todo_done_htmx),
-                        )
-                        .route(
-                            "/:id/todo/:id/undone",
-                            get(components::trips::todos::trip_todo_undone)
-                                .post(components::trips::todos::trip_todo_undone_htmx),
-                        )
+                        // .route(
+                        //     "/:id/todo/:id/done",
+                        //     get(components::trips::todos::trip_todo_done)
+                        //         .post(components::trips::todos::trip_todo_done_htmx),
+                        // )
+                        // .route(
+                        //     "/:id/todo/:id/undone",
+                        //     get(components::trips::todos::trip_todo_undone)
+                        //         .post(components::trips::todos::trip_todo_undone_htmx),
+                        // )
                         .route(
                             "/:id/todo/:id/edit",
                             post(components::trips::todos::trip_todo_edit),
@@ -165,7 +168,11 @@ pub fn router(state: AppState) -> Router {
                             "/:id/todo/:id/edit/cancel",
                             post(components::trips::todos::trip_todo_edit_cancel),
                         )
-                        .nest("/:id/todo/", components::trips::todos::Todo::get()),
+                        .nest(
+                            "/:id/todo/",
+                            components::trips::todos::Todo::get()
+                                .merge(<components::trips::todos::StateUpdate as Toggle>::router()),
+                        ),
                 )
                 .nest(
                     (&TopLevelPage::Inventory.path()).into(),
