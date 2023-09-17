@@ -51,7 +51,7 @@ features = ["derive"]
 
 [dependencies.axum]
 version = "0.6"
-features = ["headers"]
+features = ["headers", "macros"]
 
 [dependencies.tokio]
 version = "1"

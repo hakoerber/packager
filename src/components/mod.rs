@@ -7,9 +7,9 @@ pub mod crud {
 
     #[async_trait]
     pub trait Create: Sized {
-        type Id;
-        type Filter;
-        type Info;
+        type Id: Sized + Send + Sync + 'static;
+        type Filter: Sized + Send + Sync + 'static;
+        type Info: Sized + Send + Sync + 'static;
 
         async fn create(
             ctx: &Context,
@@ -42,14 +42,14 @@ pub mod crud {
     pub trait Update: Sized {
         type Id;
         type Filter;
-        type Update;
+        type UpdateElement;
 
         async fn update(
             ctx: &Context,
             pool: &sqlite::Pool,
             filter: Self::Filter,
             id: Self::Id,
-            update: Self::Update,
+            update: Self::UpdateElement,
         ) -> Result<Option<Self>, Error>;
     }
 
@@ -116,7 +116,7 @@ pub mod route {
 
     use crate::AppState;
     use axum::{
-        body::BoxBody,
+        body::{BoxBody, HttpBody},
         extract::{Path, Query, State},
         http::HeaderMap,
         response::Response,
@@ -132,7 +132,6 @@ pub mod route {
     pub trait Create: super::crud::Create {
         type Form: Send + Sync + 'static;
 
-        type ParentUrlParams: Send + Sync + 'static;
         type UrlParams: Send + Sync + 'static;
 
         const URL: &'static str;
@@ -141,13 +140,9 @@ pub mod route {
             user: Extension<crate::models::user::User>,
             state: State<AppState>,
             headers: HeaderMap,
-            path: Path<(Self::ParentUrlParams, Self::UrlParams)>,
+            path: Path<Self::UrlParams>,
             form: Form<Self::Form>,
         ) -> Result<Response<BoxBody>, crate::Error>;
-
-        fn with_prefix(prefix: &'static str) -> String {
-            format!("{}{}", prefix, Self::URL)
-        }
     }
 
     #[async_trait]
@@ -164,15 +159,40 @@ pub mod route {
             query: Query<Self::QueryParams>,
             path: Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error>;
+    }
 
-        fn with_prefix(prefix: &'static str) -> String {
-            format!("{}{}", prefix, Self::URL)
-        }
+    #[async_trait]
+    pub trait Update: super::crud::Update {
+        type UrlParams: Send + Sync + 'static;
+        type UpdateForm: Send + Sync + 'static;
+
+        const URL: &'static str;
+
+        async fn start(
+            user: Extension<crate::models::user::User>,
+            state: State<AppState>,
+            headers: HeaderMap,
+            path: Path<Self::UrlParams>,
+        ) -> Result<Response<BoxBody>, crate::Error>;
+
+        async fn save(
+            user: Extension<crate::models::user::User>,
+            state: State<AppState>,
+            headers: HeaderMap,
+            path: Path<Self::UrlParams>,
+            form: Form<Self::UpdateForm>,
+        ) -> Result<Response<BoxBody>, crate::Error>;
+
+        async fn cancel(
+            user: Extension<crate::models::user::User>,
+            state: State<AppState>,
+            headers: HeaderMap,
+            path: Path<Self::UrlParams>,
+        ) -> Result<Response<BoxBody>, crate::Error>;
     }
 
     #[async_trait]
     pub trait Delete: super::crud::Delete {
-        type ParentUrlParams: Send + Sync + 'static;
         type UrlParams: Send + Sync + 'static;
 
         const URL: &'static str;
@@ -181,11 +201,15 @@ pub mod route {
             user: Extension<crate::models::user::User>,
             state: State<AppState>,
             headers: HeaderMap,
-            path: Path<(Self::ParentUrlParams, Self::UrlParams)>,
+            path: Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error>;
+    }
 
-        fn with_prefix(prefix: &'static str) -> String {
-            format!("{}{}", prefix, Self::URL)
-        }
+    pub trait Router: Create + Delete {
+        fn get<B>() -> axum::Router<AppState, B>
+        where
+            B: HttpBody + Send + 'static,
+            <B as HttpBody>::Data: Send,
+            <B as HttpBody>::Error: std::error::Error + Sync + Send;
     }
 }

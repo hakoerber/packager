@@ -2,7 +2,7 @@ pub mod list;
 pub use list::List;
 
 use axum::{
-    body::BoxBody,
+    body::{BoxBody, HttpBody},
     extract::{Form, Path},
     http::HeaderMap,
     response::{IntoResponse, Redirect, Response},
@@ -215,7 +215,7 @@ impl crud::Create for Todo {
 }
 
 #[derive(Debug)]
-pub enum Update {
+pub enum UpdateElement {
     State(State),
     Description(String),
 }
@@ -224,7 +224,7 @@ pub enum Update {
 impl crud::Update for Todo {
     type Id = Uuid;
     type Filter = Filter;
-    type Update = Update;
+    type UpdateElement = UpdateElement;
 
     #[tracing::instrument]
     async fn update(
@@ -232,13 +232,13 @@ impl crud::Update for Todo {
         pool: &sqlite::Pool,
         filter: Self::Filter,
         id: Self::Id,
-        update: Self::Update,
+        update_element: Self::UpdateElement,
     ) -> Result<Option<Self>, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = filter.trip_id.to_string();
         let todo_id_param = id.to_string();
-        match update {
-            Update::State(state) => {
+        match update_element {
+            UpdateElement::State(state) => {
                 let done = state == State::Done;
 
                 let result = crate::query_one!(
@@ -270,7 +270,7 @@ impl crud::Update for Todo {
 
                 Ok(result)
             }
-            Update::Description(new_description) => {
+            UpdateElement::Description(new_description) => {
                 let user_id = ctx.user.id.to_string();
                 let trip_id_param = filter.trip_id.to_string();
                 let todo_id_param = id.to_string();
@@ -566,17 +566,16 @@ pub struct TripTodoNew {
 #[async_trait]
 impl route::Create for Todo {
     type Form = TripTodoNew;
-    type ParentUrlParams = (Uuid,);
-    type UrlParams = ();
+    type UrlParams = (Uuid,);
 
-    const URL: &'static str = "/new";
+    const URL: &'static str = "/:id/todo/new";
 
     #[tracing::instrument]
     async fn create(
         Extension(current_user): Extension<crate::models::user::User>,
         axum::extract::State(state): axum::extract::State<AppState>,
         headers: HeaderMap,
-        Path(((trip_id,), ())): Path<(Self::ParentUrlParams, Self::UrlParams)>,
+        Path((trip_id,)): Path<Self::UrlParams>,
         Form(form): Form<Self::Form>,
     ) -> Result<Response<BoxBody>, crate::Error> {
         let ctx = Context::build(current_user);
@@ -615,17 +614,16 @@ impl route::Create for Todo {
 
 #[async_trait]
 impl route::Delete for Todo {
-    type ParentUrlParams = (Uuid,);
-    type UrlParams = (Uuid,);
+    type UrlParams = (Uuid, Uuid);
 
-    const URL: &'static str = "/:id/delete";
+    const URL: &'static str = "/:id/todo/:id/delete";
 
     #[tracing::instrument]
     async fn delete(
         Extension(current_user): Extension<crate::models::user::User>,
         axum::extract::State(state): axum::extract::State<AppState>,
         _headers: HeaderMap,
-        Path(((trip_id,), (todo_id,))): Path<(Self::ParentUrlParams, Self::UrlParams)>,
+        Path((trip_id, todo_id)): Path<Self::UrlParams>,
     ) -> Result<Response<BoxBody>, crate::Error> {
         let ctx = Context::build(current_user);
         let deleted = <Self as crud::Delete>::delete(
@@ -657,5 +655,21 @@ impl route::Delete for Todo {
                 .into_response())
             }
         }
+    }
+}
+
+impl route::Router for Todo {
+    fn get<B>() -> axum::Router<AppState, B>
+    where
+        B: HttpBody + Send + 'static,
+        <B as HttpBody>::Data: Send,
+        <B as HttpBody>::Error: std::error::Error + Sync + Send,
+    {
+        axum::Router::new()
+            .route("/new", axum::routing::post(<Self as route::Create>::create))
+            .route(
+                "/:id/delete",
+                axum::routing::post(<Self as route::Delete>::delete),
+            )
     }
 }

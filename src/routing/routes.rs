@@ -1281,7 +1281,7 @@ pub async fn trip_todo_done_htmx(
         &state.database_pool,
         todos::Filter { trip_id },
         todo_id,
-        todos::Update::State(components::trips::todos::State::Done),
+        todos::UpdateElement::State(components::trips::todos::State::Done),
     )
     .await?;
 
@@ -1317,7 +1317,7 @@ pub async fn trip_todo_done(
         &state.database_pool,
         todos::Filter { trip_id },
         todo_id,
-        todos::Update::State(components::trips::todos::State::Done),
+        todos::UpdateElement::State(components::trips::todos::State::Done),
     )
     .await?;
 
@@ -1336,7 +1336,7 @@ pub async fn trip_todo_undone_htmx(
         &state.database_pool,
         todos::Filter { trip_id },
         todo_id,
-        todos::Update::State(components::trips::todos::State::Todo),
+        todos::UpdateElement::State(components::trips::todos::State::Todo),
     )
     .await?;
 
@@ -1372,7 +1372,7 @@ pub async fn trip_todo_undone(
         &state.database_pool,
         todos::Filter { trip_id },
         todo_id,
-        todos::Update::State(components::trips::todos::State::Todo),
+        todos::UpdateElement::State(components::trips::todos::State::Todo),
     )
     .await?;
 
@@ -1429,7 +1429,7 @@ pub async fn trip_todo_edit_save(
         &state.database_pool,
         todos::Filter { trip_id },
         todo_id,
-        todos::Update::Description(form.description),
+        todos::UpdateElement::Description(form.description),
     )
     .await?;
 
