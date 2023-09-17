@@ -7,7 +7,7 @@ pub mod crud {
 
     #[async_trait]
     pub trait Create: Sized {
-        type Id: Sized + Send + Sync + 'static;
+        type Id: Sized + Send + Sync + Copy + 'static;
         type Filter: Sized + Send + Sync + 'static;
         type Info: Sized + Send + Sync + 'static;
 
@@ -22,7 +22,7 @@ pub mod crud {
     #[async_trait]
     pub trait Read: Sized {
         type Filter;
-        type Id;
+        type Id: Copy;
 
         async fn findall(
             ctx: &Context,
@@ -40,7 +40,7 @@ pub mod crud {
 
     #[async_trait]
     pub trait Update: Sized {
-        type Id;
+        type Id: Copy;
         type Filter;
         type UpdateElement;
 
@@ -98,6 +98,20 @@ pub mod crud {
 
             Ok(true)
         }
+    }
+
+    #[async_trait]
+    pub trait Toggle: Sized {
+        type Id: Sized + Send + Sync + Copy + 'static;
+        type Filter: Sized + Send + Sync + 'static;
+
+        async fn set(
+            ctx: &Context,
+            pool: &sqlite::Pool,
+            filter: Self::Filter,
+            id: Self::Id,
+            value: bool,
+        ) -> Result<(), crate::Error>;
     }
 }
 
@@ -192,8 +206,8 @@ pub mod route {
     }
 
     #[async_trait]
-    pub trait ToggleFallback: Send + Sync + Sized + 'static {
-        type UrlParams: Clone + Copy + Send + Sync + Sized + 'static;
+    pub trait ToggleFallback: super::crud::Toggle {
+        type UrlParams: Send + Sync + 'static;
 
         const URL_TRUE: &'static str;
         const URL_FALSE: &'static str;
@@ -212,7 +226,7 @@ pub mod route {
             headers: HeaderMap,
             Path(path): Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error> {
-            Self::set(user, state, headers, path, true).await
+            <Self as ToggleFallback>::set(user, state, headers, path, true).await
         }
 
         async fn set_false(
@@ -221,7 +235,7 @@ pub mod route {
             headers: HeaderMap,
             Path(path): Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error> {
-            Self::set(user, state, headers, path, false).await
+            <Self as ToggleFallback>::set(user, state, headers, path, false).await
         }
 
         fn router<B>() -> axum::Router<AppState, B>
@@ -232,7 +246,9 @@ pub mod route {
     }
 
     #[async_trait]
-    pub trait ToggleHtmx {
+    pub trait ToggleHtmx: super::crud::Toggle {
+        type Id: Send + Sync + Copy + 'static + From<Self::UrlParams>;
+        type Filter: Send + Sync + 'static + From<Self::UrlParams>;
         type UrlParams: Send + Sync + 'static;
 
         const URL_TRUE: &'static str;
@@ -243,22 +259,33 @@ pub mod route {
             state: AppState,
             params: Self::UrlParams,
             value: bool,
+        ) -> Result<(crate::Context, AppState, Self::UrlParams, bool), crate::Error>;
+
+        async fn response(
+            ctx: &crate::Context,
+            state: AppState,
+            params: Self::UrlParams,
+            value: bool,
         ) -> Result<Response<BoxBody>, crate::Error>;
 
-        async fn set_true(
+        async fn on(
             Extension(user): Extension<User>,
             State(state): State<AppState>,
             Path(path): Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error> {
-            Self::set(user, state, path, true).await
+            let (ctx, state, params, value) =
+                <Self as ToggleHtmx>::set(user, state, path, true).await?;
+            <Self as ToggleHtmx>::response(&ctx, state, params, value).await
         }
 
-        async fn set_false(
+        async fn off(
             Extension(user): Extension<User>,
             State(state): State<AppState>,
             Path(path): Path<Self::UrlParams>,
         ) -> Result<Response<BoxBody>, crate::Error> {
-            Self::set(user, state, path, false).await
+            let (ctx, state, params, value) =
+                <Self as ToggleHtmx>::set(user, state, path, false).await?;
+            <Self as ToggleHtmx>::response(&ctx, state, params, value).await
         }
 
         fn router<B>() -> axum::Router<AppState, B>
@@ -296,7 +323,7 @@ pub mod route {
     }
 
     pub trait Router: Create + Delete {
-        fn get<B>() -> axum::Router<AppState, B>
+        fn router<B>() -> axum::Router<AppState, B>
         where
             B: HttpBody + Send + 'static,
             <B as HttpBody>::Data: Send,

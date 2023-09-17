@@ -13,10 +13,7 @@ use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
 use crate::{
-    components::{
-        self,
-        route::{Router as _, Toggle},
-    },
+    components::{self, route::Router as _},
     AppState, Error, RequestError, TopLevelPage,
 };
 
@@ -168,11 +165,7 @@ pub fn router(state: AppState) -> Router {
                             "/:id/todo/:id/edit/cancel",
                             post(components::trips::todos::trip_todo_edit_cancel),
                         )
-                        .nest(
-                            "/:id/todo/",
-                            components::trips::todos::Todo::get()
-                                .merge(<components::trips::todos::StateUpdate as Toggle>::router()),
-                        ),
+                        .nest("/:id/todo/", components::trips::todos::Todo::router()),
                 )
                 .nest(
                     (&TopLevelPage::Inventory.path()).into(),
