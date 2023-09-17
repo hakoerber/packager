@@ -82,14 +82,35 @@ impl TryFrom<TodoRow> for Todo {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Filter {
+#[derive(Debug, Copy, Clone)]
+pub struct Higher {
     pub trip_id: Uuid,
 }
 
-impl From<(Uuid, Uuid)> for Filter {
-    fn from((trip_id, _todo_id): (Uuid, Uuid)) -> Self {
-        Self { trip_id }
+impl crud::Higher for Higher {
+    type Id = Id;
+    type Reference = Reference;
+
+    fn with_id(&self, id: Self::Id) -> Self::Reference {
+        Reference {
+            id,
+            higher: self.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Reference {
+    pub id: Id,
+    pub higher: Higher,
+}
+
+impl From<(Uuid, Uuid)> for Reference {
+    fn from((trip_id, todo_id): (Uuid, Uuid)) -> Self {
+        Self {
+            id: Id::new(todo_id),
+            higher: Higher { trip_id },
+        }
     }
 }
 
@@ -122,15 +143,15 @@ impl Todo {
 
 #[async_trait]
 impl crud::Read for Todo {
-    type Filter = Filter;
-    type Id = Id;
+    type Reference = Reference;
+    type Higher = Higher;
 
     async fn findall(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: Filter,
+        higher: Higher,
     ) -> Result<Vec<Self>, Error> {
-        let trip_id_param = filter.trip_id.to_string();
+        let trip_id_param = higher.trip_id.to_string();
         let user_id = ctx.user.id.to_string();
 
         let todos: Vec<Todo> = crate::query_all!(
@@ -165,11 +186,10 @@ impl crud::Read for Todo {
     async fn find(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: Filter,
-        todo_id: Id,
+        reference: Reference,
     ) -> Result<Option<Self>, Error> {
-        let trip_id_param = filter.trip_id.to_string();
-        let todo_id_param = todo_id.0.to_string();
+        let trip_id_param = reference.higher.trip_id.to_string();
+        let todo_id_param = reference.id.0.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
             &sqlite::QueryClassification {
@@ -207,20 +227,20 @@ pub struct TodoNew {
 #[async_trait]
 impl crud::Create for Todo {
     type Id = Id;
-    type Filter = Filter;
+    type Higher = Higher;
     type Info = TodoNew;
 
     async fn create(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: Self::Filter,
+        higher: Self::Higher,
         info: Self::Info,
     ) -> Result<Self::Id, Error> {
         let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         tracing::info!("adding new todo with id {id}");
         let id_param = id.to_string();
-        let trip_id_param = filter.trip_id.to_string();
+        let trip_id_param = higher.trip_id.to_string();
         crate::execute!(
             &sqlite::QueryClassification {
                 query_type: sqlite::QueryType::Insert,
@@ -283,21 +303,19 @@ pub enum UpdateElement {
 
 #[async_trait]
 impl crud::Update for Todo {
-    type Id = Id;
-    type Filter = Filter;
+    type Reference = Reference;
     type UpdateElement = UpdateElement;
 
     #[tracing::instrument]
     async fn update(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: Self::Filter,
-        id: Self::Id,
+        reference: Self::Reference,
         update_element: Self::UpdateElement,
     ) -> Result<Option<Self>, Error> {
         let user_id = ctx.user.id.to_string();
-        let trip_id_param = filter.trip_id.to_string();
-        let todo_id_param = id.to_string();
+        let trip_id_param = reference.higher.trip_id.to_string();
+        let todo_id_param = reference.id.to_string();
         match update_element {
             UpdateElement::State(state) => {
                 let done = state == State::Done.into();
@@ -333,8 +351,8 @@ impl crud::Update for Todo {
             }
             UpdateElement::Description(new_description) => {
                 let user_id = ctx.user.id.to_string();
-                let trip_id_param = filter.trip_id.to_string();
-                let todo_id_param = id.to_string();
+                let trip_id_param = reference.higher.trip_id.to_string();
+                let todo_id_param = reference.id.to_string();
 
                 let result = crate::query_one!(
                     &sqlite::QueryClassification {
@@ -373,16 +391,17 @@ impl crud::Update for Todo {
 #[async_trait]
 impl crud::Delete for Todo {
     type Id = Id;
-    type Filter = Filter;
+    type Higher = Higher;
+    type Reference = Reference;
 
     #[tracing::instrument]
-    async fn delete<'c, T>(ctx: &Context, db: T, filter: &Filter, id: Id) -> Result<bool, Error>
+    async fn delete<'c, T>(ctx: &Context, db: T, reference: &Reference) -> Result<bool, Error>
     where
         T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug,
     {
-        let id_param = id.0.to_string();
+        let id_param = reference.id.0.to_string();
         let user_id = ctx.user.id.to_string();
-        let trip_id_param = filter.trip_id.to_string();
+        let trip_id_param = reference.higher.trip_id.to_string();
 
         let results = crate::execute!(
             &sqlite::QueryClassification {
@@ -644,7 +663,7 @@ impl route::Create for Todo {
         let _todo_item = <Self as crud::Create>::create(
             &ctx,
             &state.database_pool,
-            Filter { trip_id },
+            Higher { trip_id },
             TodoNew {
                 description: form.description,
             },
@@ -690,8 +709,10 @@ impl route::Delete for Todo {
         let deleted = <Self as crud::Delete>::delete(
             &ctx,
             &state.database_pool,
-            &Filter { trip_id },
-            components::trips::todos::Id(todo_id),
+            &Reference {
+                higher: Higher { trip_id },
+                id: components::trips::todos::Id(todo_id),
+            },
         )
         .await?;
 
@@ -747,8 +768,10 @@ pub async fn trip_todo_done(
     Todo::update(
         &ctx,
         &state.database_pool,
-        Filter { trip_id },
-        Id(todo_id),
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
         UpdateElement::State(State::Done.into()),
     )
     .await?;
@@ -766,19 +789,28 @@ pub async fn trip_todo_undone_htmx(
     Todo::update(
         &ctx,
         &state.database_pool,
-        Filter { trip_id },
-        Id(todo_id),
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
         UpdateElement::State(State::Todo.into()),
     )
     .await?;
 
-    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, Id(todo_id))
-        .await?
-        .ok_or_else(|| {
-            crate::Error::Request(RequestError::NotFound {
-                message: format!("todo with id {todo_id} not found"),
-            })
-        })?;
+    let todo_item = Todo::find(
+        &ctx,
+        &state.database_pool,
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
+    )
+    .await?
+    .ok_or_else(|| {
+        crate::Error::Request(RequestError::NotFound {
+            message: format!("todo with id {todo_id} not found"),
+        })
+    })?;
 
     Ok(todo_item.build(BuildInput {
         trip_id,
@@ -797,8 +829,10 @@ pub async fn trip_todo_undone(
     Todo::update(
         &ctx,
         &state.database_pool,
-        Filter { trip_id },
-        Id(todo_id),
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
         UpdateElement::State(State::Todo.into()),
     )
     .await?;
@@ -821,7 +855,15 @@ pub async fn trip_todo_edit(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, crate::Error> {
     let ctx = Context::build(current_user);
-    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, Id(todo_id)).await?;
+    let todo_item = Todo::find(
+        &ctx,
+        &state.database_pool,
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
+    )
+    .await?;
 
     match todo_item {
         None => Err(crate::Error::Request(RequestError::NotFound {
@@ -848,8 +890,10 @@ pub async fn trip_todo_edit_save(
     let todo_item = Todo::update(
         &ctx,
         &state.database_pool,
-        Filter { trip_id },
-        Id(todo_id),
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
         UpdateElement::Description(form.description.into()),
     )
     .await?;
@@ -881,7 +925,15 @@ pub async fn trip_todo_edit_cancel(
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, crate::Error> {
     let ctx = Context::build(current_user);
-    let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, Id(todo_id)).await?;
+    let todo_item = Todo::find(
+        &ctx,
+        &state.database_pool,
+        Reference {
+            id: Id(todo_id),
+            higher: Higher { trip_id },
+        },
+    )
+    .await?;
 
     match todo_item {
         None => Err(crate::Error::Request(RequestError::NotFound {
@@ -898,17 +950,15 @@ pub async fn trip_todo_edit_cancel(
 
 #[async_trait]
 impl crud::Toggle for StateUpdate {
-    type Id = Id;
-    type Filter = Filter;
+    type Reference = Reference;
 
     async fn set(
         ctx: &Context,
         pool: &sqlite::Pool,
-        filter: Self::Filter,
-        id: Self::Id,
+        reference: Self::Reference,
         value: bool,
     ) -> Result<(), crate::Error> {
-        Todo::update(&ctx, &pool, filter, id, UpdateElement::State(value.into())).await?;
+        Todo::update(&ctx, &pool, reference, UpdateElement::State(value.into())).await?;
         Ok(())
     }
 }
@@ -931,8 +981,10 @@ impl route::ToggleFallback for StateUpdate {
         <Self as crud::Toggle>::set(
             &ctx,
             &state.database_pool,
-            Filter { trip_id },
-            Id(todo_id),
+            Reference {
+                id: Id(todo_id),
+                higher: Higher { trip_id },
+            },
             value,
         )
         .await?;
@@ -954,8 +1006,6 @@ impl route::ToggleFallback for StateUpdate {
 
 #[async_trait]
 impl route::ToggleHtmx for StateUpdate {
-    type Id = Id;
-    type Filter = Filter;
     type UrlParams = (Uuid, Uuid);
 
     const URL_TRUE: &'static str = "/:id/done/htmx/true";
@@ -968,14 +1018,7 @@ impl route::ToggleHtmx for StateUpdate {
         value: bool,
     ) -> Result<(crate::Context, AppState, Self::UrlParams, bool), crate::Error> {
         let ctx = Context::build(current_user);
-        <Self as crud::Toggle>::set(
-            &ctx,
-            &state.database_pool,
-            params.into(),
-            params.into(),
-            value,
-        )
-        .await?;
+        <Self as crud::Toggle>::set(&ctx, &state.database_pool, params.into(), value).await?;
 
         Ok((ctx, state, params, value))
     }
@@ -986,13 +1029,20 @@ impl route::ToggleHtmx for StateUpdate {
         (trip_id, todo_id): Self::UrlParams,
         value: bool,
     ) -> Result<Response<BoxBody>, crate::Error> {
-        let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, Id(todo_id))
-            .await?
-            .ok_or_else(|| {
-                crate::Error::Request(RequestError::NotFound {
-                    message: format!("todo with id {todo_id} not found"),
-                })
-            })?;
+        let todo_item = Todo::find(
+            &ctx,
+            &state.database_pool,
+            Reference {
+                id: Id(todo_id),
+                higher: Higher { trip_id },
+            },
+        )
+        .await?
+        .ok_or_else(|| {
+            crate::Error::Request(RequestError::NotFound {
+                message: format!("todo with id {todo_id} not found"),
+            })
+        })?;
 
         Ok(todo_item
             .build(BuildInput {

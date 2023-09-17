@@ -440,8 +440,10 @@ pub async fn trip(
         let deleted = components::trips::todos::Todo::delete(
             &ctx,
             &state.database_pool,
-            &todos::Filter { trip_id: id },
-            components::trips::todos::Id::new(delete_todo),
+            &todos::Reference {
+                id: components::trips::todos::Id::new(delete_todo),
+                higher: todos::Higher { trip_id: id },
+            },
         )
         .await?;
 

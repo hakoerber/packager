@@ -7,62 +7,66 @@ pub mod crud {
 
     #[async_trait]
     pub trait Create: Sized {
-        type Id: Sized + Send + Sync + Copy + 'static;
-        type Filter: Sized + Send + Sync + 'static;
+        type Id: Sized + Send + Sync + 'static;
+        type Higher: Sized + Send + Sync + 'static;
         type Info: Sized + Send + Sync + 'static;
 
         async fn create(
             ctx: &Context,
             pool: &sqlite::Pool,
-            filter: Self::Filter,
+            higher: Self::Higher,
             info: Self::Info,
         ) -> Result<Self::Id, Error>;
     }
 
     #[async_trait]
     pub trait Read: Sized {
-        type Filter;
-        type Id: Copy;
+        type Reference;
+        type Higher;
 
         async fn findall(
             ctx: &Context,
             pool: &sqlite::Pool,
-            filter: Self::Filter,
+            higher: Self::Higher,
         ) -> Result<Vec<Self>, Error>;
 
         async fn find(
             ctx: &Context,
             pool: &sqlite::Pool,
-            filter: Self::Filter,
-            id: Self::Id,
+            reference: Self::Reference,
         ) -> Result<Option<Self>, Error>;
     }
 
     #[async_trait]
     pub trait Update: Sized {
-        type Id: Copy;
-        type Filter;
+        type Reference;
         type UpdateElement;
 
         async fn update(
             ctx: &Context,
             pool: &sqlite::Pool,
-            filter: Self::Filter,
-            id: Self::Id,
+            reference: Self::Reference,
             update: Self::UpdateElement,
         ) -> Result<Option<Self>, Error>;
+    }
+
+    pub trait Higher {
+        type Id: Copy;
+        type Reference;
+
+        fn with_id(&self, id: Self::Id) -> Self::Reference;
     }
 
     #[async_trait]
     pub trait Delete: Sized {
         type Id: Send + Copy;
-        type Filter: Send + Sync;
+        type Higher: Send + Sync + Higher<Reference = Self::Reference, Id = Self::Id>;
+        type Reference: Send + Sync;
 
         async fn delete<'c, T>(
             ctx: &Context,
             db: T,
-            filter: &Self::Filter,
-            id: Self::Id,
+            reference: &Self::Reference,
         ) -> Result<bool, Error>
         where
             // we require something that allows us to get something that implements
@@ -79,7 +83,7 @@ pub mod crud {
         async fn delete_all<'c>(
             ctx: &Context,
             pool: &'c sqlite::Pool,
-            filter: Self::Filter,
+            higher: Self::Higher,
             ids: Vec<Self::Id>,
         ) -> Result<bool, Error> {
             use sqlx::Acquire as _;
@@ -88,7 +92,7 @@ pub mod crud {
             let conn = transaction.acquire().await?;
 
             for id in ids {
-                if !Self::delete(ctx, &mut *conn, &filter, id).await? {
+                if !Self::delete(ctx, &mut *conn, &higher.with_id(id)).await? {
                     // transaction will rollback on drop
                     return Ok(false);
                 }
@@ -102,14 +106,12 @@ pub mod crud {
 
     #[async_trait]
     pub trait Toggle: Sized {
-        type Id: Sized + Send + Sync + Copy + 'static;
-        type Filter: Sized + Send + Sync + 'static;
+        type Reference: Sized + Send + Sync + 'static;
 
         async fn set(
             ctx: &Context,
             pool: &sqlite::Pool,
-            filter: Self::Filter,
-            id: Self::Id,
+            reference: Self::Reference,
             value: bool,
         ) -> Result<(), crate::Error>;
     }
@@ -247,8 +249,6 @@ pub mod route {
 
     #[async_trait]
     pub trait ToggleHtmx: super::crud::Toggle {
-        type Id: Send + Sync + Copy + 'static + From<Self::UrlParams>;
-        type Filter: Send + Sync + 'static + From<Self::UrlParams>;
         type UrlParams: Send + Sync + 'static;
 
         const URL_TRUE: &'static str;

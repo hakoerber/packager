@@ -1023,7 +1023,7 @@ impl Trip {
             crate::components::trips::todos::Todo::findall(
                 ctx,
                 pool,
-                crate::components::trips::todos::Filter { trip_id: self.id },
+                crate::components::trips::todos::Higher { trip_id: self.id },
             )
             .await?,
         );
