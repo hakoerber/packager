@@ -1086,7 +1086,7 @@ pub async fn trip_category_select(
     let mut headers = HeaderMap::new();
     headers.insert::<HeaderName>(
         htmx::ResponseHeaders::PushUrl.into(),
-        format!("?={category_id}").parse().unwrap(),
+        format!("?category={category_id}").parse().unwrap(),
     );
 
     Ok((
