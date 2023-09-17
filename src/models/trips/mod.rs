@@ -1153,8 +1153,8 @@ impl Trip {
         )
         .await?;
 
-        // only mark as new when the trip is already underway
-        let mark_as_new = self.state != TripState::new();
+        // only mark as new when the trip not already underway
+        let mark_as_new = self.state < TripState::Active;
 
         for unsynced_item in &unsynced_items {
             let item_id = unsynced_item.to_string();
