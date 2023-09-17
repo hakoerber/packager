@@ -59,7 +59,7 @@ impl From<State> for bool {
 
 #[derive(Debug)]
 pub struct Todo {
-    pub id: Uuid,
+    pub id: Id,
     pub description: String,
     pub state: State,
 }
@@ -75,7 +75,7 @@ impl TryFrom<TodoRow> for Todo {
 
     fn try_from(row: TodoRow) -> Result<Self, Self::Error> {
         Ok(Todo {
-            id: Uuid::try_parse(&row.id)?,
+            id: Id::new(Uuid::try_parse(&row.id)?),
             description: row.description,
             state: row.done.into(),
         })
@@ -92,10 +92,7 @@ impl crud::Higher for Higher {
     type Reference = Reference;
 
     fn with_id(&self, id: Self::Id) -> Self::Reference {
-        Reference {
-            id,
-            higher: self.clone(),
-        }
+        Reference { id, higher: *self }
     }
 }
 
@@ -114,7 +111,7 @@ impl From<(Uuid, Uuid)> for Reference {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Id(Uuid);
 
 impl std::fmt::Display for Id {
@@ -126,12 +123,6 @@ impl std::fmt::Display for Id {
 impl Id {
     pub fn new(id: Uuid) -> Self {
         Self(id)
-    }
-}
-
-impl From<(Uuid, Uuid)> for Id {
-    fn from((_trip_id, todo_id): (Uuid, Uuid)) -> Self {
-        Self(todo_id)
     }
 }
 
@@ -230,6 +221,10 @@ impl crud::Create for Todo {
     type Higher = Higher;
     type Info = TodoNew;
 
+    fn new_id() -> Self::Id {
+        Id::new(Uuid::new_v4())
+    }
+
     async fn create(
         ctx: &Context,
         pool: &sqlite::Pool,
@@ -237,7 +232,7 @@ impl crud::Create for Todo {
         info: Self::Info,
     ) -> Result<Self::Id, Error> {
         let user_id = ctx.user.id.to_string();
-        let id = Uuid::new_v4();
+        let id = Self::new_id();
         tracing::info!("adding new todo with id {id}");
         let id_param = id.to_string();
         let trip_id_param = higher.trip_id.to_string();
@@ -263,7 +258,7 @@ impl crud::Create for Todo {
         )
         .await?;
 
-        Ok(components::trips::todos::Id(id))
+        Ok(id)
     }
 }
 

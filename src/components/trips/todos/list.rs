@@ -30,7 +30,7 @@ impl<'a> view::View for List<'a> {
                 {
                     @for todo in self.todos {
                         @let state = input.edit_todo
-                            .map(|id| if todo.id == id {
+                            .map(|id| if todo.id == super::Id::new(id) {
                                 super::UiState::Edit
                             } else {
                                 super::UiState::Default

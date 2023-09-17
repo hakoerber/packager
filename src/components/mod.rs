@@ -11,6 +11,8 @@ pub mod crud {
         type Higher: Sized + Send + Sync + 'static;
         type Info: Sized + Send + Sync + 'static;
 
+        fn new_id() -> Self::Id;
+
         async fn create(
             ctx: &Context,
             pool: &sqlite::Pool,
