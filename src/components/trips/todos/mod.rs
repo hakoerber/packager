@@ -902,7 +902,7 @@ impl crud::Toggle for StateUpdate {
         id: Self::Id,
         value: bool,
     ) -> Result<(), crate::Error> {
-        Todo::update(&ctx, &pool, filter, id, UpdateElement::State(value.into())).await?;
+        Todo::update(ctx, pool, filter, id, UpdateElement::State(value.into())).await?;
         Ok(())
     }
 }
@@ -980,7 +980,7 @@ impl route::ToggleHtmx for StateUpdate {
         (trip_id, todo_id): (Uuid, Uuid),
         value: bool,
     ) -> Result<Response<BoxBody>, crate::Error> {
-        let todo_item = Todo::find(&ctx, &state.database_pool, Filter { trip_id }, Id(todo_id))
+        let todo_item = Todo::find(ctx, &state.database_pool, Filter { trip_id }, Id(todo_id))
             .await?
             .ok_or_else(|| {
                 crate::Error::Request(RequestError::NotFound {
