@@ -137,7 +137,7 @@ pub fn sqlx_query(
         ("query_type", classification.query_type.to_string()),
         ("query_component", classification.component.to_string()),
     ]);
-    metrics::counter!("packager_database_queries_total", 1, &labels);
+    metrics::counter!("packager_database_queries_total", &labels).increment(1);
 }
 
 // This does not work, as the query*! macros expect a string literal for the query, so

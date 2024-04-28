@@ -325,7 +325,7 @@ impl InventoryItem {
         weight: u32,
     ) -> Result<Uuid, Error> {
         let user_id = ctx.user.id.to_string();
-        let weight = i64::try_from(weight).unwrap();
+        let weight = i64::from(weight);
 
         let id_param = id.to_string();
         crate::execute_returning_uuid!(

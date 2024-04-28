@@ -1036,28 +1036,6 @@ impl Trip {
         ctx: &Context,
         pool: &sqlite::Pool,
     ) -> Result<(), Error> {
-        struct Row {
-            id: String,
-            name: String,
-            active: i32,
-        }
-
-        impl TryFrom<Row> for TripType {
-            type Error = Error;
-
-            fn try_from(row: Row) -> Result<Self, Self::Error> {
-                Ok(TripType {
-                    id: Uuid::try_parse(&row.id)?,
-                    name: row.name,
-                    active: match row.active {
-                        0 => false,
-                        1 => true,
-                        _ => unreachable!(),
-                    },
-                })
-            }
-        }
-
         let user_id = ctx.user.id.to_string();
         let id = self.id.to_string();
         let types = crate::query_all!(
@@ -1066,7 +1044,7 @@ impl Trip {
                 component: sqlite::Component::Trips,
             },
             pool,
-            Row,
+            TripTypeRow,
             TripType,
             "
             SELECT
@@ -1404,6 +1382,28 @@ pub struct TripType {
     pub id: Uuid,
     pub name: String,
     pub active: bool,
+}
+
+struct TripTypeRow {
+    id: String,
+    name: String,
+    active: i32,
+}
+
+impl TryFrom<TripTypeRow> for TripType {
+    type Error = Error;
+
+    fn try_from(row: TripTypeRow) -> Result<Self, Self::Error> {
+        Ok(TripType {
+            id: Uuid::try_parse(&row.id)?,
+            name: row.name,
+            active: match row.active {
+                0 => false,
+                1 => true,
+                _ => unreachable!(),
+            },
+        })
+    }
 }
 
 impl TripsType {

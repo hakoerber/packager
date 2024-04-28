@@ -1,7 +1,6 @@
 use axum::{
     error_handling::HandleErrorLayer,
-    http::header::HeaderMap,
-    http::StatusCode,
+    http::{header::HeaderMap, StatusCode},
     middleware,
     routing::{get, post},
     BoxError, Router,

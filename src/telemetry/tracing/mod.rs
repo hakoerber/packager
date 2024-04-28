@@ -22,8 +22,10 @@ use tracing::Instrument;
 
 use uuid::Uuid;
 
-#[cfg(feature = "jaeger")]
-use opentelemetry::{global, runtime::Tokio};
+#[cfg(feature = "opentelemetry")]
+use opentelemetry::{global, trace::TracerProvider as _};
+#[cfg(feature = "opentelemetry")]
+use opentelemetry_sdk::trace::TracerProvider;
 
 pub enum OpenTelemetryConfig {
     Enabled,
@@ -64,17 +66,8 @@ fn get_stdout_layer<
     stdout_layer.boxed()
 }
 
-trait Forwarder {
-    type Config;
-
-    fn build(
-        config: Self::Config,
-        shutdown_functions: &mut Vec<ShutdownFunction>,
-    ) -> Option<Box<dyn tracing_subscriber::Layer<dyn tracing::Subscriber>>>;
-}
-
-#[cfg(feature = "jaeger")]
-fn get_jaeger_layer<
+#[cfg(feature = "opentelemetry")]
+fn get_opentelemetry_layer<
     T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
 >(
     config: &OpenTelemetryConfig,
@@ -82,16 +75,20 @@ fn get_jaeger_layer<
 ) -> Option<impl tracing_subscriber::Layer<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
-            global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
-            // Sets up the machinery needed to export data to Jaeger
+            global::set_text_map_propagator(
+                opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+            );
+            // Sets up the machinery needed to export data to an opentelemetry endpoint.
             // There are other OTel crates that provide pipelines for the vendors
             // mentioned earlier.
-            let tracer = opentelemetry_jaeger::new_agent_pipeline()
-                .with_service_name(env!("CARGO_PKG_NAME"))
-                .with_max_packet_size(50_000)
-                .with_auto_split_batch(true)
-                .install_batch(Tokio)
-                .unwrap();
+            let provider = TracerProvider::builder()
+                // .with_service_name()
+                // .with_max_packet_size(50_000)
+                // .with_auto_split_batch(true)
+                // .install_batch(Tokio)
+                .build();
+
+            let tracer = provider.tracer(env!("CARGO_PKG_NAME"));
 
             let opentelemetry_filter = {
                 Targets::new()
@@ -122,7 +119,7 @@ fn get_jaeger_layer<
 type ShutdownFunction = Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>;
 
 pub async fn init<Func, T>(
-    #[cfg(feature = "jaeger")] opentelemetry_config: OpenTelemetryConfig,
+    #[cfg(feature = "opentelemetry")] opentelemetry_config: OpenTelemetryConfig,
     #[cfg(feature = "tokio-console")] tokio_console_config: TokioConsoleConfig,
     args: crate::cli::Args,
     f: Func,
@@ -131,12 +128,12 @@ where
     Func: FnOnce(crate::cli::Args) -> Pin<Box<dyn Future<Output = T>>>,
     T: std::process::Termination,
 {
-    // mut is dependent on features (it's only required when jaeger is set), so
+    // mut is dependent on features (it's only required when opentelemetry is set), so
     // let's just disable the lint
-    #[cfg(feature = "jaeger")]
+    #[cfg(feature = "opentelemetry")]
     let mut shutdown_functions: Vec<ShutdownFunction> = vec![];
 
-    #[cfg(not(feature = "jaeger"))]
+    #[cfg(not(feature = "opentelemetry"))]
     let shutdown_functions: Vec<ShutdownFunction> = vec![];
 
     #[cfg(feature = "tokio-console")]
@@ -147,16 +144,17 @@ where
 
     let stdout_layer = get_stdout_layer();
 
-    #[cfg(feature = "jaeger")]
-    let jaeger_layer = get_jaeger_layer(&opentelemetry_config, &mut shutdown_functions);
+    #[cfg(feature = "opentelemetry")]
+    let opentelemetry_layer =
+        get_opentelemetry_layer(&opentelemetry_config, &mut shutdown_functions);
 
     let registry = Registry::default();
 
     #[cfg(feature = "tokio-console")]
     let registry = registry.with(console_layer);
 
-    #[cfg(feature = "jaeger")]
-    let registry = registry.with(jaeger_layer);
+    #[cfg(feature = "opentelemetry")]
+    let registry = registry.with(opentelemetry_layer);
     // just an example, you can actuall pass Options here for layers that might be
     // set/unset at runtime
 

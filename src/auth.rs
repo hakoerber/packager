@@ -1,8 +1,10 @@
-use axum::{extract::State, middleware::Next, response::IntoResponse};
+use axum::{
+    extract::{Request, State},
+    middleware::Next,
+    response::IntoResponse,
+};
 use futures::FutureExt;
 use tracing::Instrument;
-
-use hyper::Request;
 
 use crate::models::user::User;
 
@@ -16,11 +18,21 @@ pub enum Config {
 }
 
 #[tracing::instrument(name = "check_auth", skip(state, request, next))]
-pub async fn authorize<B>(
+pub async fn authorize(
     State(state): State<AppState>,
-    mut request: Request<B>,
-    next: Next<B>,
+    mut request: Request,
+    next: Next,
 ) -> Result<impl IntoResponse, Error> {
+    // We must not access `request` inside the async block above, otherwise there will be
+    // errors like the following:
+    //
+    // the trait `tower::Service<http::Request<axum::body::Body>>` is not implemented for
+    // `FromFn<fn(State<AppState>, Request<Body>, Next) -> impl Future<Output =
+    // Result<impl IntoResponse, Error>> {authorize}, AppState, Route, _>
+    //
+    // I am honestly not sure about the reason
+    let username_header = request.headers().get("x-auth-username");
+
     let user = async {
         let auth: Result<Result<User, AuthError>, Error> = match state.auth_config {
             Config::Disabled { assume_user } => {
@@ -35,7 +47,7 @@ pub async fn authorize<B>(
                     };
                 Ok(user)
             }
-            Config::Enabled => match request.headers().get("x-auth-username") {
+            Config::Enabled => match username_header {
                 None => Ok(Err(AuthError::AuthenticationHeaderMissing)),
                 Some(username) => match username.to_str() {
                     Err(e) => Ok(Err(AuthError::AuthenticationHeaderInvalid {
@@ -54,7 +66,6 @@ pub async fn authorize<B>(
                 },
             },
         };
-
         auth
     }
     .instrument(tracing::debug_span!("authorize"))
@@ -72,15 +83,17 @@ pub async fn authorize<B>(
                 format!("packager_auth_{}_total", {
                     match auth {
                         Ok(_) => "success".to_string(),
-                        Err(ref e) => format!("failure_{}", e.to_prom_metric_name()),
+                        Err(ref e) => {
+                            format!("failure_{}", e.to_prom_metric_name())
+                        }
                     }
                 }),
-                1,
                 &match &auth {
                     Ok(user) => vec![("username", user.username.clone())],
                     Err(e) => e.to_prom_labels(),
                 }
-            );
+            )
+            .increment(1);
             auth
         })
     })
@@ -89,5 +102,5 @@ pub async fn authorize<B>(
     .await??;
 
     request.extensions_mut().insert(user);
-    Ok(next.run(request).await)
+    Ok::<http::Response<axum::body::Body>, Error>(next.run(request).await)
 }

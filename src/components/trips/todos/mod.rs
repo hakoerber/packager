@@ -2,7 +2,7 @@ pub mod list;
 pub use list::List;
 
 use axum::{
-    body::{BoxBody, HttpBody},
+    body::Body,
     extract::{Form, Path, State as StateExtractor},
     http::HeaderMap,
     response::{IntoResponse, Redirect, Response},
@@ -653,7 +653,7 @@ impl route::Create for Todo {
         headers: HeaderMap,
         Path((trip_id,)): Path<Self::UrlParams>,
         Form(form): Form<Self::Form>,
-    ) -> Result<Response<BoxBody>, crate::Error> {
+    ) -> Result<Response<Body>, crate::Error> {
         let ctx = Context::build(current_user);
         // method output is not required as we reload the whole trip todos anyway
         let _todo_item = <Self as crud::Create>::create(
@@ -700,7 +700,7 @@ impl route::Delete for Todo {
         StateExtractor(state): StateExtractor<AppState>,
         _headers: HeaderMap,
         Path((trip_id, todo_id)): Path<Self::UrlParams>,
-    ) -> Result<Response<BoxBody>, crate::Error> {
+    ) -> Result<Response<Body>, crate::Error> {
         let ctx = Context::build(current_user);
         let deleted = <Self as crud::Delete>::delete(
             &ctx,
@@ -737,12 +737,7 @@ impl route::Delete for Todo {
 }
 
 impl route::Router for Todo {
-    fn router<B>() -> axum::Router<AppState, B>
-    where
-        B: HttpBody + Send + 'static,
-        <B as HttpBody>::Data: Send,
-        <B as HttpBody>::Error: std::error::Error + Sync + Send,
-    {
+    fn router() -> axum::Router<AppState> {
         axum::Router::new()
             .route("/new", axum::routing::post(<Self as route::Create>::create))
             .route(
@@ -972,7 +967,7 @@ impl route::ToggleFallback for StateUpdate {
         headers: HeaderMap,
         (trip_id, todo_id): (Uuid, Uuid),
         value: bool,
-    ) -> Result<Response<BoxBody>, crate::Error> {
+    ) -> Result<Response<Body>, crate::Error> {
         let ctx = Context::build(current_user);
         <Self as crud::Toggle>::set(
             &ctx,
@@ -988,12 +983,7 @@ impl route::ToggleFallback for StateUpdate {
         Ok(Redirect::to(get_referer(&headers)?).into_response())
     }
 
-    fn router<B>() -> axum::Router<AppState, B>
-    where
-        B: HttpBody + Send + 'static,
-        <B as HttpBody>::Data: Send,
-        <B as HttpBody>::Error: std::error::Error + Sync + Send,
-    {
+    fn router() -> axum::Router<AppState> {
         axum::Router::new()
             .route(Self::URL_TRUE, post(Self::set_true))
             .route(Self::URL_FALSE, post(Self::set_false))
@@ -1023,7 +1013,7 @@ impl route::ToggleHtmx for StateUpdate {
         ctx: &Context,
         state: AppState,
         (trip_id, todo_id): Self::UrlParams,
-    ) -> Result<Response<BoxBody>, crate::Error> {
+    ) -> Result<Response<Body>, crate::Error> {
         let todo_item = Todo::find(
             ctx,
             &state.database_pool,
@@ -1047,12 +1037,7 @@ impl route::ToggleHtmx for StateUpdate {
             .into_response())
     }
 
-    fn router<B>() -> axum::Router<AppState, B>
-    where
-        B: HttpBody + Send + 'static,
-        <B as HttpBody>::Data: Send,
-        <B as HttpBody>::Error: std::error::Error + Sync + Send,
-    {
+    fn router() -> axum::Router<AppState> {
         axum::Router::new()
             .route(Self::URL_TRUE, post(Self::on))
             .route(Self::URL_FALSE, post(Self::off))

@@ -6,6 +6,7 @@ use std::str::FromStr;
 use packager::{
     auth, cli, models, routing, sqlite, telemetry, AppState, ClientState, Error, StartError,
 };
+use tokio::net::TcpListener;
 
 struct MainResult(Result<(), Error>);
 
@@ -41,7 +42,7 @@ async fn main() -> MainResult {
     };
 
     telemetry::tracing::init(
-        #[cfg(feature = "jaeger")]
+        #[cfg(feature = "opentelemetry")]
         if args.enable_opentelemetry.into() {
             telemetry::tracing::OpenTelemetryConfig::Enabled
         } else {
@@ -117,19 +118,19 @@ async fn main() -> MainResult {
 
                             tracing::debug!("listening on {}", addr);
 
-                            if let Err(e) = axum::Server::try_bind(&addr)
-                                .map_err(|e| {
+                            axum::serve(
+                                TcpListener::bind(&addr).await.map_err(|e| {
                                     Error::Start(StartError::BindError {
                                         addr,
                                         message: e.to_string(),
                                     })
-                                })?
-                                .serve(app.into_make_service())
-                                .await
-                            {
-                                return Err(<hyper::Error as Into<Error>>::into(e));
-                            }
-                            Ok(())
+                                })?,
+                                app,
+                            )
+                            .await
+                            // Error = Infallible
+                            .unwrap();
+                            unreachable!()
                         });
 
                         // now we wait for all tasks. none of them are supposed to finish
