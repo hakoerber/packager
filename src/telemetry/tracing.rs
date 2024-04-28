@@ -70,8 +70,6 @@ fn get_opentelemetry_layer<
 ) -> Option<impl tracing_subscriber::Layer<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
-            use std::time::Duration;
-
             use opentelemetry::{global, KeyValue};
             use opentelemetry_otlp::WithExportConfig as _;
             use opentelemetry_sdk::{
