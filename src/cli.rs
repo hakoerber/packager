@@ -43,7 +43,7 @@ pub struct Args {
     #[arg(long)]
     pub database_url: String,
 
-    #[cfg(feature = "opentelemetry")]
+    #[cfg(feature = "otel")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_opentelemetry: BoolArg,
 

@@ -42,7 +42,7 @@ async fn main() -> MainResult {
     };
 
     telemetry::tracing::init(
-        #[cfg(feature = "opentelemetry")]
+        #[cfg(feature = "otel")]
         if args.enable_opentelemetry.into() {
             telemetry::tracing::OpenTelemetryConfig::Enabled
         } else {
@@ -142,7 +142,7 @@ async fn main() -> MainResult {
                             .expect("join_set is empty, this is a bug");
 
                         // EXPECT: We never expect a JoinError, as all threads run infinitely
-                        let result = result.expect("thread panicked");
+                        let result: Result<(), Error> = result.expect("thread panicked");
 
                         // If we get an Ok(()), something weird happened
                         let result = result.expect_err("thread ran to completion");

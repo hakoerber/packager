@@ -22,11 +22,6 @@ use tracing::Instrument;
 
 use uuid::Uuid;
 
-#[cfg(feature = "opentelemetry")]
-use opentelemetry::{global, trace::TracerProvider as _};
-#[cfg(feature = "opentelemetry")]
-use opentelemetry_sdk::trace::TracerProvider;
-
 pub enum OpenTelemetryConfig {
     Enabled,
     Disabled,
@@ -66,7 +61,7 @@ fn get_stdout_layer<
     stdout_layer.boxed()
 }
 
-#[cfg(feature = "opentelemetry")]
+#[cfg(feature = "otel")]
 fn get_opentelemetry_layer<
     T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
 >(
@@ -75,20 +70,45 @@ fn get_opentelemetry_layer<
 ) -> Option<impl tracing_subscriber::Layer<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
-            global::set_text_map_propagator(
-                opentelemetry_sdk::propagation::TraceContextPropagator::new(),
-            );
-            // Sets up the machinery needed to export data to an opentelemetry endpoint.
-            // There are other OTel crates that provide pipelines for the vendors
-            // mentioned earlier.
-            let provider = TracerProvider::builder()
-                // .with_service_name()
-                // .with_max_packet_size(50_000)
-                // .with_auto_split_batch(true)
-                // .install_batch(Tokio)
-                .build();
+            use std::time::Duration;
 
-            let tracer = provider.tracer(env!("CARGO_PKG_NAME"));
+            use opentelemetry::{global, KeyValue};
+            use opentelemetry_otlp::WithExportConfig as _;
+            use opentelemetry_sdk::{
+                trace::{RandomIdGenerator, Sampler},
+                Resource,
+            };
+
+            use tonic::metadata::MetadataMap;
+
+            let mut metadata = MetadataMap::with_capacity(3);
+            metadata.insert("x-host", "localhost".parse().unwrap());
+
+            let tracer = opentelemetry_otlp::new_pipeline()
+                .tracing()
+                .with_exporter(
+                    opentelemetry_otlp::new_exporter()
+                        .tonic()
+                        .with_endpoint("http://localhost:4317")
+                        .with_timeout(Duration::from_secs(3))
+                        .with_metadata(metadata),
+                )
+                .with_trace_config(
+                    opentelemetry_sdk::trace::config()
+                        .with_sampler(Sampler::AlwaysOn)
+                        .with_id_generator(RandomIdGenerator::default())
+                        .with_max_events_per_span(64)
+                        .with_max_attributes_per_span(16)
+                        .with_max_events_per_span(16)
+                        .with_resource(Resource::new(vec![KeyValue::new(
+                            "service.name",
+                            "packager",
+                        )])),
+                )
+                .install_batch(opentelemetry_sdk::runtime::Tokio)
+                .unwrap();
+
+            // let tracer = provider.tracer(env!("CARGO_PKG_NAME"));
 
             let opentelemetry_filter = {
                 Targets::new()
@@ -119,7 +139,7 @@ fn get_opentelemetry_layer<
 type ShutdownFunction = Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>;
 
 pub async fn init<Func, T>(
-    #[cfg(feature = "opentelemetry")] opentelemetry_config: OpenTelemetryConfig,
+    #[cfg(feature = "otel")] opentelemetry_config: OpenTelemetryConfig,
     #[cfg(feature = "tokio-console")] tokio_console_config: TokioConsoleConfig,
     args: crate::cli::Args,
     f: Func,
@@ -130,11 +150,8 @@ where
 {
     // mut is dependent on features (it's only required when opentelemetry is set), so
     // let's just disable the lint
-    #[cfg(feature = "opentelemetry")]
+    #[allow(unused_mut)]
     let mut shutdown_functions: Vec<ShutdownFunction> = vec![];
-
-    #[cfg(not(feature = "opentelemetry"))]
-    let shutdown_functions: Vec<ShutdownFunction> = vec![];
 
     #[cfg(feature = "tokio-console")]
     let console_layer = match tokio_console_config {
@@ -144,7 +161,7 @@ where
 
     let stdout_layer = get_stdout_layer();
 
-    #[cfg(feature = "opentelemetry")]
+    #[cfg(feature = "otel")]
     let opentelemetry_layer =
         get_opentelemetry_layer(&opentelemetry_config, &mut shutdown_functions);
 
@@ -153,7 +170,7 @@ where
     #[cfg(feature = "tokio-console")]
     let registry = registry.with(console_layer);
 
-    #[cfg(feature = "opentelemetry")]
+    #[cfg(feature = "otel")]
     let registry = registry.with(opentelemetry_layer);
     // just an example, you can actuall pass Options here for layers that might be
     // set/unset at runtime
