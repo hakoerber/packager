@@ -2,6 +2,14 @@ use maud::{html, Markup};
 
 use crate::models;
 use crate::ClientState;
+use crate::{
+    elements::{
+        self,
+        list::{self, List},
+    },
+    models::inventory::Item,
+};
+
 use uuid::Uuid;
 
 pub struct Inventory;
@@ -58,96 +66,64 @@ impl InventoryCategoryList {
             .max()
             .unwrap_or(1);
 
-        html!(
-            table
-                #category-list
-                ."table"
-                ."table-auto"
-                ."border-collapse"
-                ."border-spacing-0"
-                ."border"
-                ."w-full"
-            {
-
-                colgroup {
-                    col style="width:50%" {}
-                    col style="width:50%" {}
-                }
-                thead ."bg-gray-200" {
-                    tr ."h-10" {
-                        th ."border" ."p-2" ."w-3/5" { "Name" }
-                        th ."border" ."p-2" { "Weight" }
-                    }
-                }
-                tbody {
-                    @for category in categories {
-                        @let active = active_category.map_or(false, |c| category.id == c.id);
-                        tr
-                            ."h-10"
-                            ."hover:bg-gray-100"
-                            ."m-3"
-                            ."h-full"
-                            ."outline"[active]
-                            ."outline-2"[active]
-                            ."outline-indigo-300"[active]
-                            ."pointer-events-none"[active]
-                        {
-
-                            td
-                                class=@if active_category.map_or(false, |c| category.id == c.id) {
-                                    "border p-0 m-0 font-bold"
-                                } @else {
-                                    "border p-0 m-0"
-                                } {
-                                a
-                                    id="select-category"
-                                    href={
-                                        "/inventory/category/"
-                                        (category.id) "/"
-                                    }
-                                    hx-post={
-                                        "/inventory/categories/"
-                                        (category.id)
-                                        "/select"
-                                    }
-                                    hx-swap="outerHTML"
-                                    hx-target="#pkglist-item-manager"
-                                    ."inline-block" ."p-2" ."m-0" ."w-full"
-                                    {
-                                        (category.name.clone())
-                                    }
-                            }
-                            td ."border" ."p-2" ."m-0" style="position:relative;" {
-                                p {
-                                    (category.total_weight().to_string())
-                                }
-                                div ."bg-blue-600" ."h-1.5"
-                                    style=(
-                                        format!(
-                                            "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
-                                            width=(
-                                                (category.total_weight() as f64)
-                                                / (biggest_category_weight as f64)
-                                                * 100.0
-                                            )
-                                        )
-                                    ) {}
-                            }
-                        }
-                    }
-                    tr ."h-10" ."bg-gray-300" ."font-bold" {
-                        td ."border" ."p-0" ."m-0" {
-                            p ."p-2" ."m-2" { "Sum" }
-                        }
-                        td ."border" ."p-0" ."m-0" {
-                            p ."p-2" ."m-2" {
-                                (categories.iter().map(models::inventory::Category::total_weight).sum::<i64>().to_string())
-                            }
-                        }
-                    }
-                }
+        struct Row<'a> {
+            category: &'a models::inventory::Category,
+            active: bool,
+            biggest_category_weight: i64,
+        }
+        impl<'a> list::Row for Row<'a> {
+            fn is_active(&self) -> bool {
+                self.active
             }
-        )
+
+            fn cells(&self) -> Vec<list::Cell> {
+                vec![
+                    list::Cell {
+                        cell_type: list::CellType::Link(list::Link {
+                            text: &self.category.name,
+                            href: format!("/inventory/category/{}", self.category.id),
+                            hx_config: Some(elements::HxConfig {
+                                hx_post: format!(
+                                    "/inventory/categories/{}/select",
+                                    self.category.id
+                                ),
+                                hx_swap: elements::HxSwap::OuterHtml,
+                                hx_target: "#pkglist-item-manager",
+                            }),
+                        }),
+                    },
+                    list::Cell {
+                        cell_type: list::CellType::NumberWithBar(list::NumberWithBar {
+                            value: self.category.total_weight(),
+                            max_value: self.biggest_category_weight,
+                        }),
+                    },
+                ]
+            }
+        }
+
+        List {
+            id: Some("category-list"),
+            editing_config: None,
+            header: list::Header {
+                cells: vec![
+                    Some(list::HeaderCell { title: "Name" }),
+                    Some(list::HeaderCell { title: "Weight" }),
+                ],
+            },
+            rows: categories
+                .iter()
+                .map(|category| {
+                    let active = active_category.map_or(false, |c| category.id == c.id);
+                    Row {
+                        category,
+                        active,
+                        biggest_category_weight,
+                    }
+                })
+                .collect(),
+        }
+        .render()
     }
 }
 
@@ -162,6 +138,60 @@ impl InventoryItemList {
     )]
     pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
         let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
+
+        struct Row<'a> {
+            item: &'a Item,
+            biggest_item_weight: i64,
+        }
+
+        impl<'a> list::Row for Row<'a> {
+            fn cells(&self) -> Vec<list::Cell> {
+                vec![
+                    list::Cell {
+                        cell_type: list::CellType::Link(list::Link {
+                            text: &self.item.name,
+                            href: format!("/inventory/item/{id}/", id = self.item.id),
+                            hx_config: None,
+                        }),
+                    },
+                    list::Cell {
+                        cell_type: list::CellType::NumberWithBar(list::NumberWithBar {
+                            value: self.item.weight,
+                            max_value: self.biggest_item_weight,
+                        }),
+                    },
+                ]
+            }
+        }
+
+        fn editing_config(row: Row) -> list::EditingConfig {
+            list::EditingConfig {
+                edit_href: format!("?edit_item={id}", id = row.item.id),
+                edit_hx_config: None,
+
+                delete_href: format!("/inventory/item/{id}/delete", id = row.item.id),
+                delete_hx_config: None,
+            }
+        }
+
+        let table = list::List {
+            id: None,
+            editing_config: Some(Box::new(editing_config)),
+            header: list::Header {
+                cells: vec![
+                    Some(list::HeaderCell { title: "Name" }),
+                    Some(list::HeaderCell { title: "Weight" }),
+                ],
+            },
+            rows: items
+                .iter()
+                .map(|item| Row {
+                    item,
+                    biggest_item_weight,
+                })
+                .collect(),
+        };
+
         html!(
             div #items {
                 @if items.is_empty() {
@@ -176,6 +206,7 @@ impl InventoryItemList {
                             method="post"
                         {}
                     }
+                    (table.render())
                     table
                         ."table"
                         ."table-auto"
@@ -352,7 +383,6 @@ impl InventoryNewItemFormName {
                 hx-target="this"
                 hx-params="new-item-name"
                 hx-swap="outerHTML"
-                #abc
             {
                 label for="name" .font-bold { "Name" }
                 input
