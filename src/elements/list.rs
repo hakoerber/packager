@@ -13,17 +13,10 @@ pub struct NumberWithBar {
     pub max_value: i64,
 }
 
-pub struct Icon {
-    pub icon: super::Icon,
-    pub href: String,
-    pub hx_config: Option<HxConfig>,
-}
-
 pub enum CellType<'a> {
     Text(&'a str),
     Link(Link<'a>),
     NumberWithBar(NumberWithBar),
-    Icon(Icon),
 }
 
 pub struct Cell<'a> {
@@ -31,7 +24,7 @@ pub struct Cell<'a> {
 }
 
 impl<'a> Cell<'a> {
-    fn render(self) -> Markup {
+    fn render(self, is_edit: bool) -> Markup {
         match self.cell_type {
             CellType::Text(text) => html!(
                 td
@@ -98,38 +91,79 @@ impl<'a> Cell<'a> {
                     {}
                 }
             ),
-            CellType::Icon(icon) => html!(
-                td
-                    ."border-none"
-                    ."p-0"
-                    .(icon.icon.background())
-                    .(icon.icon.background_hover())
-                    ."h-full"
-                    ."w-10"
-                    {
-                        a
-                            href=(icon.href)
-                            ."aspect-square"
-                            ."flex"
-                        {
-                            span
-                                ."m-auto"
-                                ."mdi"
-                                ."text-xl"
-                                .(icon.icon.mdi_class())
-                            {}
-                        }
-                }
-            ),
         }
     }
 }
 
+pub struct Button {
+    pub icon: super::Icon,
+    pub action: Action,
+    pub hx_config: Option<HxConfig>,
+}
+
+impl Button {
+    fn render(self) -> Markup {
+        html!(
+            td
+                ."border-none"
+                ."p-0"
+                .(self.icon.background())
+                .(self.icon.background_hover())
+                ."h-full"
+                ."w-10"
+                {
+                    @match self.action {
+                        Action::Href(href) => {
+                            a
+                                href=(href)
+                                ."aspect-square"
+                                ."flex"
+                            {
+                                span
+                                    ."m-auto"
+                                    ."mdi"
+                                    ."text-xl"
+                                    .(self.icon.mdi_class())
+                                {}
+                            }
+                        }
+                        Action::Submit(form) => {
+                            button
+                                ."aspect-square"
+                                ."flex"
+                                ."w-full"
+                                ."h-full"
+                                type="submit"
+                                form=(form)
+                            {
+                                span
+                                    ."m-auto"
+                                    ."mdi"
+                                    .(self.icon.mdi_class())
+                                    ."text-xl"
+                                {}
+                            }
+                        }
+                    }
+            }
+        )
+    }
+}
+
+pub enum Action {
+    Href(String),
+    Submit(&'static str),
+}
+
 pub struct EditingConfig {
-    pub edit_href: String,
+    pub edit_action: Action,
     pub edit_hx_config: Option<HxConfig>,
-    pub delete_href: String,
+    pub delete_action: Action,
     pub delete_hx_config: Option<HxConfig>,
+    pub save_action: Action,
+    pub save_hx_config: Option<HxConfig>,
+    pub cancel_action: Action,
+    pub cancel_hx_config: Option<HxConfig>,
 }
 
 pub trait Row {
@@ -139,10 +173,6 @@ pub trait Row {
 
     fn is_edit(&self) -> bool {
         false
-    }
-
-    fn editing_config(&self) -> Option<EditingConfig> {
-        None
     }
 
     fn cells(&self) -> Vec<Cell>;
@@ -203,6 +233,7 @@ where
                 tbody {
                     @for row in self.rows.into_iter() {
                         @let active = row.is_active();
+                        @let is_edit = row.is_edit();
                         tr
                             ."h-10"
                             ."hover:bg-gray-100"
@@ -213,26 +244,35 @@ where
                             ."font-bold"[active]
                         {
                             @for cell in row.cells() {
-                                (cell.render())
+                                (cell.render(is_edit))
                             }
-                        }
-                        @if let Some(ref edit_config) = self.editing_config {
-                            @let edit_config = (*edit_config)(row);
-                            (Cell {
-                                cell_type: CellType::Icon(Icon {
-                                    icon: super::Icon::Edit,
-                                    href: edit_config.edit_href,
-                                    hx_config: edit_config.edit_hx_config,
-                                }),
-                            }.render())
-                            (Cell {
-                                cell_type: CellType::Icon(Icon {
-                                    icon: super::Icon::Delete,
-                                    href: edit_config.delete_href,
-                                    hx_config: edit_config.delete_hx_config,
-                                }),
-                            }.render())
+                            @if let Some(ref edit_config) = self.editing_config {
+                                @let edit_config = (*edit_config)(row);
+                                @if is_edit {
+                                    (Button {
+                                        icon: super::Icon::Save,
+                                        action: edit_config.save_action,
+                                        hx_config: edit_config.save_hx_config,
+                                    }.render())
+                                    (Button {
+                                        icon: super::Icon::Cancel,
+                                        action: edit_config.cancel_action,
+                                        hx_config: edit_config.cancel_hx_config,
+                                    }.render())
+                                } @else {
+                                    (Button {
+                                        icon: super::Icon::Edit,
+                                        action: edit_config.edit_action,
+                                        hx_config: edit_config.edit_hx_config,
+                                    } .render())
+                                    (Button {
+                                        icon: super::Icon::Delete,
+                                        action: edit_config.delete_action,
+                                        hx_config: edit_config.delete_hx_config,
+                                    }.render())
+                                }
 
+                            }
                         }
                     }
                 }

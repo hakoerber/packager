@@ -5,7 +5,7 @@ use crate::ClientState;
 use crate::{
     elements::{
         self,
-        list::{self, List},
+        list::{self, Action, List},
     },
     models::inventory::Item,
 };
@@ -142,6 +142,7 @@ impl InventoryItemList {
         struct Row<'a> {
             item: &'a Item,
             biggest_item_weight: i64,
+            edit_item_id: Option<Uuid>,
         }
 
         impl<'a> list::Row for Row<'a> {
@@ -162,21 +163,33 @@ impl InventoryItemList {
                     },
                 ]
             }
-        }
 
-        fn editing_config(row: Row) -> list::EditingConfig {
-            list::EditingConfig {
-                edit_href: format!("?edit_item={id}", id = row.item.id),
-                edit_hx_config: None,
-
-                delete_href: format!("/inventory/item/{id}/delete", id = row.item.id),
-                delete_hx_config: None,
+            fn is_edit(&self) -> bool {
+                self.edit_item_id.map_or(false, |id| id == self.item.id)
             }
         }
 
         let table = list::List {
             id: None,
-            editing_config: Some(Box::new(editing_config)),
+            editing_config: Some(Box::new(|row: Row| list::EditingConfig {
+                edit_action: Action::Href(format!("?edit_item={id}", id = row.item.id)),
+                edit_hx_config: None,
+
+                delete_action: Action::Href(format!(
+                    "/inventory/item/{id}/delete",
+                    id = row.item.id
+                )),
+                delete_hx_config: None,
+
+                save_action: Action::Submit("edit-item"),
+                save_hx_config: None,
+
+                cancel_action: Action::Href(format!(
+                    "/inventory/item/{id}/cancel",
+                    id = row.item.id
+                )),
+                cancel_hx_config: None,
+            })),
             header: list::Header {
                 cells: vec![
                     Some(list::HeaderCell { title: "Name" }),
@@ -188,6 +201,7 @@ impl InventoryItemList {
                 .map(|item| Row {
                     item,
                     biggest_item_weight,
+                    edit_item_id,
                 })
                 .collect(),
         };
