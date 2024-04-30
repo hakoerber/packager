@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id\n            FROM inventory_items\n            WHERE \n                name = ?\n                AND user_id = ?",
+  "query": "SELECT id\n            FROM inventory_items\n            WHERE\n                name = ?\n                AND user_id = ?",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "c34c9c567a98937e043424db17246ddf23dbc8b618dca6c637f2d71d03841920"
+  "hash": "b7632ae6bf28ad8f21a64ccbc4836dd29c2580da28d7edc8e46a15235f7d9c7d"
 }

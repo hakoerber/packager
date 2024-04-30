@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT\n                    todo.id AS id,\n                    todo.description AS description,\n                    todo.done AS done\n                FROM trip_todos AS todo\n                INNER JOIN trips\n                    ON trips.id = todo.trip_id\n                WHERE\n                    trips.id = $1\n                    AND trips.user_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "done",
+        "ordinal": 2,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "451e4983d939cc2906192d7cefaf0634cc69f1f0460a75b740a0459b85ef9a4f"
+}
