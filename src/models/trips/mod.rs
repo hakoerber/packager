@@ -263,7 +263,7 @@ impl TripCategory {
                             ON item.id = trip.item_id
                         INNER JOIN inventory_items_categories as category
                             ON category.id = item.category_id
-                        WHERE 
+                        WHERE
                             trip.trip_id = ?
                             AND trip.user_id = ?
                     ) AS inner
@@ -888,14 +888,14 @@ impl Trip {
                 },
                 &mut *transaction,
                 r#"INSERT INTO trips_items (
-                    item_id, 
-                    trip_id, 
-                    pick, 
-                    pack, 
+                    item_id,
+                    trip_id,
+                    pick,
+                    pack,
                     ready,
                     new,
                     user_id
-                ) SELECT 
+                ) SELECT
                     item_id,
                     $1 as trip_id,
                     pick,
@@ -918,14 +918,14 @@ impl Trip {
                 },
                 &mut *transaction,
                 r#"INSERT INTO trips_items (
-                    item_id, 
-                    trip_id, 
-                    pick, 
-                    pack, 
+                    item_id,
+                    trip_id,
+                    pick,
+                    pack,
                     ready,
                     new,
                     user_id
-                ) SELECT 
+                ) SELECT
                     id as item_id,
                     $1 as trip_id,
                     false as pick,

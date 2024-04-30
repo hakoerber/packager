@@ -23,8 +23,8 @@ impl Inventory {
             "SELECT
                     id,
                     name,
-                    description 
-                FROM inventory_items_categories 
+                    description
+                FROM inventory_items_categories
                 WHERE user_id = ?",
             user_id
         )
@@ -87,7 +87,7 @@ impl Category {
                 name,
                 description
             FROM inventory_items_categories AS category
-            WHERE 
+            WHERE
                 category.id = ?
                 AND category.user_id = ?",
             id_param,
@@ -155,7 +155,7 @@ impl Category {
                 description,
                 category_id
             FROM inventory_items
-            WHERE 
+            WHERE
                 category_id = ?
                 AND user_id = ?",
             id,
@@ -261,7 +261,7 @@ impl InventoryItem {
                     ON item.category_id = category.id
                 LEFT JOIN inventory_products AS product
                     ON item.product_id = product.id
-                WHERE 
+                WHERE
                     item.id = ?
                     AND item.user_id = ?",
             id_param,
@@ -285,7 +285,7 @@ impl InventoryItem {
             pool,
             "SELECT id
             FROM inventory_items
-            WHERE 
+            WHERE
                 name = ?
                 AND user_id = ?",
             name,
@@ -305,7 +305,7 @@ impl InventoryItem {
             },
             pool,
             "DELETE FROM inventory_items
-            WHERE 
+            WHERE
                 id = ?
                 AND user_id = ?",
             id_param,
@@ -338,7 +338,7 @@ impl InventoryItem {
             SET
                 name = ?,
                 weight = ?
-            WHERE 
+            WHERE
                 item.id = ?
                 AND item.user_id = ?
             RETURNING inventory_items.category_id AS id
@@ -405,7 +405,7 @@ impl InventoryItem {
                 FROM inventory_items_categories as category
                 INNER JOIN inventory_items as i_item
                     ON i_item.category_id = category.id
-                WHERE 
+                WHERE
                     category_id = ?
                     AND category.user_id = ?
             ",
@@ -473,7 +473,7 @@ impl Item {
                     ON i_item.category_id = category.id
                 INNER JOIN trips_items as t_item
                     ON i_item.id = t_item.item_id
-                WHERE 
+                WHERE
                     category_id = ?
                     AND category.user_id = ?
                     AND t_item.pick = 1

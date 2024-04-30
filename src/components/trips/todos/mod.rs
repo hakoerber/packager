@@ -162,7 +162,7 @@ impl crud::Read for Todo {
                 FROM trip_todos AS todo
                 INNER JOIN trips
                     ON trips.id = todo.trip_id
-                WHERE 
+                WHERE
                     trips.id = $1
                     AND trips.user_id = $2
             "#,
@@ -199,7 +199,7 @@ impl crud::Read for Todo {
                 FROM trip_todos AS todo
                 INNER JOIN trips
                     ON trips.id = todo.trip_id
-                WHERE 
+                WHERE
                     trips.id = $1
                     AND todo.id = $2
                     AND trips.user_id = $3
@@ -361,8 +361,8 @@ impl crud::Update for Todo {
                     r#"
                         UPDATE trip_todos
                         SET description = ?
-                        WHERE 
-                            id = ? 
+                        WHERE
+                            id = ?
                             AND trip_id = ?
                             AND EXISTS(SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
                         RETURNING
