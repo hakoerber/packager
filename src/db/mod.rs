@@ -2,6 +2,7 @@ use base64::Engine as _;
 use sha2::{Digest, Sha256};
 use std::fmt;
 
+pub mod error;
 pub mod postgres;
 pub mod sqlite;
 

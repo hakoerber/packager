@@ -1018,11 +1018,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_todos(
-        &mut self,
-        ctx: &Context,
-        pool: &db::Pool,
-    ) -> Result<(), Error> {
+    pub async fn load_todos(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
         self.todos = Some(
             crate::components::trips::todos::Todo::findall(
                 ctx,
@@ -1035,11 +1031,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_trips_types(
-        &mut self,
-        ctx: &Context,
-        pool: &db::Pool,
-    ) -> Result<(), Error> {
+    pub async fn load_trips_types(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
         let user_id = ctx.user.id.to_string();
         let id = self.id.to_string();
         let types = crate::query_all!(
@@ -1176,11 +1168,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_categories(
-        &mut self,
-        ctx: &Context,
-        pool: &db::Pool,
-    ) -> Result<(), Error> {
+    pub async fn load_categories(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
