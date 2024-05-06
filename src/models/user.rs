@@ -1,7 +1,7 @@
 use super::Error;
 use uuid::Uuid;
 
-use crate::sqlite;
+use crate::db;
 
 #[derive(Debug, Clone)]
 pub struct User {
@@ -42,9 +42,9 @@ impl User {
         name: &str,
     ) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::User,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::User,
             },
             pool,
             DbUserRow,
@@ -57,14 +57,14 @@ impl User {
 }
 
 #[tracing::instrument]
-pub async fn create(pool: &sqlite::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
+pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
     let id_param = id.to_string();
 
     crate::execute!(
-        &sqlite::QueryClassification {
-            query_type: sqlite::QueryType::Insert,
-            component: sqlite::Component::User,
+        &db::QueryClassification {
+            query_type: db::QueryType::Insert,
+            component: db::Component::User,
         },
         pool,
         "INSERT INTO users

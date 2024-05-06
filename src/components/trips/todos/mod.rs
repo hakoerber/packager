@@ -20,10 +20,10 @@ use crate::{
         route::{self, Toggle},
         view::{self, View},
     },
-    htmx,
+    db, htmx,
     models::{user::User, Error},
     routing::get_referer,
-    sqlite, AppState, Context, RequestError,
+    AppState, Context, RequestError,
 };
 
 use async_trait::async_trait;
@@ -140,16 +140,16 @@ impl crud::Read for Todo {
 
     async fn findall(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         container: Container,
     ) -> Result<Vec<Self>, Error> {
         let trip_id_param = container.trip_id.to_string();
         let user_id = ctx.user.id.to_string();
 
         let todos: Vec<Todo> = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Todo,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Todo,
             },
             pool,
             TodoRow,
@@ -177,16 +177,16 @@ impl crud::Read for Todo {
     #[tracing::instrument]
     async fn find(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         reference: Reference,
     ) -> Result<Option<Self>, Error> {
         let trip_id_param = reference.container.trip_id.to_string();
         let todo_id_param = reference.id.0.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Todo,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Todo,
             },
             pool,
             TodoRow,
@@ -228,7 +228,7 @@ impl crud::Create for Todo {
 
     async fn create(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         container: Self::Container,
         info: Self::Info,
     ) -> Result<Self::Id, Error> {
@@ -238,9 +238,9 @@ impl crud::Create for Todo {
         let id_param = id.to_string();
         let trip_id_param = container.trip_id.to_string();
         crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Insert,
-                component: sqlite::Component::Todo,
+            &db::QueryClassification {
+                query_type: db::QueryType::Insert,
+                component: db::Component::Todo,
             },
             pool,
             r#"
@@ -305,7 +305,7 @@ impl crud::Update for Todo {
     #[tracing::instrument]
     async fn update(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         reference: Self::Reference,
         update_element: Self::UpdateElement,
     ) -> Result<Option<Self>, Error> {
@@ -317,9 +317,9 @@ impl crud::Update for Todo {
                 let done = state == State::Done.into();
 
                 let result = crate::query_one!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     TodoRow,
@@ -351,9 +351,9 @@ impl crud::Update for Todo {
                 let todo_id_param = reference.id.to_string();
 
                 let result = crate::query_one!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Todo,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Todo,
                     },
                     pool,
                     TodoRow,
@@ -400,9 +400,9 @@ impl crud::Delete for Todo {
         let trip_id_param = reference.container.trip_id.to_string();
 
         let results = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Delete,
-                component: sqlite::Component::Todo,
+            &db::QueryClassification {
+                query_type: db::QueryType::Delete,
+                component: db::Component::Todo,
             },
             &mut *(db.acquire().await?),
             r#"
@@ -945,7 +945,7 @@ impl crud::Toggle for StateUpdate {
 
     async fn set(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         reference: Self::Reference,
         value: bool,
     ) -> Result<(), crate::Error> {

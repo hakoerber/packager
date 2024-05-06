@@ -1,5 +1,5 @@
 use super::Error;
-use crate::{sqlite, Context};
+use crate::{db, Context};
 
 use uuid::Uuid;
 
@@ -9,13 +9,13 @@ pub struct Inventory {
 
 impl Inventory {
     #[tracing::instrument]
-    pub async fn load(ctx: &Context, pool: &sqlite::Pool) -> Result<Self, Error> {
+    pub async fn load(ctx: &Context, pool: &db::Pool) -> Result<Self, Error> {
         let user_id = ctx.user.id.to_string();
 
         let mut categories = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             DbCategoryRow,
@@ -69,15 +69,15 @@ impl Category {
     #[tracing::instrument]
     pub async fn _find(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
     ) -> Result<Option<Category>, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             DbCategoryRow,
@@ -97,14 +97,14 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub async fn save(ctx: &Context, pool: &sqlite::Pool, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &db::Pool, name: &str) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Insert,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Insert,
+                component: db::Component::Inventory,
             },
             pool,
             "INSERT INTO inventory_items_categories
@@ -136,14 +136,14 @@ impl Category {
     pub async fn populate_items(
         &mut self,
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
     ) -> Result<(), Error> {
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
         let items = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             DbInventoryItemsRow,
@@ -232,14 +232,18 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 
 impl InventoryItem {
     #[tracing::instrument]
-    pub async fn find(ctx: &Context, pool: &sqlite::Pool, id: Uuid) -> Result<Option<Self>, Error> {
+    pub async fn find(
+        ctx: &Context,
+        pool: &db::Pool,
+        id: Uuid,
+    ) -> Result<Option<Self>, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
 
         crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             DbInventoryItemRow,
@@ -273,14 +277,14 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn name_exists(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         name: &str,
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_exists!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             "SELECT id
@@ -295,13 +299,13 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn delete(ctx: &Context, pool: &sqlite::Pool, id: Uuid) -> Result<bool, Error> {
+    pub async fn delete(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<bool, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
         let results = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Delete,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Delete,
+                component: db::Component::Inventory,
             },
             pool,
             "DELETE FROM inventory_items
@@ -319,7 +323,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn update(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
         name: &str,
         weight: u32,
@@ -329,9 +333,9 @@ impl InventoryItem {
 
         let id_param = id.to_string();
         crate::execute_returning_uuid!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Update,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Update,
+                component: db::Component::Inventory,
             },
             pool,
             "UPDATE inventory_items AS item
@@ -354,7 +358,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         name: &str,
         category_id: Uuid,
         weight: u32,
@@ -365,9 +369,9 @@ impl InventoryItem {
         let category_id_param = category_id.to_string();
 
         crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Insert,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Insert,
+                component: db::Component::Inventory,
             },
             pool,
             "INSERT INTO inventory_items
@@ -389,15 +393,15 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn get_category_max_weight(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         let weight = crate::execute_returning!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             "
@@ -455,15 +459,15 @@ impl Item {
     #[tracing::instrument]
     pub async fn _get_category_total_picked_weight(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         category_id: Uuid,
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
         let category_id_param = category_id.to_string();
         crate::execute_returning!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Inventory,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Inventory,
             },
             pool,
             "

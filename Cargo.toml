@@ -100,8 +100,8 @@ version = "0.7"
 #path = "./vendor/sqlx"
 features = [
   "runtime-tokio-rustls",
-  # "offline",
   "sqlite",
+  "postgres",
   "macros",
   "time",
   "migrate",

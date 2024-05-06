@@ -24,7 +24,7 @@ pub struct Cell<'a> {
 }
 
 impl<'a> Cell<'a> {
-    fn render(self, is_edit: bool) -> Markup {
+    fn render(self, _is_edit: bool) -> Markup {
         match self.cell_type {
             CellType::Text(text) => html!(
                 td

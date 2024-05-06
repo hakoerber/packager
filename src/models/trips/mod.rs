@@ -8,7 +8,7 @@ use super::{
     inventory,
 };
 
-use crate::{sqlite, Context};
+use crate::{db, Context};
 
 use serde::{Deserialize, Serialize};
 use time;
@@ -38,7 +38,7 @@ use uuid::Uuid;
 //     }
 // }
 
-#[derive(sqlite::Type, PartialEq, PartialOrd, Deserialize, Debug)]
+#[derive(db::sqlite::Type, PartialEq, PartialOrd, Deserialize, Debug)]
 pub enum TripState {
     Init,
     Planning,
@@ -156,7 +156,7 @@ impl TripCategory {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         trip_id: Uuid,
         category_id: Uuid,
     ) -> Result<Option<TripCategory>, Error> {
@@ -222,9 +222,9 @@ impl TripCategory {
         }
 
         let mut rows = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             Row,
@@ -346,7 +346,7 @@ impl TripItem {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         trip_id: Uuid,
         item_id: Uuid,
     ) -> Result<Option<Self>, Error> {
@@ -354,9 +354,9 @@ impl TripItem {
         let item_id_param = item_id.to_string();
         let trip_id_param = trip_id.to_string();
         crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             DbTripsItemsRow,
@@ -389,7 +389,7 @@ impl TripItem {
     #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         trip_id: Uuid,
         item_id: Uuid,
         key: TripItemStateKey,
@@ -401,9 +401,9 @@ impl TripItem {
         let result = match key {
             TripItemStateKey::Pick => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips_items
@@ -420,9 +420,9 @@ impl TripItem {
             }
             TripItemStateKey::Pack => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips_items
@@ -439,9 +439,9 @@ impl TripItem {
             }
             TripItemStateKey::Ready => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips_items
@@ -533,12 +533,12 @@ pub enum TripAttribute {
 
 impl Trip {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Trip>, Error> {
+    pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Trip>, Error> {
         let user_id = ctx.user.id.to_string();
         let mut trips = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             DbTripRow,
@@ -566,15 +566,15 @@ impl Trip {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         trip_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         let trip_id_param = trip_id.to_string();
         let user_id = ctx.user.id.to_string();
         crate::query_one!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             DbTripRow,
@@ -600,7 +600,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn trip_type_remove(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<bool, Error> {
@@ -609,9 +609,9 @@ impl Trip {
         let type_id_param = type_id.to_string();
 
         let results = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Delete,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Delete,
+                component: db::Component::Trips,
             },
             pool,
             "DELETE FROM trips_to_trips_types AS ttt
@@ -635,7 +635,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn trip_type_add(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<(), Error> {
@@ -645,9 +645,9 @@ impl Trip {
         let type_id_param = type_id.to_string();
 
         crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Insert,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Insert,
+                component: db::Component::Trips,
             },
             pool,
             "INSERT INTO
@@ -673,16 +673,16 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
         new_state: &TripState,
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
         let result = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Update,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Update,
+                component: db::Component::Trips,
             },
             pool,
             "UPDATE trips
@@ -700,16 +700,16 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_comment(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
         new_comment: &str,
     ) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = id.to_string();
         let result = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Update,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Update,
+                component: db::Component::Trips,
             },
             pool,
             "UPDATE trips
@@ -727,7 +727,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_attribute(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         trip_id: Uuid,
         attribute: TripAttribute,
         value: &str,
@@ -737,9 +737,9 @@ impl Trip {
         let result = match attribute {
             TripAttribute::Name => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips
@@ -754,9 +754,9 @@ impl Trip {
 
             TripAttribute::DateStart => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips
@@ -770,9 +770,9 @@ impl Trip {
             }
             TripAttribute::DateEnd => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips
@@ -786,9 +786,9 @@ impl Trip {
             }
             TripAttribute::Location => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips
@@ -802,9 +802,9 @@ impl Trip {
             }
             TripAttribute::TempMin => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips
@@ -818,9 +818,9 @@ impl Trip {
             }
             TripAttribute::TempMax => {
                 crate::execute!(
-                    &sqlite::QueryClassification {
-                        query_type: sqlite::QueryType::Update,
-                        component: sqlite::Component::Trips,
+                    &db::QueryClassification {
+                        query_type: db::QueryType::Update,
+                        component: db::Component::Trips,
                     },
                     pool,
                     "UPDATE trips
@@ -844,7 +844,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         name: &str,
         date_start: time::Date,
         date_end: time::Date,
@@ -861,9 +861,9 @@ impl Trip {
         let mut transaction = pool.begin().await?;
 
         crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Insert,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Insert,
+                component: db::Component::Trips,
             },
             &mut *transaction,
             "INSERT INTO trips
@@ -882,9 +882,9 @@ impl Trip {
         if let Some(copy_from_trip_id) = copy_from {
             let copy_from_trip_id_param = copy_from_trip_id.to_string();
             crate::execute!(
-                &sqlite::QueryClassification {
-                    query_type: sqlite::QueryType::Insert,
-                    component: sqlite::Component::Trips,
+                &db::QueryClassification {
+                    query_type: db::QueryType::Insert,
+                    component: db::Component::Trips,
                 },
                 &mut *transaction,
                 r#"INSERT INTO trips_items (
@@ -912,9 +912,9 @@ impl Trip {
             .await?;
         } else {
             crate::execute!(
-                &sqlite::QueryClassification {
-                    query_type: sqlite::QueryType::Insert,
-                    component: sqlite::Component::Trips,
+                &db::QueryClassification {
+                    query_type: db::QueryType::Insert,
+                    component: db::Component::Trips,
                 },
                 &mut *transaction,
                 r#"INSERT INTO trips_items (
@@ -949,15 +949,15 @@ impl Trip {
     #[tracing::instrument]
     pub async fn find_total_picked_weight(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         trip_id: Uuid,
     ) -> Result<i64, Error> {
         let user_id = ctx.user.id.to_string();
         let trip_id_param = trip_id.to_string();
         let weight = crate::execute_returning!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             "
@@ -1018,7 +1018,11 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_todos(&mut self, ctx: &Context, pool: &sqlite::Pool) -> Result<(), Error> {
+    pub async fn load_todos(
+        &mut self,
+        ctx: &Context,
+        pool: &db::Pool,
+    ) -> Result<(), Error> {
         self.todos = Some(
             crate::components::trips::todos::Todo::findall(
                 ctx,
@@ -1034,14 +1038,14 @@ impl Trip {
     pub async fn load_trips_types(
         &mut self,
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
     ) -> Result<(), Error> {
         let user_id = ctx.user.id.to_string();
         let id = self.id.to_string();
         let types = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             TripTypeRow,
@@ -1078,7 +1082,7 @@ impl Trip {
     pub async fn sync_trip_items_with_inventory(
         &mut self,
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
     ) -> Result<(), Error> {
         // we need to get all items that are part of the inventory but not
         // part of the trip items
@@ -1107,9 +1111,9 @@ impl Trip {
         }
 
         let unsynced_items: Vec<Uuid> = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             Row,
@@ -1137,9 +1141,9 @@ impl Trip {
         for unsynced_item in &unsynced_items {
             let item_id = unsynced_item.to_string();
             crate::execute!(
-                &sqlite::QueryClassification {
-                    query_type: sqlite::QueryType::Insert,
-                    component: sqlite::Component::Trips,
+                &db::QueryClassification {
+                    query_type: db::QueryType::Insert,
+                    component: db::Component::Trips,
                 },
                 pool,
                 "
@@ -1175,7 +1179,7 @@ impl Trip {
     pub async fn load_categories(
         &mut self,
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
     ) -> Result<(), Error> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
@@ -1241,9 +1245,9 @@ impl Trip {
         }
 
         let rows = crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             Row,
@@ -1408,12 +1412,12 @@ impl TryFrom<TripTypeRow> for TripType {
 
 impl TripsType {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &sqlite::Pool) -> Result<Vec<Self>, Error> {
+    pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Self>, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_all!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Select,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Select,
+                component: db::Component::Trips,
             },
             pool,
             DbTripsTypesRow,
@@ -1429,14 +1433,14 @@ impl TripsType {
     }
 
     #[tracing::instrument]
-    pub async fn save(ctx: &Context, pool: &sqlite::Pool, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &db::Pool, name: &str) -> Result<Uuid, Error> {
         let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
         let id_param = id.to_string();
         crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Insert,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Insert,
+                component: db::Component::Trips,
             },
             pool,
             "INSERT INTO trips_types
@@ -1455,7 +1459,7 @@ impl TripsType {
     #[tracing::instrument]
     pub async fn set_name(
         ctx: &Context,
-        pool: &sqlite::Pool,
+        pool: &db::Pool,
         id: Uuid,
         new_name: &str,
     ) -> Result<bool, Error> {
@@ -1463,9 +1467,9 @@ impl TripsType {
         let id_param = id.to_string();
 
         let result = crate::execute!(
-            &sqlite::QueryClassification {
-                query_type: sqlite::QueryType::Update,
-                component: sqlite::Component::Trips,
+            &db::QueryClassification {
+                query_type: db::QueryType::Update,
+                component: db::Component::Trips,
             },
             pool,
             "UPDATE trips_types

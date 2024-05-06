@@ -3,7 +3,7 @@ pub mod trips;
 pub mod crud {
     use async_trait::async_trait;
 
-    use crate::{models::Error, sqlite, Context};
+    use crate::{db, models::Error, Context};
 
     #[async_trait]
     pub trait Create: Sized {
@@ -15,7 +15,7 @@ pub mod crud {
 
         async fn create(
             ctx: &Context,
-            pool: &sqlite::Pool,
+            pool: &db::Pool,
             container: Self::Container,
             info: Self::Info,
         ) -> Result<Self::Id, Error>;
@@ -28,13 +28,13 @@ pub mod crud {
 
         async fn findall(
             ctx: &Context,
-            pool: &sqlite::Pool,
+            pool: &db::Pool,
             container: Self::Container,
         ) -> Result<Vec<Self>, Error>;
 
         async fn find(
             ctx: &Context,
-            pool: &sqlite::Pool,
+            pool: &db::Pool,
             reference: Self::Reference,
         ) -> Result<Option<Self>, Error>;
     }
@@ -46,7 +46,7 @@ pub mod crud {
 
         async fn update(
             ctx: &Context,
-            pool: &sqlite::Pool,
+            pool: &db::Pool,
             reference: Self::Reference,
             update: Self::UpdateElement,
         ) -> Result<Option<Self>, Error>;
@@ -84,7 +84,7 @@ pub mod crud {
 
         async fn delete_all<'c>(
             ctx: &Context,
-            pool: &'c sqlite::Pool,
+            pool: &'c db::Pool,
             container: Self::Container,
             ids: Vec<Self::Id>,
         ) -> Result<bool, Error> {
@@ -112,7 +112,7 @@ pub mod crud {
 
         async fn set(
             ctx: &Context,
-            pool: &sqlite::Pool,
+            pool: &db::Pool,
             reference: Self::Reference,
             value: bool,
         ) -> Result<(), crate::Error>;

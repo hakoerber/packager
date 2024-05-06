@@ -5,12 +5,12 @@ use std::fmt;
 pub mod auth;
 pub mod cli;
 pub mod components;
+pub mod db;
 pub mod elements;
 pub mod error;
 pub mod htmx;
 pub mod models;
 pub mod routing;
-pub mod sqlite;
 pub mod telemetry;
 
 mod view;
@@ -19,7 +19,7 @@ pub use error::{AuthError, CommandError, Error, RequestError, StartError};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    pub database_pool: sqlite::Pool,
+    pub database_pool: db::Pool,
     pub client_state: ClientState,
     pub auth_config: auth::Config,
 }
