@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    item.id AS id,\n                    item.name AS name,\n                    item.description AS description,\n                    weight,\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    category.description AS category_description,\n                    product.id AS product_id,\n                    product.name AS product_name,\n                    product.description AS product_description,\n                    product.comment AS product_comment\n                FROM inventory_items AS item\n                INNER JOIN inventory_items_categories as category\n                    ON item.category_id = category.id\n                LEFT JOIN inventory_products AS product\n                    ON item.product_id = product.id\n                WHERE\n                    item.id = $1\n                    AND item.user_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "weight",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "category_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "category_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "category_description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "product_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "product_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "product_description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "product_comment",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "91a8b65e2d7d6b608652e8c11a1a801e88acfabdad7c86725e9ef520a4a5bc86"
+}

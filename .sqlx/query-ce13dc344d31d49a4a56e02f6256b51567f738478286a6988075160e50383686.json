@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO trip_todos\n                    (id, description, done, trip_id)\n                SELECT $1, $2, false, id as trip_id\n                FROM trips\n                WHERE id = $3 AND EXISTS(SELECT 1 FROM trips WHERE id = $3 and user_id = $4)\n                LIMIT 1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ce13dc344d31d49a4a56e02f6256b51567f738478286a6988075160e50383686"
+}

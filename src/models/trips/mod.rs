@@ -14,31 +14,7 @@ use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
 
-// #[macro_use]
-// mod macros {
-//     macro_rules! build_state_query {
-//         ($pool:expr, $state_name:literal, $value:expr, $trip_id:expr, $item_id:expr, $user_id:expr) => {
-//             crate::execute!(
-//                 &sqlite::QueryClassification {
-//                     query_type: sqlite::QueryType::Update,
-//                     component: sqlite::Component::Trips,
-//                 },
-//                 $pool,
-//                 ["UPDATE trips_items SET pick = ?
-//                 WHERE trip_id = ?
-//                 AND item_id = ?
-//                 AND user_id = "
-//                     ,"?"]
-//                 $value,
-//                 $trip_id,
-//                 $item_id,
-//                 $user_id
-//             )
-//         };
-//     }
-// }
-
-#[derive(db::sqlite::Type, PartialEq, PartialOrd, Deserialize, Debug)]
+#[derive(PartialEq, PartialOrd, Deserialize, Debug)]
 pub enum TripState {
     Init,
     Planning,
@@ -244,31 +220,6 @@ impl TripCategory {
                     inner.item_is_ready AS item_is_ready,
                     inner.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
-                    LEFT JOIN (
-                        SELECT
-                            trip.trip_id AS trip_id,
-                            category.id as category_id,
-                            category.name as category_name,
-                            category.description as category_description,
-                            item.id as item_id,
-                            item.name as item_name,
-                            item.description as item_description,
-                            item.weight as item_weight,
-                            trip.pick as item_is_picked,
-                            trip.pack as item_is_packed,
-                            trip.ready as item_is_ready,
-                            trip.new as item_is_new
-                        FROM trips_items as trip
-                        INNER JOIN inventory_items as item
-                            ON item.id = trip.item_id
-                        INNER JOIN inventory_items_categories as category
-                            ON category.id = item.category_id
-                        WHERE
-                            trip.trip_id = ?
-                            AND trip.user_id = ?
-                    ) AS inner
-                    ON inner.category_id = category.id
-                WHERE category.id = ?
             "#,
             trip_id_param,
             user_id,
@@ -375,9 +326,9 @@ impl TripItem {
                 FROM trips_items AS t_item
                 INNER JOIN inventory_items AS i_item
                     ON i_item.id = t_item.item_id
-                WHERE t_item.item_id = ?
-                AND t_item.trip_id = ?
-                AND t_item.user_id = ?
+                WHERE t_item.item_id = $1
+                AND t_item.trip_id = $2
+                AND t_item.user_id = $3
             ",
             item_id_param,
             trip_id_param,
@@ -407,10 +358,10 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-                        SET pick = ?
-                        WHERE trip_id = ?
-                        AND item_id = ?
-                        AND user_id = ?",
+                        SET pick = $1
+                        WHERE trip_id = $2
+                        AND item_id = $3
+                        AND user_id = $4",
                     value,
                     trip_id_param,
                     item_id_param,
@@ -426,10 +377,10 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-                        SET pack = ?
-                        WHERE trip_id = ?
-                        AND item_id = ?
-                        AND user_id = ?",
+                        SET pack = $1
+                        WHERE trip_id = $2
+                        AND item_id = $3
+                        AND user_id = $4",
                     value,
                     trip_id_param,
                     item_id_param,
@@ -445,10 +396,10 @@ impl TripItem {
                     },
                     pool,
                     "UPDATE trips_items
-                        SET ready = ?
-                        WHERE trip_id = ?
-                        AND item_id = ?
-                        AND user_id = ?",
+                        SET ready = $1
+                        WHERE trip_id = $2
+                        AND item_id = $3
+                        AND user_id = $4",
                     value,
                     trip_id_param,
                     item_id_param,
@@ -554,7 +505,7 @@ impl Trip {
                 temp_max,
                 comment
             FROM trips
-            WHERE user_id = ?",
+            WHERE user_id = $1",
             user_id
         )
         .await?;
@@ -590,7 +541,7 @@ impl Trip {
                 temp_max,
                 comment
             FROM trips
-            WHERE id = ? and user_id = ?",
+            WHERE id = $1 and user_id = $2",
             trip_id_param,
             user_id,
         )
@@ -615,15 +566,12 @@ impl Trip {
             },
             pool,
             "DELETE FROM trips_to_trips_types AS ttt
-            WHERE ttt.trip_id = ?
-                AND ttt.trip_type_id = ?
-            AND EXISTS(SELECT * FROM trips WHERE id = ? AND user_id = ?)
-            AND EXISTS(SELECT * FROM trips_types WHERE id = ? AND user_id = ?)
+            WHERE ttt.trip_id = $1
+                AND ttt.trip_type_id = $2
+            AND EXISTS(SELECT * FROM trips WHERE id = $1 AND user_id = $3)
+            AND EXISTS(SELECT * FROM trips_types WHERE id = $2 AND user_id = $3)
             ",
             id_param,
-            type_id_param,
-            id_param,
-            user_id,
             type_id_param,
             user_id,
         )
@@ -652,14 +600,14 @@ impl Trip {
             pool,
             "INSERT INTO
                 trips_to_trips_types (trip_id, trip_type_id)
-            SELECT trips.id as trip_id, trips_types.id as trip_type_id
+            (SELECT trips.id as trip_id, trips_types.id as trip_type_id
                 FROM trips
-                INNER JOIN trips_types
+                INNER JOIN trips_types ON true
                 WHERE
-                    trips.id = ?
-                    AND trips.user_id = ?
-                    AND trips_types.id = ?
-                    AND trips_types.user_id = ?",
+                    trips.id = $1
+                    AND trips.user_id = $2
+                    AND trips_types.id = $3
+                    AND trips_types.user_id = $4)",
             trip_id_param,
             user_id,
             type_id_param,
@@ -686,8 +634,8 @@ impl Trip {
             },
             pool,
             "UPDATE trips
-            SET state = ?
-            WHERE id = ? and user_id = ?",
+            SET state = $1
+            WHERE id = $2 and user_id = $3",
             new_state,
             trip_id_param,
             user_id,
@@ -713,8 +661,8 @@ impl Trip {
             },
             pool,
             "UPDATE trips
-            SET comment = ?
-            WHERE id = ? AND user_id = ?",
+            SET comment = $1
+            WHERE id = $2 AND user_id = $3",
             new_comment,
             trip_id_param,
             user_id,
@@ -743,8 +691,8 @@ impl Trip {
                     },
                     pool,
                     "UPDATE trips
-                SET name = ?
-                WHERE id = ? AND user_id = ?",
+                SET name = $1
+                WHERE id = $2 AND user_id = $3",
                     value,
                     trip_id_param,
                     user_id
@@ -760,8 +708,8 @@ impl Trip {
                     },
                     pool,
                     "UPDATE trips
-                SET date_start = ?
-                WHERE id = ? AND user_id = ?",
+                SET date_start = $1
+                WHERE id = $2 AND user_id = $3",
                     value,
                     trip_id_param,
                     user_id
@@ -776,8 +724,8 @@ impl Trip {
                     },
                     pool,
                     "UPDATE trips
-                SET date_end = ?
-                WHERE id = ? AND user_id = ?",
+                SET date_end = $1
+                WHERE id = $2 AND user_id = $3",
                     value,
                     trip_id_param,
                     user_id
@@ -792,8 +740,8 @@ impl Trip {
                     },
                     pool,
                     "UPDATE trips
-                SET location = ?
-                WHERE id = ? AND user_id = ?",
+                SET location = $1
+                WHERE id = $2 AND user_id = $3",
                     value,
                     trip_id_param,
                     user_id
@@ -808,8 +756,8 @@ impl Trip {
                     },
                     pool,
                     "UPDATE trips
-                SET temp_min = ?
-                WHERE id = ? AND user_id = ?",
+                SET temp_min = $1
+                WHERE id = $2 AND user_id = $3",
                     value,
                     trip_id_param,
                     user_id
@@ -824,8 +772,8 @@ impl Trip {
                     },
                     pool,
                     "UPDATE trips
-                SET temp_max = ?
-                WHERE id = ? AND user_id = ?",
+                SET temp_max = $1
+                WHERE id = $2 AND user_id = $3",
                     value,
                     trip_id_param,
                     user_id
@@ -869,7 +817,7 @@ impl Trip {
             "INSERT INTO trips
                 (id, name, date_start, date_end, state, user_id)
             VALUES
-                (?, ?, ?, ?, ?, ?)",
+                ($1, $2, $3, $4, $5, $6)",
             id_param,
             name,
             date_start,
@@ -962,14 +910,14 @@ impl Trip {
             pool,
             "
                 SELECT
-                    CAST(IFNULL(SUM(i_item.weight), 0) AS INTEGER) AS total_weight
+                    CAST(COALESCE(SUM(i_item.weight), 0) AS INTEGER) AS total_weight
                 FROM trips AS trip
                 INNER JOIN trips_items AS t_item
                     ON t_item.trip_id = trip.id
                 INNER JOIN inventory_items AS i_item
                     ON t_item.item_id = i_item.id
                 WHERE
-                    trip.id = ? AND trip.user_id = ?
+                    trip.id = $1 AND trip.user_id = $2
                 AND t_item.pick = true
             ",
             i64,
@@ -1055,13 +1003,12 @@ impl Trip {
                         ON ttt.trip_id = trip.id
                     INNER JOIN trips_types AS type
                         ON type.id == ttt.trip_type_id
-                    WHERE trip.id = ? AND trip.user_id = ?
+                    WHERE trip.id = $1 AND trip.user_id = $2
                 ) AS inner
                 ON inner.id = type.id
-            WHERE type.user_id = ?
+            WHERE type.user_id = $2
             ",
             id,
-            user_id,
             user_id,
         )
         .await?;

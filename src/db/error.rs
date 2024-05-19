@@ -113,26 +113,7 @@ impl From<sqlx::Error> for Error {
                 description: value.to_string(),
             }),
             sqlx::Error::Database(ref error) => {
-                let sqlite_error = error.downcast_ref::<sqlx::sqlite::SqliteError>();
-                if let Some(code) = sqlite_error.code() {
-                    match &*code {
-                        // SQLITE_CONSTRAINT_FOREIGNKEY
-                        "787" => Error::Query(QueryError::ReferenceNotFound {
-                            description: "foreign key reference not found".to_string(),
-                        }),
-                        // SQLITE_CONSTRAINT_UNIQUE
-                        "2067" => Error::Query(QueryError::Duplicate {
-                            description: "item with unique constraint already exists".to_string(),
-                        }),
-                        _ => Error::Database(DatabaseError::Sql {
-                            description: format!("got error with unknown code: {sqlite_error}"),
-                        }),
-                    }
-                } else {
-                    Error::Database(DatabaseError::Sql {
-                        description: format!("got error without code: {sqlite_error}"),
-                    })
-                }
+                unimplemented!()
             }
             _ => Error::Database(DatabaseError::Sql {
                 description: format!("got unknown error: {value}"),

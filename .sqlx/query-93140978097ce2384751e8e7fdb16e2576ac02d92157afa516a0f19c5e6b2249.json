@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE trips\n            SET state = $1\n            WHERE id = $2 and user_id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "93140978097ce2384751e8e7fdb16e2576ac02d92157afa516a0f19c5e6b2249"
+}

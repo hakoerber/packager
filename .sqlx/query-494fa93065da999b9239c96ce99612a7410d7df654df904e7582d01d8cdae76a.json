@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        UPDATE trip_todos\n                            SET done = $1\n                        WHERE trip_id = $2\n                        AND id = $3\n                        AND EXISTS(SELECT 1 FROM trips WHERE id = $2 AND user_id = $4)\n                        RETURNING\n                            id,\n                            description,\n                            done\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "done",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "494fa93065da999b9239c96ce99612a7410d7df654df904e7582d01d8cdae76a"
+}

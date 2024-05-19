@@ -37,10 +37,7 @@ impl TryFrom<DbUserRow> for User {
 
 impl User {
     #[tracing::instrument]
-    pub async fn find_by_name(
-        pool: &sqlx::Pool<sqlx::Sqlite>,
-        name: &str,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn find_by_name(pool: &db::Pool, name: &str) -> Result<Option<Self>, Error> {
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -49,7 +46,7 @@ impl User {
             pool,
             DbUserRow,
             Self,
-            "SELECT id,username,fullname FROM users WHERE username = ?",
+            "SELECT id,username,fullname FROM users WHERE username = $1",
             name
         )
         .await
@@ -70,7 +67,7 @@ pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
         "INSERT INTO users
             (id, username, fullname)
         VALUES
-            (?, ?, ?)",
+            ($1, $2, $3)",
         id_param,
         user.username,
         user.fullname

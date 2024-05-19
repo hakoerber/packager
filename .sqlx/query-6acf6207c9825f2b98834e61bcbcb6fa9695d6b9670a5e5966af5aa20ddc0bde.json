@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                DELETE FROM trip_todos\n                WHERE\n                    id = $1\n                    AND EXISTS (SELECT 1 FROM trips WHERE trip_id = $2 AND user_id = $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6acf6207c9825f2b98834e61bcbcb6fa9695d6b9670a5e5966af5aa20ddc0bde"
+}

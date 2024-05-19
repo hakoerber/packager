@@ -25,7 +25,7 @@ impl Inventory {
                     name,
                     description
                 FROM inventory_items_categories
-                WHERE user_id = ?",
+                WHERE user_id = $1",
             user_id
         )
         .await?;
@@ -88,8 +88,8 @@ impl Category {
                 description
             FROM inventory_items_categories AS category
             WHERE
-                category.id = ?
-                AND category.user_id = ?",
+                category.id = $1
+                AND category.user_id = $2",
             id_param,
             user_id,
         )
@@ -110,7 +110,7 @@ impl Category {
             "INSERT INTO inventory_items_categories
                 (id, name, user_id)
             VALUES
-                (?, ?, ?)",
+                ($1, $2, $3)",
             id_param,
             name,
             user_id,
@@ -133,11 +133,7 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub async fn populate_items(
-        &mut self,
-        ctx: &Context,
-        pool: &db::Pool,
-    ) -> Result<(), Error> {
+    pub async fn populate_items(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
         let id = self.id.to_string();
         let user_id = ctx.user.id.to_string();
         let items = crate::query_all!(
@@ -156,8 +152,8 @@ impl Category {
                 category_id
             FROM inventory_items
             WHERE
-                category_id = ?
-                AND user_id = ?",
+                category_id = $1
+                AND user_id = $2",
             id,
             user_id,
         )
@@ -232,11 +228,7 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 
 impl InventoryItem {
     #[tracing::instrument]
-    pub async fn find(
-        ctx: &Context,
-        pool: &db::Pool,
-        id: Uuid,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         let id_param = id.to_string();
         let user_id = ctx.user.id.to_string();
 
@@ -266,8 +258,8 @@ impl InventoryItem {
                 LEFT JOIN inventory_products AS product
                     ON item.product_id = product.id
                 WHERE
-                    item.id = ?
-                    AND item.user_id = ?",
+                    item.id = $1
+                    AND item.user_id = $2",
             id_param,
             user_id,
         )
@@ -275,11 +267,7 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn name_exists(
-        ctx: &Context,
-        pool: &db::Pool,
-        name: &str,
-    ) -> Result<bool, Error> {
+    pub async fn name_exists(ctx: &Context, pool: &db::Pool, name: &str) -> Result<bool, Error> {
         let user_id = ctx.user.id.to_string();
         crate::query_exists!(
             &db::QueryClassification {
@@ -290,8 +278,8 @@ impl InventoryItem {
             "SELECT id
             FROM inventory_items
             WHERE
-                name = ?
-                AND user_id = ?",
+                name = $1
+                AND user_id = $2",
             name,
             user_id
         )
@@ -310,8 +298,8 @@ impl InventoryItem {
             pool,
             "DELETE FROM inventory_items
             WHERE
-                id = ?
-                AND user_id = ?",
+                id = $1
+                AND user_id = $2",
             id_param,
             user_id,
         )
@@ -340,12 +328,12 @@ impl InventoryItem {
             pool,
             "UPDATE inventory_items AS item
             SET
-                name = ?,
-                weight = ?
+                name = $1,
+                weight = $2
             WHERE
-                item.id = ?
-                AND item.user_id = ?
-            RETURNING inventory_items.category_id AS id
+                item.id = $3
+                AND item.user_id = $4
+            RETURNING item.category_id AS id
             ",
             name,
             weight,
@@ -377,7 +365,7 @@ impl InventoryItem {
             "INSERT INTO inventory_items
                 (id, name, description, weight, category_id, user_id)
             VALUES
-                (?, ?, ?, ?, ?, ?)",
+                ($1, $2, $3, $4, $5, $6)",
             id_param,
             name,
             "",
@@ -410,8 +398,8 @@ impl InventoryItem {
                 INNER JOIN inventory_items as i_item
                     ON i_item.category_id = category.id
                 WHERE
-                    category_id = ?
-                    AND category.user_id = ?
+                    category_id = $1
+                    AND category.user_id = $2
             ",
             i64,
             |row| i64::from(row.weight),
@@ -478,9 +466,9 @@ impl Item {
                 INNER JOIN trips_items as t_item
                     ON i_item.id = t_item.item_id
                 WHERE
-                    category_id = ?
-                    AND category.user_id = ?
-                    AND t_item.pick = 1
+                    category_id = $1
+                    AND category.user_id = $2
+                    AND t_item.pick = true
             ",
             i64,
             |row| i64::from(row.weight),

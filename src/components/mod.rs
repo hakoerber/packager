@@ -72,7 +72,7 @@ pub mod crud {
         ) -> Result<bool, Error>
         where
             // we require something that allows us to get something that implements
-            // executor from a Sqlite database
+            // executor from an SQLx database
             //
             // in practice, this will either be a pool or a transaction
             //
@@ -80,7 +80,7 @@ pub mod crud {
             //   acquire() a new conncetion
             //
             // * A transaction will begin() (a noop) and then acquire() a new connection
-            T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug;
+            T: sqlx::Acquire<'c, Database = sqlx::Postgres> + Send + std::fmt::Debug;
 
         async fn delete_all<'c>(
             ctx: &Context,

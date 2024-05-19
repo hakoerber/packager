@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM inventory_items\n            WHERE\n                id = $1\n                AND user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ff24d2ddb2517a1596199d55af76e7972a97e10bd4493165b021fd6b7fe80f7f"
+}

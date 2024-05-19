@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE inventory_items AS item\n            SET\n                name = $1,\n                weight = $2\n            WHERE\n                item.id = $3\n                AND item.user_id = $4\n            RETURNING item.category_id AS id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a4267b8e65bacbf753187677950218e4fe3b7306f3326551a7095a7637412419"
+}

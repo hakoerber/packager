@@ -1,26 +1,29 @@
 {
-  "db_name": "SQLite",
+  "db_name": "PostgreSQL",
   "query": "\n                SELECT\n                    todo.id AS id,\n                    todo.description AS description,\n                    todo.done AS done\n                FROM trip_todos AS todo\n                INNER JOIN trips\n                    ON trips.id = todo.trip_id\n                WHERE\n                    trips.id = $1\n                    AND trips.user_id = $2\n            ",
   "describe": {
     "columns": [
       {
-        "name": "id",
         "ordinal": 0,
-        "type_info": "Text"
+        "name": "id",
+        "type_info": "Varchar"
       },
       {
-        "name": "description",
         "ordinal": 1,
+        "name": "description",
         "type_info": "Text"
       },
       {
-        "name": "done",
         "ordinal": 2,
+        "name": "done",
         "type_info": "Bool"
       }
     ],
     "parameters": {
-      "Right": 2
+      "Left": [
+        "Text",
+        "Text"
+      ]
     },
     "nullable": [
       false,

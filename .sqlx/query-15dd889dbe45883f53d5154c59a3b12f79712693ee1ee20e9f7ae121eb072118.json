@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO inventory_items\n                (id, name, description, weight, category_id, user_id)\n            VALUES\n                ($1, $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Text",
+        "Int4",
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "15dd889dbe45883f53d5154c59a3b12f79712693ee1ee20e9f7ae121eb072118"
+}

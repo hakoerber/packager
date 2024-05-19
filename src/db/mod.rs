@@ -4,9 +4,21 @@ use std::fmt;
 
 pub mod error;
 pub mod postgres;
-pub mod sqlite;
+// pub mod sqlite;
 
-pub type Pool = sqlx::Pool<sqlx::Sqlite>;
+use crate::StartError;
+
+pub trait Database {
+    type Pool;
+
+    fn init_database_pool(
+        url: &str,
+    ) -> impl std::future::Future<Output = Result<Self::Pool, StartError>> + Send;
+    fn migrate(url: &str) -> impl std::future::Future<Output = Result<(), StartError>> + Send;
+}
+
+pub type DB = self::postgres::DB;
+pub type Pool = sqlx::Pool<sqlx::Postgres>;
 
 pub enum QueryType {
     Insert,
@@ -196,7 +208,7 @@ macro_rules! execute {
             use tracing::Instrument as _;
             async {
                 $crate::db::sqlx_query($class, $query, &[]);
-                let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
+                let result: Result<sqlx::postgres::PgQueryResult, Error> = sqlx::query!(
                     $query,
                     $( $args )*
                 )
@@ -208,32 +220,6 @@ macro_rules! execute {
             }.instrument(tracing::info_span!("packager::sql::query", "query"))
         }
     };
-
-    // ( $class:expr, $pool:expr, $( $query:expr )=>+, $( $args:tt )*) => {
-    //     {
-    //         use tracing::Instrument as _;
-    //         async {
-    //             // $crate::sqlite::sqlx_query($class, $( $query )+ , &[]);
-    //             // println!("haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay: {}", $crate::strip_plus!($(+ $query )+));
-    //             let result: Result<sqlx::sqlite::SqliteQueryResult, Error> = sqlx::query!(
-    //                 // "x" + "y",
-    //                 $crate::strip_plus!($(+ $query )+),
-    //                 // "UPDATE trips_items
-    //                 //     SET " + "pick" +
-    //                 //                                                         "= ?
-    //                 //     WHERE trip_id = ?
-    //                 //     AND item_id = ?
-    //                 //     AND user_id = ?",
-    //                 $( $args )*
-    //             )
-    //             .execute($pool)
-    //             .await
-    //             .map_err(|e| e.into());
-
-    //             result
-    //         }.instrument(tracing::info_span!("packager::sql::query", "query"))
-    //     }
-    // };
 }
 
 #[macro_export]

@@ -246,14 +246,13 @@ impl crud::Create for Todo {
             r#"
                 INSERT INTO trip_todos
                     (id, description, done, trip_id)
-                SELECT ?, ?, false, id as trip_id
+                SELECT $1, $2, false, id as trip_id
                 FROM trips
-                WHERE trip_id = ? AND EXISTS(SELECT 1 FROM trips WHERE id = ? and user_id = ?)
+                WHERE id = $3 AND EXISTS(SELECT 1 FROM trips WHERE id = $3 and user_id = $4)
                 LIMIT 1
             "#,
             id_param,
             info.description,
-            trip_id_param,
             trip_id_param,
             user_id,
         )
@@ -326,10 +325,10 @@ impl crud::Update for Todo {
                     Todo,
                     r#"
                         UPDATE trip_todos
-                            SET done = ?
-                        WHERE trip_id = ?
-                        AND id = ?
-                        AND EXISTS(SELECT 1 FROM trips WHERE id = ? AND user_id = ?)
+                            SET done = $1
+                        WHERE trip_id = $2
+                        AND id = $3
+                        AND EXISTS(SELECT 1 FROM trips WHERE id = $2 AND user_id = $4)
                         RETURNING
                             id,
                             description,
@@ -338,7 +337,6 @@ impl crud::Update for Todo {
                     done,
                     trip_id_param,
                     todo_id_param,
-                    trip_id_param,
                     user_id
                 )
                 .await?;
@@ -360,11 +358,11 @@ impl crud::Update for Todo {
                     Todo,
                     r#"
                         UPDATE trip_todos
-                        SET description = ?
+                        SET description = $1
                         WHERE
-                            id = ?
-                            AND trip_id = ?
-                            AND EXISTS(SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
+                            id = $2
+                            AND trip_id = $3
+                            AND EXISTS(SELECT 1 FROM trips WHERE trip_id = $3 AND user_id = $4)
                         RETURNING
                             id,
                             description,
@@ -372,7 +370,6 @@ impl crud::Update for Todo {
                     "#,
                     new_description.0,
                     todo_id_param,
-                    trip_id_param,
                     trip_id_param,
                     user_id,
                 )
@@ -393,7 +390,7 @@ impl crud::Delete for Todo {
     #[tracing::instrument]
     async fn delete<'c, T>(ctx: &Context, db: T, reference: &Reference) -> Result<bool, Error>
     where
-        T: sqlx::Acquire<'c, Database = sqlx::Sqlite> + Send + std::fmt::Debug,
+        T: sqlx::Acquire<'c, Database = sqlx::Postgres> + Send + std::fmt::Debug,
     {
         let id_param = reference.id.0.to_string();
         let user_id = ctx.user.id.to_string();
@@ -408,8 +405,8 @@ impl crud::Delete for Todo {
             r#"
                 DELETE FROM trip_todos
                 WHERE
-                    id = ?
-                    AND EXISTS (SELECT 1 FROM trips WHERE trip_id = ? AND user_id = ?)
+                    id = $1
+                    AND EXISTS (SELECT 1 FROM trips WHERE trip_id = $2 AND user_id = $3)
             "#,
             id_param,
             trip_id_param,

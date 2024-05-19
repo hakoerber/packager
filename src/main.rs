@@ -10,6 +10,8 @@ use tokio::net::TcpListener;
 
 struct MainResult(Result<(), Error>);
 
+use db::Database as _;
+
 impl std::process::Termination for MainResult {
     fn report(self) -> std::process::ExitCode {
         match self.0 {
@@ -59,12 +61,12 @@ async fn main() -> MainResult {
             Box::pin(async move {
                 match args.command {
                     cli::Command::Serve(serve_args) => {
-                        if let Err(e) = db::sqlite::migrate(&args.database_url).await {
+                        if let Err(e) = db::DB::migrate(&args.database_url).await {
                             return <_ as Into<Error>>::into(e).into();
                         }
 
                         let database_pool =
-                            match db::sqlite::init_database_pool(&args.database_url).await {
+                            match db::DB::init_database_pool(&args.database_url).await {
                                 Ok(pool) => pool,
                                 Err(e) => return <_ as Into<Error>>::into(e).into(),
                             };
@@ -152,14 +154,11 @@ async fn main() -> MainResult {
                     cli::Command::Admin(admin_command) => match admin_command {
                         cli::Admin::User(cmd) => match cmd {
                             cli::UserCommand::Create(user) => {
-                                let database_pool = match db::sqlite::init_database_pool(
-                                    &args.database_url,
-                                )
-                                .await
-                                {
-                                    Ok(pool) => pool,
-                                    Err(e) => return <_ as Into<Error>>::into(e).into(),
-                                };
+                                let database_pool =
+                                    match db::DB::init_database_pool(&args.database_url).await {
+                                        Ok(pool) => pool,
+                                        Err(e) => return <_ as Into<Error>>::into(e).into(),
+                                    };
 
                                 let id = match models::user::create(
                                     &database_pool,
@@ -191,7 +190,7 @@ async fn main() -> MainResult {
                         },
                     },
                     cli::Command::Migrate => {
-                        if let Err(e) = db::sqlite::migrate(&args.database_url).await {
+                        if let Err(e) = db::DB::migrate(&args.database_url).await {
                             return <_ as Into<Error>>::into(e).into();
                         }
 

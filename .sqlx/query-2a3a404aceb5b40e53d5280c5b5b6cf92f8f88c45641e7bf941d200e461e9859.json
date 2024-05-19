@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    t_item.item_id AS id,\n                    t_item.pick AS picked,\n                    t_item.pack AS packed,\n                    t_item.ready AS ready,\n                    t_item.new AS new,\n                    i_item.name AS name,\n                    i_item.description AS description,\n                    i_item.weight AS weight,\n                    i_item.category_id AS category_id\n                FROM trips_items AS t_item\n                INNER JOIN inventory_items AS i_item\n                    ON i_item.id = t_item.item_id\n                WHERE t_item.item_id = $1\n                AND t_item.trip_id = $2\n                AND t_item.user_id = $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "picked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "packed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "ready",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "new",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "weight",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "category_id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "2a3a404aceb5b40e53d5280c5b5b6cf92f8f88c45641e7bf941d200e461e9859"
+}
