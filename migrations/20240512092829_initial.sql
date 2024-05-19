@@ -41,13 +41,15 @@ CREATE TABLE IF NOT EXISTS "inventory_items" (
 
 -- TRIPS
 
+CREATE TYPE trip_state AS ENUM ('init', 'planning', 'planned', 'active', 'review', 'done');
+
 CREATE TABLE IF NOT EXISTS "trips" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
     date_start DATE NOT NULL,
     date_end DATE NOT NULL,
     location TEXT,
-    state VARCHAR(8) NOT NULL,
+    state trip_state NOT NULL,
     comment TEXT,
     temp_min INTEGER,
     temp_max INTEGER,

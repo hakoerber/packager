@@ -1,7 +1,5 @@
 use std::fmt;
 
-use sqlx::error::DatabaseError as _;
-
 pub enum DatabaseError {
     /// Errors we can receive **from** the database that are caused by connection
     /// problems or schema problems (e.g. we get a return value that does not fit our enum,

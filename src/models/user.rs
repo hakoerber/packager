@@ -18,7 +18,7 @@ pub struct NewUser<'a> {
 
 #[derive(Debug)]
 pub struct DbUserRow {
-    id: String,
+    id: Uuid,
     username: String,
     fullname: String,
 }
@@ -28,7 +28,7 @@ impl TryFrom<DbUserRow> for User {
 
     fn try_from(row: DbUserRow) -> Result<Self, Self::Error> {
         Ok(User {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             username: row.username,
             fullname: row.fullname,
         })
@@ -56,7 +56,6 @@ impl User {
 #[tracing::instrument]
 pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
-    let id_param = id.to_string();
 
     crate::execute!(
         &db::QueryClassification {
@@ -68,7 +67,7 @@ pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
             (id, username, fullname)
         VALUES
             ($1, $2, $3)",
-        id_param,
+        id,
         user.username,
         user.fullname
     )

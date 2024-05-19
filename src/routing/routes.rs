@@ -557,23 +557,18 @@ pub async fn trip_comment_set(
 pub async fn trip_edit_attribute(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
-    Path((trip_id, attribute)): Path<(Uuid, models::trips::TripAttribute)>,
+    Path((trip_id, attribute)): Path<(Uuid, models::trips::TripAttributeUpdate)>,
     Form(trip_update): Form<TripUpdate>,
 ) -> Result<Redirect, Error> {
     let ctx = Context::build(current_user);
-    if attribute == models::trips::TripAttribute::Name && trip_update.new_value.is_empty() {
-        return Err(Error::Request(RequestError::EmptyFormElement {
-            name: "name".to_string(),
-        }));
+    if let models::trips::TripAttributeUpdate::Name(ref s) = attribute {
+        if s.is_empty() {
+            return Err(Error::Request(RequestError::EmptyFormElement {
+                name: "name".to_string(),
+            }));
+        }
     }
-    models::trips::Trip::set_attribute(
-        &ctx,
-        &state.database_pool,
-        trip_id,
-        attribute,
-        &trip_update.new_value,
-    )
-    .await?;
+    models::trips::Trip::set_attribute(&ctx, &state.database_pool, trip_id, attribute).await?;
 
     Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }

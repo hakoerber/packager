@@ -5,7 +5,21 @@
     "columns": [],
     "parameters": {
       "Left": [
-        "Varchar",
+        {
+          "Custom": {
+            "name": "trip_state",
+            "kind": {
+              "Enum": [
+                "init",
+                "planning",
+                "planned",
+                "active",
+                "review",
+                "done"
+              ]
+            }
+          }
+        },
         "Uuid",
         "Uuid"
       ]

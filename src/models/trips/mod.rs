@@ -14,7 +14,9 @@ use serde::{Deserialize, Serialize};
 use time;
 use uuid::Uuid;
 
-#[derive(PartialEq, PartialOrd, Deserialize, Debug)]
+#[derive(PartialEq, PartialOrd, Deserialize, Debug, sqlx::Type)]
+#[sqlx(type_name = "trip_state")]
+#[sqlx(rename_all = "lowercase")]
 pub enum TripState {
     Init,
     Planning,
@@ -119,7 +121,7 @@ pub struct TripCategory {
 
 impl TripCategory {
     #[tracing::instrument]
-    pub fn total_picked_weight(&self) -> i64 {
+    pub fn total_picked_weight(&self) -> i32 {
         self.items
             .as_ref()
             .unwrap()
@@ -288,11 +290,11 @@ pub struct DbTripsItemsRow {
     pub packed: bool,
     pub ready: bool,
     pub new: bool,
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
-    pub weight: i64,
+    pub weight: i32,
     pub description: Option<String>,
-    pub category_id: String,
+    pub category_id: Uuid,
 }
 
 impl TryFrom<DbTripsItemsRow> for TripItem {
@@ -305,11 +307,11 @@ impl TryFrom<DbTripsItemsRow> for TripItem {
             ready: row.ready,
             new: row.new,
             item: inventory::Item {
-                id: Uuid::try_parse(&row.id)?,
+                id: row.id,
                 name: row.name,
                 description: row.description,
                 weight: row.weight,
-                category_id: Uuid::try_parse(&row.category_id)?,
+                category_id: row.category_id,
             },
         })
     }
@@ -438,7 +440,7 @@ pub struct DbTripRow {
     pub name: String,
     pub date_start: String,
     pub date_end: String,
-    pub state: String,
+    pub state: TripState,
     pub location: Option<String>,
     pub temp_min: Option<i32>,
     pub temp_max: Option<i32>,
@@ -454,7 +456,7 @@ impl TryFrom<DbTripRow> for Trip {
             name: row.name,
             date_start: time::Date::parse(&row.date_start, consts::DATE_FORMAT)?,
             date_end: time::Date::parse(&row.date_end, consts::DATE_FORMAT)?,
-            state: row.state.as_str().try_into()?,
+            state: row.state,
             location: row.location,
             temp_min: row.temp_min,
             temp_max: row.temp_max,
@@ -480,6 +482,22 @@ pub struct Trip {
     pub todos: Option<Vec<crate::components::trips::todos::Todo>>,
     pub types: Option<Vec<TripType>>,
     pub categories: Option<Vec<TripCategory>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum TripAttributeUpdate {
+    #[serde(rename = "name")]
+    Name(String),
+    #[serde(rename = "date_start")]
+    DateStart(time::Date),
+    #[serde(rename = "date_end")]
+    DateEnd(time::Date),
+    #[serde(rename = "location")]
+    Location(String),
+    #[serde(rename = "temp_min")]
+    TempMin(i32),
+    #[serde(rename = "temp_max")]
+    TempMax(i32),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -509,18 +527,18 @@ impl Trip {
             pool,
             DbTripRow,
             Self,
-            "SELECT
+            r#"SELECT
                 id,
                 name,
                 CAST (date_start AS TEXT) date_start,
                 CAST (date_end AS TEXT) date_end,
-                state,
+                state as "state: _",
                 location,
                 temp_min,
                 temp_max,
                 comment
             FROM trips
-            WHERE user_id = $1",
+            WHERE user_id = $1"#,
             ctx.user.id
         )
         .await?;
@@ -543,18 +561,18 @@ impl Trip {
             pool,
             DbTripRow,
             Self,
-            "SELECT
+            r#"SELECT
                 id,
                 name,
                 CAST (date_start AS TEXT) date_start,
                 CAST (date_end AS TEXT) date_end,
-                state,
+                state as "state: _",
                 location,
                 temp_min,
                 temp_max,
                 comment
             FROM trips
-            WHERE id = $1 and user_id = $2",
+            WHERE id = $1 and user_id = $2"#,
             trip_id,
             ctx.user.id
         )
@@ -639,7 +657,7 @@ impl Trip {
             "UPDATE trips
             SET state = $1
             WHERE id = $2 and user_id = $3",
-            new_state,
+            new_state as _,
             id,
             ctx.user.id
         )
@@ -678,11 +696,10 @@ impl Trip {
         ctx: &Context,
         pool: &db::Pool,
         trip_id: Uuid,
-        attribute: TripAttribute,
-        value: &str,
+        attribute: TripAttributeUpdate,
     ) -> Result<(), Error> {
         let result = match attribute {
-            TripAttribute::Name => {
+            TripAttributeUpdate::Name(value) => {
                 crate::execute!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -699,7 +716,7 @@ impl Trip {
                 .await
             }
 
-            TripAttribute::DateStart => {
+            TripAttributeUpdate::DateStart(value) => {
                 crate::execute!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -715,7 +732,7 @@ impl Trip {
                 )
                 .await
             }
-            TripAttribute::DateEnd => {
+            TripAttributeUpdate::DateEnd(value) => {
                 crate::execute!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -731,7 +748,7 @@ impl Trip {
                 )
                 .await
             }
-            TripAttribute::Location => {
+            TripAttributeUpdate::Location(value) => {
                 crate::execute!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -747,7 +764,7 @@ impl Trip {
                 )
                 .await
             }
-            TripAttribute::TempMin => {
+            TripAttributeUpdate::TempMin(value) => {
                 crate::execute!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -763,7 +780,7 @@ impl Trip {
                 )
                 .await
             }
-            TripAttribute::TempMax => {
+            TripAttributeUpdate::TempMax(value) => {
                 crate::execute!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -798,8 +815,6 @@ impl Trip {
         copy_from: Option<Uuid>,
     ) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
-        let date_start = date_start.format(consts::DATE_FORMAT)?;
-        let date_end = date_end.format(consts::DATE_FORMAT)?;
 
         let trip_state = TripState::new();
 
@@ -819,13 +834,12 @@ impl Trip {
             name,
             date_start,
             date_end,
-            trip_state,
+            trip_state as _,
             ctx.user.id,
         )
         .await?;
 
         if let Some(copy_from_trip_id) = copy_from {
-            let copy_from_trip_id_param = copy_from_trip_id.to_string();
             crate::execute!(
                 &db::QueryClassification {
                     query_type: db::QueryType::Insert,
@@ -851,7 +865,7 @@ impl Trip {
                 FROM trips_items
                 WHERE trip_id = $2 AND user_id = $3"#,
                 id,
-                copy_from_trip_id_param,
+                copy_from_trip_id,
                 ctx.user.id
             )
             .await?;
@@ -896,7 +910,7 @@ impl Trip {
         ctx: &Context,
         pool: &db::Pool,
         trip_id: Uuid,
-    ) -> Result<i64, Error> {
+    ) -> Result<i32, Error> {
         let weight = crate::execute_returning!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -915,8 +929,8 @@ impl Trip {
                     trip.id = $1 AND trip.user_id = $2
                 AND t_item.pick = true
             ",
-            i64,
-            |row| i64::from(row.total_weight),
+            i32,
+            |row| row.total_weight.unwrap(),
             trip_id,
             ctx.user.id
         )
@@ -945,19 +959,19 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub fn total_picked_weight(&self) -> i64 {
+    pub fn total_picked_weight(&self) -> i32 {
         self.categories()
             .iter()
-            .map(|category| -> i64 {
+            .map(|category| -> i32 {
                 category
                     .items
                     .as_ref()
                     .unwrap()
                     .iter()
                     .filter_map(|item| Some(item.item.weight).filter(|_| item.picked))
-                    .sum::<i64>()
+                    .sum::<i32>()
             })
-            .sum::<i64>()
+            .sum::<i32>()
     }
 
     #[tracing::instrument]
@@ -994,8 +1008,8 @@ impl Trip {
                 WHERE trip.id = $1 AND trip.user_id = $2
             )
             SELECT
-                type.id as id,
-                type.name as name,
+                type.id AS id,
+                type.name AS name,
                 trips.id IS NOT NULL AS active
             FROM trips_types AS type
                 LEFT JOIN trips
@@ -1029,14 +1043,14 @@ impl Trip {
         //   visible so the user knows that there might be new items to
         //   consider
         struct Row {
-            item_id: String,
+            item_id: Uuid,
         }
 
         impl TryFrom<Row> for Uuid {
             type Error = Error;
 
             fn try_from(value: Row) -> Result<Self, Self::Error> {
-                Uuid::try_parse(&value.item_id).map_err(Into::into)
+                Ok(value.item_id)
             }
         }
 
@@ -1109,15 +1123,15 @@ impl Trip {
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
         struct Row {
-            category_id: String,
+            category_id: Uuid,
             category_name: String,
             category_description: Option<String>,
             #[allow(dead_code)]
-            trip_id: Option<String>,
-            item_id: Option<String>,
+            trip_id: Option<Uuid>,
+            item_id: Option<Uuid>,
             item_name: Option<String>,
             item_description: Option<String>,
-            item_weight: Option<i64>,
+            item_weight: Option<i32>,
             item_is_picked: Option<bool>,
             item_is_packed: Option<bool>,
             item_is_ready: Option<bool>,
@@ -1134,7 +1148,7 @@ impl Trip {
 
             fn try_from(row: Row) -> Result<Self, Self::Error> {
                 let category = inventory::Category {
-                    id: Uuid::try_parse(&row.category_id)?,
+                    id: row.category_id,
                     name: row.category_name,
                     description: row.category_description,
                     items: None,
@@ -1148,11 +1162,11 @@ impl Trip {
                     item: match row.item_id {
                         Some(item_id) => Some(TripItem {
                             item: inventory::Item {
-                                id: Uuid::try_parse(&item_id)?,
+                                id: item_id,
                                 name: row.item_name.unwrap(),
                                 description: row.item_description,
                                 weight: row.item_weight.unwrap(),
-                                category_id: Uuid::try_parse(&row.category_id)?,
+                                category_id: row.category_id,
                             },
                             picked: row.item_is_picked.unwrap(),
                             packed: row.item_is_packed.unwrap(),
@@ -1311,9 +1325,9 @@ pub struct TripType {
 }
 
 struct TripTypeRow {
-    id: String,
+    id: Uuid,
     name: String,
-    active: i32,
+    active: bool,
 }
 
 impl TryFrom<TripTypeRow> for TripType {
@@ -1321,13 +1335,9 @@ impl TryFrom<TripTypeRow> for TripType {
 
     fn try_from(row: TripTypeRow) -> Result<Self, Self::Error> {
         Ok(TripType {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             name: row.name,
-            active: match row.active {
-                0 => false,
-                1 => true,
-                _ => unreachable!(),
-            },
+            active: row.active,
         })
     }
 }
@@ -1402,7 +1412,7 @@ impl TripsType {
 }
 
 pub(crate) struct DbTripsTypesRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
 }
 
@@ -1423,7 +1433,7 @@ impl TryFrom<DbTripsTypesRow> for TripsType {
 
     fn try_from(row: DbTripsTypesRow) -> Result<Self, Self::Error> {
         Ok(TripsType {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             name: row.name,
         })
     }

@@ -509,7 +509,7 @@ pub struct TripInfoTotalWeightRow;
 
 impl TripInfoTotalWeightRow {
     #[tracing::instrument]
-    pub fn build(trip_id: Uuid, value: i64) -> Markup {
+    pub fn build(trip_id: Uuid, value: i32) -> Markup {
         html!(
             span
                 hx-trigger={
@@ -889,7 +889,7 @@ impl TripCategoryListRow {
         trip_id: Uuid,
         category: &models::trips::TripCategory,
         active: bool,
-        biggest_category_weight: i64,
+        biggest_category_weight: i32,
         htmx_swap: bool,
     ) -> Markup {
         let has_new_items = category.items.as_ref().unwrap().iter().any(|item| item.new);
@@ -1000,7 +1000,7 @@ impl TripCategoryList {
     ) -> Markup {
         let categories = trip.categories();
 
-        let biggest_category_weight: i64 = categories
+        let biggest_category_weight: i32 = categories
             .iter()
             .map(models::trips::TripCategory::total_picked_weight)
             .max()
@@ -1037,7 +1037,7 @@ impl TripCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(models::trips::TripCategory::total_picked_weight).sum::<i64>().to_string())
+                                (categories.iter().map(models::trips::TripCategory::total_picked_weight).sum::<i32>().to_string())
                             }
                         }
                     }
@@ -1052,7 +1052,7 @@ pub struct TripItemList;
 impl TripItemList {
     #[tracing::instrument]
     pub fn build(trip_id: Uuid, items: &Vec<models::trips::TripItem>) -> Markup {
-        let biggest_item_weight: i64 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
+        let biggest_item_weight: i32 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
         html!(
             @if items.is_empty() {
@@ -1094,7 +1094,7 @@ impl TripItemListRow {
     pub fn build(
         trip_id: Uuid,
         item: &models::trips::TripItem,
-        biggest_item_weight: i64,
+        biggest_item_weight: i32,
     ) -> Markup {
         html!(
             tr ."h-10" {

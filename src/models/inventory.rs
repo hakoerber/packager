@@ -122,7 +122,7 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub fn total_weight(&self) -> i64 {
+    pub fn total_weight(&self) -> i32 {
         self.items().iter().map(|item| item.weight).sum()
     }
 
@@ -169,7 +169,7 @@ pub struct InventoryItem {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub weight: i64,
+    pub weight: i32,
     pub category: Category,
     pub product: Option<Product>,
 }
@@ -178,7 +178,7 @@ struct DbInventoryItemRow {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub weight: i64,
+    pub weight: i32,
     pub category_id: Uuid,
     pub category_name: String,
     pub category_description: Option<String>,
@@ -207,7 +207,7 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
                 .product_id
                 .map(|id| -> Result<Product, Error> {
                     Ok(Product {
-                        id: &id,
+                        id,
                         name: row.product_name.unwrap(),
                         description: row.product_description,
                         comment: row.product_comment,
@@ -364,7 +364,7 @@ impl InventoryItem {
         ctx: &Context,
         pool: &db::Pool,
         category_id: Uuid,
-    ) -> Result<i64, Error> {
+    ) -> Result<i32, Error> {
         let weight = crate::execute_returning!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -380,8 +380,8 @@ impl InventoryItem {
                     category_id = $1
                     AND category.user_id = $2
             ",
-            i64,
-            |row| i64::from(row.weight.unwrap()),
+            i32,
+            |row| i32::from(row.weight.unwrap()),
             category_id,
             ctx.user.id
         )
@@ -396,16 +396,16 @@ pub struct Item {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub weight: u32,
+    pub weight: i32,
     pub category_id: Uuid,
 }
 
 pub struct DbInventoryItemsRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
-    pub weight: i64,
+    pub weight: i32,
     pub description: Option<String>,
-    pub category_id: String,
+    pub category_id: Uuid,
 }
 
 impl TryFrom<DbInventoryItemsRow> for Item {
@@ -413,11 +413,11 @@ impl TryFrom<DbInventoryItemsRow> for Item {
 
     fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
         Ok(Item {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             name: row.name,
             description: row.description, // TODO
             weight: row.weight,
-            category_id: Uuid::try_parse(&row.category_id)?,
+            category_id: row.category_id,
         })
     }
 }
@@ -428,7 +428,7 @@ impl Item {
         ctx: &Context,
         pool: &db::Pool,
         category_id: Uuid,
-    ) -> Result<i64, Error> {
+    ) -> Result<i32, Error> {
         crate::execute_returning!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -447,8 +447,8 @@ impl Item {
                     AND category.user_id = $2
                     AND t_item.pick = true
             ",
-            i64,
-            |row| i64::from(row.weight.unwrap()),
+            i32,
+            |row| i32::try_from(row.weight.unwrap()).unwrap(),
             category_id,
             ctx.user.id,
         )

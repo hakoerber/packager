@@ -63,7 +63,7 @@ pub struct Todo {
 }
 
 struct TodoRow {
-    id: String,
+    id: Uuid,
     description: String,
     done: bool,
 }
@@ -73,7 +73,7 @@ impl TryFrom<TodoRow> for Todo {
 
     fn try_from(row: TodoRow) -> Result<Self, Self::Error> {
         Ok(Todo {
-            id: Id::new(Uuid::try_parse(&row.id)?),
+            id: Id::new(row.id),
             description: row.description,
             state: row.done.into(),
         })
@@ -143,9 +143,6 @@ impl crud::Read for Todo {
         pool: &db::Pool,
         container: Container,
     ) -> Result<Vec<Self>, Error> {
-        let trip_id_param = container.trip_id.to_string();
-        let user_id = ctx.user.id.to_string();
-
         let todos: Vec<Todo> = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -166,8 +163,8 @@ impl crud::Read for Todo {
                     trips.id = $1
                     AND trips.user_id = $2
             "#,
-            trip_id_param,
-            user_id,
+            container.trip_id,
+            ctx.user.id
         )
         .await?;
 
@@ -180,9 +177,6 @@ impl crud::Read for Todo {
         pool: &db::Pool,
         reference: Reference,
     ) -> Result<Option<Self>, Error> {
-        let trip_id_param = reference.container.trip_id.to_string();
-        let todo_id_param = reference.id.0.to_string();
-        let user_id = ctx.user.id.to_string();
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -204,9 +198,9 @@ impl crud::Read for Todo {
                     AND todo.id = $2
                     AND trips.user_id = $3
             "#,
-            trip_id_param,
-            todo_id_param,
-            user_id,
+            reference.container.trip_id,
+            reference.id.0,
+            ctx.user.id,
         )
         .await
     }
@@ -232,11 +226,8 @@ impl crud::Create for Todo {
         container: Self::Container,
         info: Self::Info,
     ) -> Result<Self::Id, Error> {
-        let user_id = ctx.user.id.to_string();
         let id = Self::new_id();
         tracing::info!("adding new todo with id {id}");
-        let id_param = id.to_string();
-        let trip_id_param = container.trip_id.to_string();
         crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Insert,
@@ -251,10 +242,10 @@ impl crud::Create for Todo {
                 WHERE id = $3 AND EXISTS(SELECT 1 FROM trips WHERE id = $3 and user_id = $4)
                 LIMIT 1
             "#,
-            id_param,
+            id.0,
             info.description,
-            trip_id_param,
-            user_id,
+            container.trip_id,
+            ctx.user.id,
         )
         .await?;
 
@@ -308,9 +299,6 @@ impl crud::Update for Todo {
         reference: Self::Reference,
         update_element: Self::UpdateElement,
     ) -> Result<Option<Self>, Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = reference.container.trip_id.to_string();
-        let todo_id_param = reference.id.to_string();
         match update_element {
             UpdateElement::State(state) => {
                 let done = state == State::Done.into();
@@ -335,19 +323,15 @@ impl crud::Update for Todo {
                             done
                     "#,
                     done,
-                    trip_id_param,
-                    todo_id_param,
-                    user_id
+                    reference.container.trip_id,
+                    reference.id.0,
+                    ctx.user.id
                 )
                 .await?;
 
                 Ok(result)
             }
             UpdateElement::Description(new_description) => {
-                let user_id = ctx.user.id.to_string();
-                let trip_id_param = reference.container.trip_id.to_string();
-                let todo_id_param = reference.id.to_string();
-
                 let result = crate::query_one!(
                     &db::QueryClassification {
                         query_type: db::QueryType::Update,
@@ -369,9 +353,9 @@ impl crud::Update for Todo {
                             done
                     "#,
                     new_description.0,
-                    todo_id_param,
-                    trip_id_param,
-                    user_id,
+                    reference.id.0,
+                    reference.container.trip_id,
+                    ctx.user.id,
                 )
                 .await?;
 
@@ -392,10 +376,6 @@ impl crud::Delete for Todo {
     where
         T: sqlx::Acquire<'c, Database = sqlx::Postgres> + Send + std::fmt::Debug,
     {
-        let id_param = reference.id.0.to_string();
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = reference.container.trip_id.to_string();
-
         let results = crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Delete,
@@ -408,9 +388,9 @@ impl crud::Delete for Todo {
                     id = $1
                     AND EXISTS (SELECT 1 FROM trips WHERE trip_id = $2 AND user_id = $3)
             "#,
-            id_param,
-            trip_id_param,
-            user_id,
+            reference.id.0,
+            reference.container.trip_id,
+            ctx.user.id,
         )
         .await?;
 

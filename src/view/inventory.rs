@@ -60,7 +60,7 @@ impl InventoryCategoryList {
         active_category: Option<&models::inventory::Category>,
         categories: &Vec<models::inventory::Category>,
     ) -> Markup {
-        let biggest_category_weight: i64 = categories
+        let biggest_category_weight: i32 = categories
             .iter()
             .map(models::inventory::Category::total_weight)
             .max()
@@ -69,7 +69,7 @@ impl InventoryCategoryList {
         struct Row<'a> {
             category: &'a models::inventory::Category,
             active: bool,
-            biggest_category_weight: i64,
+            biggest_category_weight: i32,
         }
         impl<'a> list::Row for Row<'a> {
             fn is_active(&self) -> bool {
@@ -137,11 +137,11 @@ impl InventoryItemList {
         skip(items)
     )]
     pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
-        let biggest_item_weight: i64 = items.iter().map(|item| item.weight).max().unwrap_or(1);
+        let biggest_item_weight: i32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
 
         struct Row<'a> {
             item: &'a Item,
-            biggest_item_weight: i64,
+            biggest_item_weight: i32,
             edit_item_id: Option<Uuid>,
         }
 

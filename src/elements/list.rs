@@ -9,8 +9,8 @@ pub struct Link<'a> {
 }
 
 pub struct NumberWithBar {
-    pub value: i64,
-    pub max_value: i64,
+    pub value: i32,
+    pub max_value: i32,
 }
 
 pub enum CellType<'a> {
