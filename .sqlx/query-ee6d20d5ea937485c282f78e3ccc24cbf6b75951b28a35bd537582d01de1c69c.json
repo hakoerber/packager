@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO\n                trip_to_trip_types (trip_id, trip_type_id)\n            (SELECT trips.id as trip_id, trip_types.id as trip_type_id\n                FROM trips\n                INNER JOIN trip_types ON true\n                WHERE\n                    trips.id = $1\n                    AND trips.user_id = $3\n                    AND trip_types.id = $2\n                    AND trip_types.user_id = $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ee6d20d5ea937485c282f78e3ccc24cbf6b75951b28a35bd537582d01de1c69c"
+}

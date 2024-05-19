@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT COALESCE(SUM(i_item.weight), 0) as weight\n                FROM inventory_items_categories as category\n                INNER JOIN inventory_items as i_item\n                    ON i_item.category_id = category.id\n                INNER JOIN trip_items as t_item\n                    ON i_item.id = t_item.item_id\n                WHERE\n                    category_id = $1\n                    AND category.user_id = $2\n                    AND t_item.pick = true\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "weight",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cf4dc5ffd6a3e1c3559c3aaab2cea18bbaa04fc1c2e31607647ac48d6acddcbf"
+}

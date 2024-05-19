@@ -91,8 +91,8 @@ pub fn router(state: AppState) -> Router {
                     (&TopLevelPage::Trips.path()).into(),
                     Router::new()
                         .route("/", get(trips).post(trip_create))
-                        .route("/types/", get(trips_types).post(trip_type_create))
-                        .route("/types/:id/edit/name/submit", post(trips_types_edit_name))
+                        .route("/types/", get(trip_types).post(trip_type_create))
+                        .route("/types/:id/edit/name/submit", post(trip_types_edit_name))
                         .route("/:id/", get(trip))
                         .route("/:id/comment/submit", post(trip_comment_set))
                         .route("/:id/categories/:id/select", post(trip_category_select))

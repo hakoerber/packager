@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS "trips" (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS "trips_types" (
+CREATE TABLE IF NOT EXISTS "trip_types" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
     user_id uuid NOT NULL,
@@ -70,12 +70,12 @@ CREATE TABLE IF NOT EXISTS "trips_types" (
     UNIQUE (name)
 );
 
-CREATE TABLE IF NOT EXISTS "trips_to_trips_types" (
+CREATE TABLE IF NOT EXISTS "trip_to_trip_types" (
     trip_id uuid NOT NULL,
     trip_type_id uuid NOT NULL,
     PRIMARY KEY (trip_id, trip_type_id),
     FOREIGN KEY(trip_id) REFERENCES "trips" (id),
-    FOREIGN KEY(trip_type_id) REFERENCES "trips_types" (id)
+    FOREIGN KEY(trip_type_id) REFERENCES "trip_types" (id)
 );
 
 CREATE TABLE IF NOT EXISTS "trip_todos" (
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS "trip_todos" (
     FOREIGN KEY(trip_id) REFERENCES "trips" (id)
 );
 
-CREATE TABLE IF NOT EXISTS "trips_items" (
+CREATE TABLE IF NOT EXISTS "trip_items" (
     item_id uuid NOT NULL,
     trip_id uuid NOT NULL,
     pick BOOLEAN NOT NULL,

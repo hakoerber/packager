@@ -462,7 +462,7 @@ pub async fn trip(
             message: format!("trip with id {id} not found"),
         }))?;
 
-    trip.load_trips_types(&ctx, &state.database_pool).await?;
+    trip.load_trip_types(&ctx, &state.database_pool).await?;
 
     trip.load_todos(&ctx, &state.database_pool).await?;
 
@@ -967,7 +967,7 @@ pub async fn trip_state_set(
 }
 
 #[tracing::instrument]
-pub async fn trips_types(
+pub async fn trip_types(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
     Query(trip_type_query): Query<TripTypeQuery>,
@@ -1005,7 +1005,7 @@ pub async fn trip_type_create(
 }
 
 #[tracing::instrument]
-pub async fn trips_types_edit_name(
+pub async fn trip_types_edit_name(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(trip_type_id): Path<Uuid>,

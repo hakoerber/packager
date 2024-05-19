@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                id,\n                name\n            FROM trips_types\n            WHERE user_id = $1",
+  "query": "SELECT\n                id,\n                name\n            FROM trip_types\n            WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "96f4836ca04cb8bc2ed18017599b9af4789b335c9c70c1e307892c6cce110a6f"
+  "hash": "7b092b5ba777f41c7b17c21c1cf8e008901384ab017fb5f6b13d86fa491b1338"
 }

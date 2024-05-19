@@ -217,7 +217,7 @@ impl TripCategory {
                         trip.pack AS item_is_packed,
                         trip.ready AS item_is_ready,
                         trip.new AS item_is_new
-                    FROM trips_items AS trip
+                    FROM trip_items AS trip
                     INNER JOIN inventory_items AS item
                         ON item.id = trip.item_id
                     INNER JOIN inventory_items_categories AS category
@@ -343,7 +343,7 @@ impl TripItem {
                     i_item.description AS description,
                     i_item.weight AS weight,
                     i_item.category_id AS category_id
-                FROM trips_items AS t_item
+                FROM trip_items AS t_item
                 INNER JOIN inventory_items AS i_item
                     ON i_item.id = t_item.item_id
                 WHERE t_item.item_id = $1
@@ -374,7 +374,7 @@ impl TripItem {
                         component: db::Component::Trips,
                     },
                     pool,
-                    "UPDATE trips_items
+                    "UPDATE trip_items
                         SET pick = $1
                         WHERE trip_id = $2
                         AND item_id = $3
@@ -393,7 +393,7 @@ impl TripItem {
                         component: db::Component::Trips,
                     },
                     pool,
-                    "UPDATE trips_items
+                    "UPDATE trip_items
                         SET pack = $1
                         WHERE trip_id = $2
                         AND item_id = $3
@@ -412,7 +412,7 @@ impl TripItem {
                         component: db::Component::Trips,
                     },
                     pool,
-                    "UPDATE trips_items
+                    "UPDATE trip_items
                         SET ready = $1
                         WHERE trip_id = $2
                         AND item_id = $3
@@ -591,11 +591,11 @@ impl Trip {
                 component: db::Component::Trips,
             },
             pool,
-            "DELETE FROM trips_to_trips_types AS ttt
+            "DELETE FROM trip_to_trip_types AS ttt
             WHERE ttt.trip_id = $1
                 AND ttt.trip_type_id = $2
             AND EXISTS(SELECT * FROM trips WHERE id = $1 AND user_id = $3)
-            AND EXISTS(SELECT * FROM trips_types WHERE id = $2 AND user_id = $3)
+            AND EXISTS(SELECT * FROM trip_types WHERE id = $2 AND user_id = $3)
             ",
             id,
             type_id,
@@ -622,15 +622,15 @@ impl Trip {
             },
             pool,
             "INSERT INTO
-                trips_to_trips_types (trip_id, trip_type_id)
-            (SELECT trips.id as trip_id, trips_types.id as trip_type_id
+                trip_to_trip_types (trip_id, trip_type_id)
+            (SELECT trips.id as trip_id, trip_types.id as trip_type_id
                 FROM trips
-                INNER JOIN trips_types ON true
+                INNER JOIN trip_types ON true
                 WHERE
                     trips.id = $1
                     AND trips.user_id = $3
-                    AND trips_types.id = $2
-                    AND trips_types.user_id = $3)",
+                    AND trip_types.id = $2
+                    AND trip_types.user_id = $3)",
             id,
             type_id,
             ctx.user.id
@@ -845,7 +845,7 @@ impl Trip {
                     component: db::Component::Trips,
                 },
                 &mut *transaction,
-                r#"INSERT INTO trips_items (
+                r#"INSERT INTO trip_items (
                     item_id,
                     trip_id,
                     pick,
@@ -861,7 +861,7 @@ impl Trip {
                     false as ready,
                     false as new,
                     user_id
-                FROM trips_items
+                FROM trip_items
                 WHERE trip_id = $2 AND user_id = $3"#,
                 id,
                 copy_from_trip_id,
@@ -875,7 +875,7 @@ impl Trip {
                     component: db::Component::Trips,
                 },
                 &mut *transaction,
-                r#"INSERT INTO trips_items (
+                r#"INSERT INTO trip_items (
                     item_id,
                     trip_id,
                     pick,
@@ -920,7 +920,7 @@ impl Trip {
                 SELECT
                     CAST(COALESCE(SUM(i_item.weight), 0) AS INTEGER) AS total_weight
                 FROM trips AS trip
-                INNER JOIN trips_items AS t_item
+                INNER JOIN trip_items AS t_item
                     ON t_item.trip_id = trip.id
                 INNER JOIN inventory_items AS i_item
                     ON t_item.item_id = i_item.id
@@ -942,7 +942,7 @@ impl Trip {
     pub fn types(&self) -> &Vec<TripType> {
         self.types
             .as_ref()
-            .expect("you need to call load_trips_types()")
+            .expect("you need to call load_trip_types()")
     }
 
     #[tracing::instrument]
@@ -987,7 +987,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_trips_types(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
+    pub async fn load_trip_types(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
         let types = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -1000,9 +1000,9 @@ impl Trip {
             WITH trips AS (
                 SELECT type.id as id, trip.user_id as user_id
                 FROM trips as trip
-                INNER JOIN trips_to_trips_types as ttt
+                INNER JOIN trip_to_trip_types as ttt
                     ON ttt.trip_id = trip.id
-                INNER JOIN trips_types AS type
+                INNER JOIN trip_types AS type
                     ON type.id = ttt.trip_type_id
                 WHERE trip.id = $1 AND trip.user_id = $2
             )
@@ -1010,7 +1010,7 @@ impl Trip {
                 type.id AS id,
                 type.name AS name,
                 trips.id IS NOT NULL AS "active!"
-            FROM trips_types AS type
+            FROM trip_types AS type
                 LEFT JOIN trips
                 ON trips.id = type.id
             WHERE type.user_id = $2
@@ -1067,7 +1067,7 @@ impl Trip {
             FROM inventory_items AS i_item
                 LEFT JOIN (
                     SELECT t_item.item_id AS item_id, t_item.user_id AS user_id
-                    FROM trips_items AS t_item
+                    FROM trip_items AS t_item
                     WHERE t_item.trip_id = $1 AND t_item.user_id = $2
                 ) AS t_item
                 ON t_item.item_id = i_item.id
@@ -1088,7 +1088,7 @@ impl Trip {
                 },
                 pool,
                 "
-                INSERT INTO trips_items
+                INSERT INTO trip_items
                     (
                         item_id,
                         trip_id,
@@ -1187,7 +1187,7 @@ impl Trip {
             Row,
             RowParsed,
             r#"
-                WITH trips_items AS (
+                WITH trip_items AS (
                     SELECT
                         trip.trip_id AS trip_id,
                         category.id AS category_id,
@@ -1202,7 +1202,7 @@ impl Trip {
                         trip.ready AS item_is_ready,
                         trip.new AS item_is_new,
                         trip.user_id AS user_id
-                    FROM trips_items AS trip
+                    FROM trip_items AS trip
                     INNER JOIN inventory_items AS item
                         ON item.id = trip.item_id
                     INNER JOIN inventory_items_categories AS category
@@ -1214,18 +1214,18 @@ impl Trip {
                     category.id AS category_id,
                     category.name AS category_name,
                     category.description AS category_description,
-                    trips_items.trip_id AS trip_id,
-                    trips_items.item_id AS item_id,
-                    trips_items.item_name AS item_name,
-                    trips_items.item_description AS item_description,
-                    trips_items.item_weight AS item_weight,
-                    trips_items.item_is_picked AS item_is_picked,
-                    trips_items.item_is_packed AS item_is_packed,
-                    trips_items.item_is_ready AS item_is_ready,
-                    trips_items.item_is_new AS item_is_new
+                    trip_items.trip_id AS trip_id,
+                    trip_items.item_id AS item_id,
+                    trip_items.item_name AS item_name,
+                    trip_items.item_description AS item_description,
+                    trip_items.item_weight AS item_weight,
+                    trip_items.item_is_picked AS item_is_picked,
+                    trip_items.item_is_packed AS item_is_packed,
+                    trip_items.item_is_ready AS item_is_ready,
+                    trip_items.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
-                    LEFT JOIN trips_items
-                    ON trips_items.category_id = category.id
+                    LEFT JOIN trip_items
+                    ON trip_items.category_id = category.id
                 WHERE category.user_id = $2
             "#,
             self.id,
@@ -1355,7 +1355,7 @@ impl TripsType {
             "SELECT
                 id,
                 name
-            FROM trips_types
+            FROM trip_types
             WHERE user_id = $1",
             ctx.user.id
         )
@@ -1371,7 +1371,7 @@ impl TripsType {
                 component: db::Component::Trips,
             },
             pool,
-            "INSERT INTO trips_types
+            "INSERT INTO trip_types
                 (id, name, user_id)
             VALUES
                 ($1, $2, $3)",
@@ -1397,7 +1397,7 @@ impl TripsType {
                 component: db::Component::Trips,
             },
             pool,
-            "UPDATE trips_types
+            "UPDATE trip_types
             SET name = $1
             WHERE id = $2 and user_id = $3",
             new_name,

@@ -440,7 +440,7 @@ impl Item {
                 FROM inventory_items_categories as category
                 INNER JOIN inventory_items as i_item
                     ON i_item.category_id = category.id
-                INNER JOIN trips_items as t_item
+                INNER JOIN trip_items as t_item
                     ON i_item.id = t_item.item_id
                 WHERE
                     category_id = $1
