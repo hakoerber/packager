@@ -25,13 +25,14 @@ CREATE TABLE IF NOT EXISTS "inventory_items_categories" (
     UNIQUE (name),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
 CREATE TABLE IF NOT EXISTS "inventory_items" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
     weight INTEGER NOT NULL,
     category_id uuid NOT NULL,
-    product_id uuid,
+    product_id uuid NOT NULL,
     user_id uuid NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (category_id) REFERENCES inventory_items_categories(id),
@@ -54,6 +55,8 @@ CREATE TABLE IF NOT EXISTS "trips" (
     temp_min INTEGER,
     temp_max INTEGER,
     user_id uuid NOT NULL,
+    CHECK (date_start <= date_end),
+    CHECK (temp_min <= temp_max),
     PRIMARY KEY (id),
     UNIQUE (name),
     FOREIGN KEY (user_id) REFERENCES users(id)

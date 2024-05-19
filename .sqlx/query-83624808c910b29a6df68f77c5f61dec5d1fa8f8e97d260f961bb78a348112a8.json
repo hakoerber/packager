@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                id,\n                name,\n                CAST (date_start AS TEXT) date_start,\n                CAST (date_end AS TEXT) date_end,\n                state as \"state: _\",\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE id = $1 and user_id = $2",
+  "query": "SELECT\n                id,\n                name,\n                date_start,\n                date_end,\n                state as \"state: _\",\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE id = $1 and user_id = $2",
   "describe": {
     "columns": [
       {
@@ -16,12 +16,12 @@
       {
         "ordinal": 2,
         "name": "date_start",
-        "type_info": "Text"
+        "type_info": "Date"
       },
       {
         "ordinal": 3,
         "name": "date_end",
-        "type_info": "Text"
+        "type_info": "Date"
       },
       {
         "ordinal": 4,
@@ -72,8 +72,8 @@
     "nullable": [
       false,
       false,
-      null,
-      null,
+      false,
+      false,
       false,
       true,
       true,
@@ -81,5 +81,5 @@
       true
     ]
   },
-  "hash": "02f14cbcde3a941a14ef070045046477d7d261c0a53e782705c195053246154b"
+  "hash": "83624808c910b29a6df68f77c5f61dec5d1fa8f8e97d260f961bb78a348112a8"
 }

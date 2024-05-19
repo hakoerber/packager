@@ -3,7 +3,6 @@ use std::fmt;
 use crate::components::crud::*;
 
 use super::{
-    consts,
     error::{DatabaseError, Error, QueryError},
     inventory,
 };
@@ -438,8 +437,8 @@ impl TripItem {
 pub struct DbTripRow {
     pub id: Uuid,
     pub name: String,
-    pub date_start: String,
-    pub date_end: String,
+    pub date_start: time::Date,
+    pub date_end: time::Date,
     pub state: TripState,
     pub location: Option<String>,
     pub temp_min: Option<i32>,
@@ -454,8 +453,8 @@ impl TryFrom<DbTripRow> for Trip {
         Ok(Trip {
             id: row.id,
             name: row.name,
-            date_start: time::Date::parse(&row.date_start, consts::DATE_FORMAT)?,
-            date_end: time::Date::parse(&row.date_end, consts::DATE_FORMAT)?,
+            date_start: row.date_start,
+            date_end: row.date_end,
             state: row.state,
             location: row.location,
             temp_min: row.temp_min,
@@ -530,8 +529,8 @@ impl Trip {
             r#"SELECT
                 id,
                 name,
-                CAST (date_start AS TEXT) date_start,
-                CAST (date_end AS TEXT) date_end,
+                date_start,
+                date_end,
                 state as "state: _",
                 location,
                 temp_min,
@@ -564,8 +563,8 @@ impl Trip {
             r#"SELECT
                 id,
                 name,
-                CAST (date_start AS TEXT) date_start,
-                CAST (date_end AS TEXT) date_end,
+                date_start,
+                date_end,
                 state as "state: _",
                 location,
                 temp_min,
@@ -997,7 +996,7 @@ impl Trip {
             pool,
             TripTypeRow,
             TripType,
-            "
+            r#"
             WITH trips AS (
                 SELECT type.id as id, trip.user_id as user_id
                 FROM trips as trip
@@ -1010,12 +1009,12 @@ impl Trip {
             SELECT
                 type.id AS id,
                 type.name AS name,
-                trips.id IS NOT NULL AS active
+                trips.id IS NOT NULL AS "active!"
             FROM trips_types AS type
                 LEFT JOIN trips
                 ON trips.id = type.id
             WHERE type.user_id = $2
-            ",
+            "#,
             self.id,
             ctx.user.id
         )

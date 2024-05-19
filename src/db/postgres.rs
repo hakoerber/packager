@@ -7,8 +7,8 @@ use tracing::Instrument as _;
 pub struct DB;
 
 impl DB {
-    fn opts(url: &str) -> PgConnectOptions {
-        PgConnectOptions::new().socket(url).database("postgres")
+    fn opts(url: &str) -> Result<PgConnectOptions, StartError> {
+        url.parse().map_err(Into::into)
     }
 }
 
@@ -18,21 +18,25 @@ impl super::Database for DB {
     #[tracing::instrument]
     async fn init_database_pool(url: &str) -> Result<Self::Pool, StartError> {
         async {
-            let options = Self::opts(url);
+            let options = Self::opts(url)?;
 
-            PgPool::connect_with(options).await
+            PgPool::connect_with(options)
+                .await
+                .map_err(Into::<StartError>::into)
         }
         .instrument(tracing::info_span!("packager::sql::pool"))
         .await
-        .map_err(Into::into)
     }
 
     #[tracing::instrument]
     async fn migrate(url: &str) -> Result<(), StartError> {
         async {
-            let pool = PgPool::connect_with(Self::opts(url)).await?;
+            let pool = PgPool::connect_with(Self::opts(url)?).await?;
 
-            sqlx::migrate!().run(&pool).await
+            sqlx::migrate!()
+                .run(&pool)
+                .await
+                .map_err(Into::<StartError>::into)
         }
         .instrument(tracing::info_span!("packager::sql::migrate"))
         .await?;

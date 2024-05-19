@@ -1,5 +1,7 @@
 use std::fmt;
 
+use sqlx::error::DatabaseError as _;
+
 pub enum DatabaseError {
     /// Errors we can receive **from** the database that are caused by connection
     /// problems or schema problems (e.g. we get a return value that does not fit our enum,
@@ -111,7 +113,16 @@ impl From<sqlx::Error> for Error {
                 description: value.to_string(),
             }),
             sqlx::Error::Database(ref error) => {
-                unimplemented!()
+                let error = error.downcast_ref::<sqlx::postgres::PgDatabaseError>();
+                if error.is_unique_violation() {
+                    Error::Query(QueryError::Duplicate {
+                        description: "item with unique constraint already exists".to_string(),
+                    })
+                } else {
+                    Error::Database(DatabaseError::Sql {
+                        description: format!("got unknown error: {error}"),
+                    })
+                }
             }
             _ => Error::Database(DatabaseError::Sql {
                 description: format!("got unknown error: {value}"),
