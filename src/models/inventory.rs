@@ -10,8 +10,6 @@ pub struct Inventory {
 impl Inventory {
     #[tracing::instrument]
     pub async fn load(ctx: &Context, pool: &db::Pool) -> Result<Self, Error> {
-        let user_id = ctx.user.id.to_string();
-
         let mut categories = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -26,7 +24,7 @@ impl Inventory {
                     description
                 FROM inventory_items_categories
                 WHERE user_id = $1",
-            user_id
+            ctx.user.id
         )
         .await?;
 
@@ -47,7 +45,7 @@ pub struct Category {
 }
 
 pub struct DbCategoryRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
 }
@@ -57,7 +55,7 @@ impl TryFrom<DbCategoryRow> for Category {
 
     fn try_from(row: DbCategoryRow) -> Result<Self, Self::Error> {
         Ok(Category {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             name: row.name,
             description: row.description,
             items: None,
@@ -72,8 +70,6 @@ impl Category {
         pool: &db::Pool,
         id: Uuid,
     ) -> Result<Option<Category>, Error> {
-        let id_param = id.to_string();
-        let user_id = ctx.user.id.to_string();
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -90,8 +86,8 @@ impl Category {
             WHERE
                 category.id = $1
                 AND category.user_id = $2",
-            id_param,
-            user_id,
+            id,
+            ctx.user.id,
         )
         .await
     }
@@ -99,8 +95,6 @@ impl Category {
     #[tracing::instrument]
     pub async fn save(ctx: &Context, pool: &db::Pool, name: &str) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
-        let id_param = id.to_string();
-        let user_id = ctx.user.id.to_string();
         crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Insert,
@@ -111,9 +105,9 @@ impl Category {
                 (id, name, user_id)
             VALUES
                 ($1, $2, $3)",
-            id_param,
+            id,
             name,
-            user_id,
+            ctx.user.id,
         )
         .await?;
 
@@ -134,8 +128,6 @@ impl Category {
 
     #[tracing::instrument]
     pub async fn populate_items(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
-        let id = self.id.to_string();
-        let user_id = ctx.user.id.to_string();
         let items = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -154,8 +146,8 @@ impl Category {
             WHERE
                 category_id = $1
                 AND user_id = $2",
-            id,
-            user_id,
+            self.id,
+            ctx.user.id,
         )
         .await?;
 
@@ -183,14 +175,14 @@ pub struct InventoryItem {
 }
 
 struct DbInventoryItemRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
     pub weight: i64,
-    pub category_id: String,
+    pub category_id: Uuid,
     pub category_name: String,
     pub category_description: Option<String>,
-    pub product_id: Option<String>,
+    pub product_id: Option<Uuid>,
     pub product_name: Option<String>,
     pub product_description: Option<String>,
     pub product_comment: Option<String>,
@@ -201,12 +193,12 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 
     fn try_from(row: DbInventoryItemRow) -> Result<Self, Self::Error> {
         Ok(InventoryItem {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             name: row.name,
             description: row.description,
             weight: row.weight,
             category: Category {
-                id: Uuid::try_parse(&row.category_id)?,
+                id: row.category_id,
                 name: row.category_name,
                 description: row.category_description,
                 items: None,
@@ -215,7 +207,7 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
                 .product_id
                 .map(|id| -> Result<Product, Error> {
                     Ok(Product {
-                        id: Uuid::try_parse(&id)?,
+                        id: &id,
                         name: row.product_name.unwrap(),
                         description: row.product_description,
                         comment: row.product_comment,
@@ -229,9 +221,6 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 impl InventoryItem {
     #[tracing::instrument]
     pub async fn find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
-        let id_param = id.to_string();
-        let user_id = ctx.user.id.to_string();
-
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -260,15 +249,14 @@ impl InventoryItem {
                 WHERE
                     item.id = $1
                     AND item.user_id = $2",
-            id_param,
-            user_id,
+            id,
+            ctx.user.id,
         )
         .await
     }
 
     #[tracing::instrument]
     pub async fn name_exists(ctx: &Context, pool: &db::Pool, name: &str) -> Result<bool, Error> {
-        let user_id = ctx.user.id.to_string();
         crate::query_exists!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -281,15 +269,13 @@ impl InventoryItem {
                 name = $1
                 AND user_id = $2",
             name,
-            user_id
+            ctx.user.id
         )
         .await
     }
 
     #[tracing::instrument]
     pub async fn delete(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<bool, Error> {
-        let id_param = id.to_string();
-        let user_id = ctx.user.id.to_string();
         let results = crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Delete,
@@ -300,8 +286,8 @@ impl InventoryItem {
             WHERE
                 id = $1
                 AND user_id = $2",
-            id_param,
-            user_id,
+            id,
+            ctx.user.id
         )
         .await?;
 
@@ -316,10 +302,7 @@ impl InventoryItem {
         name: &str,
         weight: u32,
     ) -> Result<Uuid, Error> {
-        let user_id = ctx.user.id.to_string();
-        let weight = i64::from(weight);
-
-        let id_param = id.to_string();
+        let weight = i32::try_from(weight).unwrap();
         crate::execute_returning_uuid!(
             &db::QueryClassification {
                 query_type: db::QueryType::Update,
@@ -337,8 +320,8 @@ impl InventoryItem {
             ",
             name,
             weight,
-            id_param,
-            user_id,
+            id,
+            ctx.user.id
         )
         .await
     }
@@ -352,9 +335,7 @@ impl InventoryItem {
         weight: u32,
     ) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
-        let id_param = id.to_string();
-        let user_id = ctx.user.id.to_string();
-        let category_id_param = category_id.to_string();
+        let weight = i32::try_from(weight).unwrap();
 
         crate::execute!(
             &db::QueryClassification {
@@ -366,12 +347,12 @@ impl InventoryItem {
                 (id, name, description, weight, category_id, user_id)
             VALUES
                 ($1, $2, $3, $4, $5, $6)",
-            id_param,
+            id,
             name,
             "",
             weight,
-            category_id_param,
-            user_id,
+            category_id,
+            ctx.user.id
         )
         .await?;
 
@@ -384,8 +365,6 @@ impl InventoryItem {
         pool: &db::Pool,
         category_id: Uuid,
     ) -> Result<i64, Error> {
-        let user_id = ctx.user.id.to_string();
-        let category_id_param = category_id.to_string();
         let weight = crate::execute_returning!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -402,9 +381,9 @@ impl InventoryItem {
                     AND category.user_id = $2
             ",
             i64,
-            |row| i64::from(row.weight),
-            category_id_param,
-            user_id,
+            |row| i64::from(row.weight.unwrap()),
+            category_id,
+            ctx.user.id
         )
         .await?;
 
@@ -417,7 +396,7 @@ pub struct Item {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub weight: i64,
+    pub weight: u32,
     pub category_id: Uuid,
 }
 
@@ -450,8 +429,6 @@ impl Item {
         pool: &db::Pool,
         category_id: Uuid,
     ) -> Result<i64, Error> {
-        let user_id = ctx.user.id.to_string();
-        let category_id_param = category_id.to_string();
         crate::execute_returning!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -471,9 +448,9 @@ impl Item {
                     AND t_item.pick = true
             ",
             i64,
-            |row| i64::from(row.weight),
-            category_id_param,
-            user_id,
+            |row| i64::from(row.weight.unwrap()),
+            category_id,
+            ctx.user.id,
         )
         .await
     }

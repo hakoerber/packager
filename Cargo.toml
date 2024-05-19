@@ -104,6 +104,7 @@ features = [
   "macros",
   "time",
   "migrate",
+  "uuid",
 ]
 
 [dependencies.time]

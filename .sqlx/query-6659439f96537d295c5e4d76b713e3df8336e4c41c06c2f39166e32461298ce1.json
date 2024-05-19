@@ -6,8 +6,8 @@
     "parameters": {
       "Left": [
         "Int4",
-        "Text",
-        "Text"
+        "Uuid",
+        "Uuid"
       ]
     },
     "nullable": []

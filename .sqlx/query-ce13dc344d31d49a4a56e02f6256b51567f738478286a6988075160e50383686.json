@@ -5,10 +5,10 @@
     "columns": [],
     "parameters": {
       "Left": [
-        "Varchar",
+        "Uuid",
         "Text",
-        "Text",
-        "Text"
+        "Uuid",
+        "Uuid"
       ]
     },
     "nullable": []

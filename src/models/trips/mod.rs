@@ -136,20 +136,16 @@ impl TripCategory {
         trip_id: Uuid,
         category_id: Uuid,
     ) -> Result<Option<TripCategory>, Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
-        let category_id_param = category_id.to_string();
-
         struct Row {
-            category_id: String,
+            category_id: Uuid,
             category_name: String,
             category_description: Option<String>,
             #[allow(dead_code)]
-            trip_id: Option<String>,
-            item_id: Option<String>,
+            trip_id: Option<Uuid>,
+            item_id: Option<Uuid>,
             item_name: Option<String>,
             item_description: Option<String>,
-            item_weight: Option<i64>,
+            item_weight: Option<i32>,
             item_is_picked: Option<bool>,
             item_is_packed: Option<bool>,
             item_is_ready: Option<bool>,
@@ -166,7 +162,7 @@ impl TripCategory {
 
             fn try_from(row: Row) -> Result<Self, Self::Error> {
                 let category = inventory::Category {
-                    id: Uuid::try_parse(&row.category_id)?,
+                    id: row.category_id,
                     name: row.category_name,
                     description: row.category_description,
                     items: None,
@@ -180,11 +176,11 @@ impl TripCategory {
                     item: match row.item_id {
                         Some(item_id) => Some(TripItem {
                             item: inventory::Item {
-                                id: Uuid::try_parse(&item_id)?,
+                                id: item_id,
                                 name: row.item_name.unwrap(),
                                 description: row.item_description,
-                                weight: row.item_weight.unwrap(),
-                                category_id: Uuid::try_parse(&row.category_id)?,
+                                weight: row.item_weight.unwrap().try_into().unwrap(),
+                                category_id: row.category_id,
                             },
                             picked: row.item_is_picked.unwrap(),
                             packed: row.item_is_packed.unwrap(),
@@ -206,24 +202,50 @@ impl TripCategory {
             Row,
             RowParsed,
             r#"
+                WITH category_items AS (
+                     SELECT
+                        trip.trip_id AS trip_id,
+                        category.id AS category_id,
+                        category.name AS category_name,
+                        category.description AS category_description,
+                        item.id AS item_id,
+                        item.name AS item_name,
+                        item.description AS item_description,
+                        item.weight AS item_weight,
+                        trip.pick AS item_is_picked,
+                        trip.pack AS item_is_packed,
+                        trip.ready AS item_is_ready,
+                        trip.new AS item_is_new
+                    FROM trips_items AS trip
+                    INNER JOIN inventory_items AS item
+                        ON item.id = trip.item_id
+                    INNER JOIN inventory_items_categories AS category
+                        ON category.id = item.category_id
+                    WHERE
+                        trip.trip_id = $1
+                        AND trip.user_id = $2                   
+                )
                 SELECT
-                    category.id as category_id,
-                    category.name as category_name,
+                    category.id AS category_id,
+                    category.name AS category_name,
                     category.description AS category_description,
-                    inner.trip_id AS trip_id,
-                    inner.item_id AS item_id,
-                    inner.item_name AS item_name,
-                    inner.item_description AS item_description,
-                    inner.item_weight AS item_weight,
-                    inner.item_is_picked AS item_is_picked,
-                    inner.item_is_packed AS item_is_packed,
-                    inner.item_is_ready AS item_is_ready,
-                    inner.item_is_new AS item_is_new
+                    items.trip_id AS trip_id,
+                    items.item_id AS item_id,
+                    items.item_name AS item_name,
+                    items.item_description AS item_description,
+                    items.item_weight AS item_weight,
+                    items.item_is_picked AS item_is_picked,
+                    items.item_is_packed AS item_is_packed,
+                    items.item_is_ready AS item_is_ready,
+                    items.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
+                    LEFT JOIN category_items AS items
+                    ON items.category_id = category.id
+                WHERE category.id = $3
             "#,
-            trip_id_param,
-            user_id,
-            category_id_param
+            trip_id,
+            ctx.user.id,
+            category_id
         )
         .await?;
 
@@ -301,9 +323,6 @@ impl TripItem {
         trip_id: Uuid,
         item_id: Uuid,
     ) -> Result<Option<Self>, Error> {
-        let user_id = ctx.user.id.to_string();
-        let item_id_param = item_id.to_string();
-        let trip_id_param = trip_id.to_string();
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -330,9 +349,9 @@ impl TripItem {
                 AND t_item.trip_id = $2
                 AND t_item.user_id = $3
             ",
-            item_id_param,
-            trip_id_param,
-            user_id,
+            item_id,
+            trip_id,
+            ctx.user.id
         )
         .await
     }
@@ -346,9 +365,6 @@ impl TripItem {
         key: TripItemStateKey,
         value: bool,
     ) -> Result<(), Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
-        let item_id_param = item_id.to_string();
         let result = match key {
             TripItemStateKey::Pick => {
                 crate::execute!(
@@ -363,9 +379,9 @@ impl TripItem {
                         AND item_id = $3
                         AND user_id = $4",
                     value,
-                    trip_id_param,
-                    item_id_param,
-                    user_id
+                    trip_id,
+                    item_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -382,9 +398,9 @@ impl TripItem {
                         AND item_id = $3
                         AND user_id = $4",
                     value,
-                    trip_id_param,
-                    item_id_param,
-                    user_id
+                    trip_id,
+                    item_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -401,9 +417,9 @@ impl TripItem {
                         AND item_id = $3
                         AND user_id = $4",
                     value,
-                    trip_id_param,
-                    item_id_param,
-                    user_id
+                    trip_id,
+                    item_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -418,14 +434,14 @@ impl TripItem {
 }
 
 pub struct DbTripRow {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub date_start: String,
     pub date_end: String,
     pub state: String,
     pub location: Option<String>,
-    pub temp_min: Option<i64>,
-    pub temp_max: Option<i64>,
+    pub temp_min: Option<i32>,
+    pub temp_max: Option<i32>,
     pub comment: Option<String>,
 }
 
@@ -434,7 +450,7 @@ impl TryFrom<DbTripRow> for Trip {
 
     fn try_from(row: DbTripRow) -> Result<Self, Self::Error> {
         Ok(Trip {
-            id: Uuid::try_parse(&row.id)?,
+            id: row.id,
             name: row.name,
             date_start: time::Date::parse(&row.date_start, consts::DATE_FORMAT)?,
             date_end: time::Date::parse(&row.date_end, consts::DATE_FORMAT)?,
@@ -458,8 +474,8 @@ pub struct Trip {
     pub date_end: time::Date,
     pub state: TripState,
     pub location: Option<String>,
-    pub temp_min: Option<i64>,
-    pub temp_max: Option<i64>,
+    pub temp_min: Option<i32>,
+    pub temp_max: Option<i32>,
     pub comment: Option<String>,
     pub todos: Option<Vec<crate::components::trips::todos::Todo>>,
     pub types: Option<Vec<TripType>>,
@@ -485,7 +501,6 @@ pub enum TripAttribute {
 impl Trip {
     #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Trip>, Error> {
-        let user_id = ctx.user.id.to_string();
         let mut trips = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -506,7 +521,7 @@ impl Trip {
                 comment
             FROM trips
             WHERE user_id = $1",
-            user_id
+            ctx.user.id
         )
         .await?;
 
@@ -520,8 +535,6 @@ impl Trip {
         pool: &db::Pool,
         trip_id: Uuid,
     ) -> Result<Option<Self>, Error> {
-        let trip_id_param = trip_id.to_string();
-        let user_id = ctx.user.id.to_string();
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -542,8 +555,8 @@ impl Trip {
                 comment
             FROM trips
             WHERE id = $1 and user_id = $2",
-            trip_id_param,
-            user_id,
+            trip_id,
+            ctx.user.id
         )
         .await
     }
@@ -555,10 +568,6 @@ impl Trip {
         id: Uuid,
         type_id: Uuid,
     ) -> Result<bool, Error> {
-        let user_id = ctx.user.id.to_string();
-        let id_param = id.to_string();
-        let type_id_param = type_id.to_string();
-
         let results = crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Delete,
@@ -571,9 +580,9 @@ impl Trip {
             AND EXISTS(SELECT * FROM trips WHERE id = $1 AND user_id = $3)
             AND EXISTS(SELECT * FROM trips_types WHERE id = $2 AND user_id = $3)
             ",
-            id_param,
-            type_id_param,
-            user_id,
+            id,
+            type_id,
+            ctx.user.id
         )
         .await?;
 
@@ -587,10 +596,7 @@ impl Trip {
         id: Uuid,
         type_id: Uuid,
     ) -> Result<(), Error> {
-        let user_id = ctx.user.id.to_string();
         // TODO user handling?
-        let trip_id_param = id.to_string();
-        let type_id_param = type_id.to_string();
 
         crate::execute!(
             &db::QueryClassification {
@@ -605,13 +611,12 @@ impl Trip {
                 INNER JOIN trips_types ON true
                 WHERE
                     trips.id = $1
-                    AND trips.user_id = $2
-                    AND trips_types.id = $3
-                    AND trips_types.user_id = $4)",
-            trip_id_param,
-            user_id,
-            type_id_param,
-            user_id,
+                    AND trips.user_id = $3
+                    AND trips_types.id = $2
+                    AND trips_types.user_id = $3)",
+            id,
+            type_id,
+            ctx.user.id
         )
         .await?;
 
@@ -625,8 +630,6 @@ impl Trip {
         id: Uuid,
         new_state: &TripState,
     ) -> Result<bool, Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = id.to_string();
         let result = crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Update,
@@ -637,8 +640,8 @@ impl Trip {
             SET state = $1
             WHERE id = $2 and user_id = $3",
             new_state,
-            trip_id_param,
-            user_id,
+            id,
+            ctx.user.id
         )
         .await?;
 
@@ -652,8 +655,6 @@ impl Trip {
         id: Uuid,
         new_comment: &str,
     ) -> Result<bool, Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = id.to_string();
         let result = crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Update,
@@ -664,8 +665,8 @@ impl Trip {
             SET comment = $1
             WHERE id = $2 AND user_id = $3",
             new_comment,
-            trip_id_param,
-            user_id,
+            id,
+            ctx.user.id
         )
         .await?;
 
@@ -680,8 +681,6 @@ impl Trip {
         attribute: TripAttribute,
         value: &str,
     ) -> Result<(), Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
         let result = match attribute {
             TripAttribute::Name => {
                 crate::execute!(
@@ -694,8 +693,8 @@ impl Trip {
                 SET name = $1
                 WHERE id = $2 AND user_id = $3",
                     value,
-                    trip_id_param,
-                    user_id
+                    trip_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -711,8 +710,8 @@ impl Trip {
                 SET date_start = $1
                 WHERE id = $2 AND user_id = $3",
                     value,
-                    trip_id_param,
-                    user_id
+                    trip_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -727,8 +726,8 @@ impl Trip {
                 SET date_end = $1
                 WHERE id = $2 AND user_id = $3",
                     value,
-                    trip_id_param,
-                    user_id
+                    trip_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -743,8 +742,8 @@ impl Trip {
                 SET location = $1
                 WHERE id = $2 AND user_id = $3",
                     value,
-                    trip_id_param,
-                    user_id
+                    trip_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -759,8 +758,8 @@ impl Trip {
                 SET temp_min = $1
                 WHERE id = $2 AND user_id = $3",
                     value,
-                    trip_id_param,
-                    user_id
+                    trip_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -775,8 +774,8 @@ impl Trip {
                 SET temp_max = $1
                 WHERE id = $2 AND user_id = $3",
                     value,
-                    trip_id_param,
-                    user_id
+                    trip_id,
+                    ctx.user.id
                 )
                 .await
             }
@@ -798,9 +797,7 @@ impl Trip {
         date_end: time::Date,
         copy_from: Option<Uuid>,
     ) -> Result<Uuid, Error> {
-        let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
-        let id_param = id.to_string();
         let date_start = date_start.format(consts::DATE_FORMAT)?;
         let date_end = date_end.format(consts::DATE_FORMAT)?;
 
@@ -818,12 +815,12 @@ impl Trip {
                 (id, name, date_start, date_end, state, user_id)
             VALUES
                 ($1, $2, $3, $4, $5, $6)",
-            id_param,
+            id,
             name,
             date_start,
             date_end,
             trip_state,
-            user_id,
+            ctx.user.id,
         )
         .await?;
 
@@ -853,9 +850,9 @@ impl Trip {
                     user_id
                 FROM trips_items
                 WHERE trip_id = $2 AND user_id = $3"#,
-                id_param,
+                id,
                 copy_from_trip_id_param,
-                user_id,
+                ctx.user.id
             )
             .await?;
         } else {
@@ -883,8 +880,8 @@ impl Trip {
                     user_id
                 FROM inventory_items
                 WHERE user_id = $2"#,
-                id_param,
-                user_id,
+                id,
+                ctx.user.id
             )
             .await?;
         }
@@ -900,8 +897,6 @@ impl Trip {
         pool: &db::Pool,
         trip_id: Uuid,
     ) -> Result<i64, Error> {
-        let user_id = ctx.user.id.to_string();
-        let trip_id_param = trip_id.to_string();
         let weight = crate::execute_returning!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -922,8 +917,8 @@ impl Trip {
             ",
             i64,
             |row| i64::from(row.total_weight),
-            trip_id_param,
-            user_id,
+            trip_id,
+            ctx.user.id
         )
         .await?;
 
@@ -980,8 +975,6 @@ impl Trip {
 
     #[tracing::instrument]
     pub async fn load_trips_types(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
-        let user_id = ctx.user.id.to_string();
-        let id = self.id.to_string();
         let types = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -991,25 +984,26 @@ impl Trip {
             TripTypeRow,
             TripType,
             "
+            WITH trips AS (
+                SELECT type.id as id, trip.user_id as user_id
+                FROM trips as trip
+                INNER JOIN trips_to_trips_types as ttt
+                    ON ttt.trip_id = trip.id
+                INNER JOIN trips_types AS type
+                    ON type.id = ttt.trip_type_id
+                WHERE trip.id = $1 AND trip.user_id = $2
+            )
             SELECT
                 type.id as id,
                 type.name as name,
-                inner.id IS NOT NULL AS active
+                trips.id IS NOT NULL AS active
             FROM trips_types AS type
-                LEFT JOIN (
-                    SELECT type.id as id, trip.user_id as user_id
-                    FROM trips as trip
-                    INNER JOIN trips_to_trips_types as ttt
-                        ON ttt.trip_id = trip.id
-                    INNER JOIN trips_types AS type
-                        ON type.id == ttt.trip_type_id
-                    WHERE trip.id = $1 AND trip.user_id = $2
-                ) AS inner
-                ON inner.id = type.id
+                LEFT JOIN trips
+                ON trips.id = type.id
             WHERE type.user_id = $2
             ",
-            id,
-            user_id,
+            self.id,
+            ctx.user.id
         )
         .await?;
 
@@ -1034,9 +1028,6 @@ impl Trip {
         // * if the trip is not new, we have to make these new items prominently
         //   visible so the user knows that there might be new items to
         //   consider
-        let user_id = ctx.user.id.to_string();
-        let trip_id = self.id.to_string();
-
         struct Row {
             item_id: String,
         }
@@ -1064,13 +1055,12 @@ impl Trip {
                 LEFT JOIN (
                     SELECT t_item.item_id AS item_id, t_item.user_id AS user_id
                     FROM trips_items AS t_item
-                    WHERE t_item.trip_id = ? AND t_item.user_id = ?
+                    WHERE t_item.trip_id = $1 AND t_item.user_id = $2
                 ) AS t_item
                 ON t_item.item_id = i_item.id
-            WHERE t_item.item_id IS NULL AND i_item.user_id = ?",
-            trip_id,
-            user_id,
-            user_id,
+            WHERE t_item.item_id IS NULL AND i_item.user_id = $2",
+            self.id,
+            ctx.user.id
         )
         .await?;
 
@@ -1078,7 +1068,6 @@ impl Trip {
         let mark_as_new = self.state < TripState::Active;
 
         for unsynced_item in &unsynced_items {
-            let item_id = unsynced_item.to_string();
             crate::execute!(
                 &db::QueryClassification {
                     query_type: db::QueryType::Insert,
@@ -1096,15 +1085,15 @@ impl Trip {
                         new,
                         user_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ",
-                item_id,
-                trip_id,
+                unsynced_item,
+                self.id,
                 false,
                 false,
                 false,
                 mark_as_new,
-                user_id,
+                ctx.user.id
             )
             .await?;
         }
@@ -1119,9 +1108,6 @@ impl Trip {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
-        let id = self.id.to_string();
-        let user_id = ctx.user.id.to_string();
-
         struct Row {
             category_id: String,
             category_name: String,
@@ -1188,48 +1174,49 @@ impl Trip {
             Row,
             RowParsed,
             r#"
+                WITH trips_items AS (
+                    SELECT
+                        trip.trip_id AS trip_id,
+                        category.id AS category_id,
+                        category.name AS category_name,
+                        category.description AS category_description,
+                        item.id AS item_id,
+                        item.name AS item_name,
+                        item.description AS item_description,
+                        item.weight AS item_weight,
+                        trip.pick AS item_is_picked,
+                        trip.pack AS item_is_packed,
+                        trip.ready AS item_is_ready,
+                        trip.new AS item_is_new,
+                        trip.user_id AS user_id
+                    FROM trips_items AS trip
+                    INNER JOIN inventory_items AS item
+                        ON item.id = trip.item_id
+                    INNER JOIN inventory_items_categories AS category
+                        ON category.id = item.category_id
+                    WHERE trip.trip_id = $1 AND trip.user_id = $2
+                    
+                )
                 SELECT
-                    category.id as category_id,
-                    category.name as category_name,
+                    category.id AS category_id,
+                    category.name AS category_name,
                     category.description AS category_description,
-                    inner.trip_id AS trip_id,
-                    inner.item_id AS item_id,
-                    inner.item_name AS item_name,
-                    inner.item_description AS item_description,
-                    inner.item_weight AS item_weight,
-                    inner.item_is_picked AS item_is_picked,
-                    inner.item_is_packed AS item_is_packed,
-                    inner.item_is_ready AS item_is_ready,
-                    inner.item_is_new AS item_is_new
+                    trips_items.trip_id AS trip_id,
+                    trips_items.item_id AS item_id,
+                    trips_items.item_name AS item_name,
+                    trips_items.item_description AS item_description,
+                    trips_items.item_weight AS item_weight,
+                    trips_items.item_is_picked AS item_is_picked,
+                    trips_items.item_is_packed AS item_is_packed,
+                    trips_items.item_is_ready AS item_is_ready,
+                    trips_items.item_is_new AS item_is_new
                 FROM inventory_items_categories AS category
-                    LEFT JOIN (
-                        SELECT
-                            trip.trip_id AS trip_id,
-                            category.id as category_id,
-                            category.name as category_name,
-                            category.description as category_description,
-                            item.id as item_id,
-                            item.name as item_name,
-                            item.description as item_description,
-                            item.weight as item_weight,
-                            trip.pick as item_is_picked,
-                            trip.pack as item_is_packed,
-                            trip.ready as item_is_ready,
-                            trip.new as item_is_new,
-                            trip.user_id as user_id
-                        FROM trips_items as trip
-                        INNER JOIN inventory_items as item
-                            ON item.id = trip.item_id
-                        INNER JOIN inventory_items_categories as category
-                            ON category.id = item.category_id
-                        WHERE trip.trip_id = ? AND trip.user_id = ?
-                    ) AS inner
-                    ON inner.category_id = category.id
-                WHERE category.user_id = ?
+                    LEFT JOIN trips_items
+                    ON trips_items.category_id = category.id
+                WHERE category.user_id = $2
             "#,
-            id,
-            user_id,
-            user_id,
+            self.id,
+            ctx.user.id
         )
         .await?;
 
@@ -1348,7 +1335,6 @@ impl TryFrom<TripTypeRow> for TripType {
 impl TripsType {
     #[tracing::instrument]
     pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Self>, Error> {
-        let user_id = ctx.user.id.to_string();
         crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -1361,17 +1347,15 @@ impl TripsType {
                 id,
                 name
             FROM trips_types
-            WHERE user_id = ?",
-            user_id,
+            WHERE user_id = $1",
+            ctx.user.id
         )
         .await
     }
 
     #[tracing::instrument]
     pub async fn save(ctx: &Context, pool: &db::Pool, name: &str) -> Result<Uuid, Error> {
-        let user_id = ctx.user.id.to_string();
         let id = Uuid::new_v4();
-        let id_param = id.to_string();
         crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Insert,
@@ -1381,10 +1365,10 @@ impl TripsType {
             "INSERT INTO trips_types
                 (id, name, user_id)
             VALUES
-                (?, ?, ?)",
-            id_param,
+                ($1, $2, $3)",
+            id,
             name,
-            user_id,
+            ctx.user.id
         )
         .await?;
 
@@ -1398,9 +1382,6 @@ impl TripsType {
         id: Uuid,
         new_name: &str,
     ) -> Result<bool, Error> {
-        let user_id = ctx.user.id.to_string();
-        let id_param = id.to_string();
-
         let result = crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Update,
@@ -1408,11 +1389,11 @@ impl TripsType {
             },
             pool,
             "UPDATE trips_types
-            SET name = ?
-            WHERE id = ? and user_id = ?",
+            SET name = $1
+            WHERE id = $2 and user_id = $3",
             new_name,
-            id_param,
-            user_id,
+            id,
+            ctx.user.id
         )
         .await?;
 

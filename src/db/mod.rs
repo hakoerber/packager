@@ -255,16 +255,15 @@ macro_rules! execute_returning_uuid {
             use futures::TryFutureExt as _;
             async {
                 $crate::db::sqlx_query($class, $query, &[]);
-                let result: Result<Uuid, Error> = sqlx::query!(
+                let result: Uuid = sqlx::query!(
                     $query,
                     $( $args )*
                 )
                 .fetch_one($pool)
-                .map_ok(|row| Uuid::try_parse(&row.id))
-                .await?
-                .map_err(Into::into);
+                .map_ok(|row| row.id)
+                .await?;
 
-                result
+                Ok(result)
 
 
             }.instrument(tracing::info_span!("packager::sql::query", "query"))

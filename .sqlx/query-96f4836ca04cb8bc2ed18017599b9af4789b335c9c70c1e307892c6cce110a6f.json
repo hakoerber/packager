@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id,username,fullname FROM users WHERE username = $1",
+  "query": "SELECT\n                id,\n                name\n            FROM trips_types\n            WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -10,25 +10,19 @@
       },
       {
         "ordinal": 1,
-        "name": "username",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 2,
-        "name": "fullname",
+        "name": "name",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
       false,
-      false,
       false
     ]
   },
-  "hash": "cb3f36a2760200a299ee79cd03b0b3b78286942e4c27fc3dd44a4f3ff974ed0f"
+  "hash": "96f4836ca04cb8bc2ed18017599b9af4789b335c9c70c1e307892c6cce110a6f"
 }

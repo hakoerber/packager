@@ -6,9 +6,9 @@
     "parameters": {
       "Left": [
         "Bool",
-        "Text",
-        "Text",
-        "Text"
+        "Uuid",
+        "Uuid",
+        "Uuid"
       ]
     },
     "nullable": []
