@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::components;
-use crate::components::crud::{Delete, Read, Update};
+use crate::components::crud::Delete;
 use crate::components::trips::todos;
 
 use crate::view::Component;

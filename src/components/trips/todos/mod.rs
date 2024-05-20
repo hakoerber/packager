@@ -122,13 +122,15 @@ impl std::fmt::Display for Id {
 }
 
 impl Id {
-    #[must_use] pub fn new(id: Uuid) -> Self {
+    #[must_use]
+    pub fn new(id: Uuid) -> Self {
         Self(id)
     }
 }
 
 impl Todo {
-    #[must_use] pub fn is_done(&self) -> bool {
+    #[must_use]
+    pub fn is_done(&self) -> bool {
         self.state == State::Done
     }
 }

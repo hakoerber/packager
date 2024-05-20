@@ -58,7 +58,7 @@ impl InventoryCategoryList {
     )]
     pub fn build(
         active_category: Option<&models::inventory::Category>,
-        categories: &Vec<models::inventory::Category>,
+        categories: &[models::inventory::Category],
     ) -> Markup {
         let biggest_category_weight: i32 = categories
             .iter()

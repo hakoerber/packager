@@ -14,7 +14,8 @@ pub enum Icon {
 }
 
 impl Icon {
-    #[must_use] pub fn mdi_class(&self) -> &'static str {
+    #[must_use]
+    pub fn mdi_class(&self) -> &'static str {
         match self {
             Icon::Edit => "mdi-pencil",
             Icon::Delete => "mdi-delete",
@@ -23,7 +24,8 @@ impl Icon {
         }
     }
 
-    #[must_use] pub fn background(&self) -> &'static str {
+    #[must_use]
+    pub fn background(&self) -> &'static str {
         match self {
             Icon::Edit => "bg-blue-200",
             Icon::Delete => "bg-red-200",
@@ -32,7 +34,8 @@ impl Icon {
         }
     }
 
-    #[must_use] pub fn background_hover(&self) -> &'static str {
+    #[must_use]
+    pub fn background_hover(&self) -> &'static str {
         match self {
             Icon::Edit => "hover:bg-blue-400",
             Icon::Delete => "hover:bg-red-400",

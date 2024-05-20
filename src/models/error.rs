@@ -1,1 +1,1 @@
-pub use crate::db::error::{Error, QueryError, DatabaseError};
+pub use crate::db::error::{DatabaseError, Error, QueryError};

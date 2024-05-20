@@ -27,11 +27,13 @@ pub enum TripState {
 
 #[allow(clippy::new_without_default)]
 impl TripState {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         TripState::Init
     }
 
-    #[must_use] pub fn next(&self) -> Option<Self> {
+    #[must_use]
+    pub fn next(&self) -> Option<Self> {
         match self {
             Self::Init => Some(Self::Planning),
             Self::Planning => Some(Self::Planned),
@@ -42,7 +44,8 @@ impl TripState {
         }
     }
 
-    #[must_use] pub fn prev(&self) -> Option<Self> {
+    #[must_use]
+    pub fn prev(&self) -> Option<Self> {
         match self {
             Self::Init => None,
             Self::Planning => Some(Self::Init),
@@ -180,7 +183,7 @@ impl TripCategory {
                                 id: item_id,
                                 name: row.item_name.unwrap(),
                                 description: row.item_description,
-                                weight: row.item_weight.unwrap().try_into().unwrap(),
+                                weight: row.item_weight.unwrap(),
                                 category_id: row.category_id,
                             },
                             picked: row.item_is_picked.unwrap(),

@@ -206,7 +206,8 @@ impl<'hc, R> List<'hc, R>
 where
     R: Row,
 {
-    #[must_use] pub fn render(self) -> Markup {
+    #[must_use]
+    pub fn render(self) -> Markup {
         html!(
             table
                 id=[self.id]
