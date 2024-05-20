@@ -44,7 +44,7 @@ pub struct ClientState {
 }
 
 impl ClientState {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         ClientState {
             active_category_id: None,
             edit_item: None,

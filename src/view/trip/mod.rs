@@ -441,7 +441,7 @@ where
                                 id="new-value"
                                 name="new-value"
                                 form="edit-trip"
-                                value=(value.0.map_or(String::new(), |v| v.to_string()))
+                                value=(value.0.map_or(String::new(), std::string::ToString::to_string))
                             {}
                         }
                     }
@@ -504,7 +504,7 @@ where
                     }
                 } @else {
                     td ."border" ."p-2" { (name) }
-                    td ."border" ."p-2" { (value.0.map_or(String::new(), |v| v.to_string())) }
+                    td ."border" ."p-2" { (value.0.map_or(String::new(), std::string::ToString::to_string)) }
                     td
                         ."border-none"
                         ."bg-blue-100"
@@ -979,8 +979,8 @@ impl TripCategoryListRow {
                             format!(
                                 "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
                                 width=(
-                                    (category.total_picked_weight() as f64)
-                                    / (biggest_category_weight as f64)
+                                    f64::from(category.total_picked_weight())
+                                    / f64::from(biggest_category_weight)
                                     * 100.0
                                 )
                             )
@@ -1284,7 +1284,7 @@ impl TripItemListRow {
                     position:absolute;
                     left:0;
                     bottom:0;
-                    right:0;", width=((item.item.weight as f64) / (biggest_item_weight as f64) * 100.0))) {}
+                    right:0;", width=(f64::from(item.item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
                 }
             }
         )

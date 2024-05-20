@@ -15,7 +15,7 @@ use db::Database as _;
 impl std::process::Termination for MainResult {
     fn report(self) -> std::process::ExitCode {
         match self.0 {
-            Ok(_) => ExitCode::SUCCESS,
+            Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("Error: {e}");
                 ExitCode::FAILURE
@@ -185,7 +185,7 @@ async fn main() -> MainResult {
                                 println!(
                                     "User \"{}\" created successfully (id {})",
                                     &user.username, id
-                                )
+                                );
                             }
                         },
                     },

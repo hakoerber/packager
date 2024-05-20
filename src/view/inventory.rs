@@ -330,7 +330,7 @@ impl InventoryItemList {
                                             position:absolute;
                                             left:0;
                                             bottom:0;
-                                            right:0;", width=((item.weight as f64) / (biggest_item_weight as f64) * 100.0))) {}
+                                            right:0;", width=(f64::from(item.weight) / f64::from(biggest_item_weight) * 100.0))) {}
                                         }
                                         td
                                             ."border-none"

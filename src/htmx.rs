@@ -11,7 +11,7 @@ impl From<Event> for HeaderValue {
 }
 
 impl Event {
-    pub fn to_str(&self) -> &'static str {
+    #[must_use] pub fn to_str(&self) -> &'static str {
         match self {
             Self::TripItemEdited => "TripItemEdited",
         }

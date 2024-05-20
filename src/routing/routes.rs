@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::components;
-use crate::components::crud::*;
+use crate::components::crud::{Delete, Read, Update};
 use crate::components::trips::todos;
 
 use crate::view::Component;
@@ -149,7 +149,7 @@ pub async fn icon() -> impl IntoResponse {
 #[tracing::instrument]
 pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
     let mut out = String::new();
-    for (key, value) in headers.iter() {
+    for (key, value) in &headers {
         out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));
     }
     out
@@ -624,7 +624,7 @@ pub async fn trip_item_set_pick(
         )
         .await?,
     )
-    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -670,7 +670,7 @@ pub async fn trip_item_set_unpick(
         )
         .await?,
     )
-    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -716,7 +716,7 @@ pub async fn trip_item_set_pack(
         )
         .await?,
     )
-    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -762,7 +762,7 @@ pub async fn trip_item_set_unpack(
         )
         .await?,
     )
-    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -808,7 +808,7 @@ pub async fn trip_item_set_ready(
         )
         .await?,
     )
-    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -854,7 +854,7 @@ pub async fn trip_item_set_unready(
         )
         .await?,
     )
-    .map(|_| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]

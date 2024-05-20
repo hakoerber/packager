@@ -122,13 +122,13 @@ impl std::fmt::Display for Id {
 }
 
 impl Id {
-    pub fn new(id: Uuid) -> Self {
+    #[must_use] pub fn new(id: Uuid) -> Self {
         Self(id)
     }
 }
 
 impl Todo {
-    pub fn is_done(&self) -> bool {
+    #[must_use] pub fn is_done(&self) -> bool {
         self.state == State::Done
     }
 }
@@ -151,7 +151,7 @@ impl crud::Read for Todo {
             pool,
             TodoRow,
             Todo,
-            r#"
+            r"
                 SELECT
                     todo.id AS id,
                     todo.description AS description,
@@ -162,7 +162,7 @@ impl crud::Read for Todo {
                 WHERE
                     trips.id = $1
                     AND trips.user_id = $2
-            "#,
+            ",
             container.trip_id,
             ctx.user.id
         )
@@ -185,7 +185,7 @@ impl crud::Read for Todo {
             pool,
             TodoRow,
             Self,
-            r#"
+            r"
                 SELECT
                     todo.id AS id,
                     todo.description AS description,
@@ -197,7 +197,7 @@ impl crud::Read for Todo {
                     trips.id = $1
                     AND todo.id = $2
                     AND trips.user_id = $3
-            "#,
+            ",
             reference.container.trip_id,
             reference.id.0,
             ctx.user.id,
@@ -234,14 +234,14 @@ impl crud::Create for Todo {
                 component: db::Component::Todo,
             },
             pool,
-            r#"
+            r"
                 INSERT INTO trip_todos
                     (id, description, done, trip_id)
                 SELECT $1, $2, false, id as trip_id
                 FROM trips
                 WHERE id = $3 AND EXISTS(SELECT 1 FROM trips WHERE id = $3 and user_id = $4)
                 LIMIT 1
-            "#,
+            ",
             id.0,
             info.description,
             container.trip_id,
@@ -311,7 +311,7 @@ impl crud::Update for Todo {
                     pool,
                     TodoRow,
                     Todo,
-                    r#"
+                    r"
                         UPDATE trip_todos
                             SET done = $1
                         WHERE trip_id = $2
@@ -321,7 +321,7 @@ impl crud::Update for Todo {
                             id,
                             description,
                             done
-                    "#,
+                    ",
                     done,
                     reference.container.trip_id,
                     reference.id.0,
@@ -340,7 +340,7 @@ impl crud::Update for Todo {
                     pool,
                     TodoRow,
                     Todo,
-                    r#"
+                    r"
                         UPDATE trip_todos
                         SET description = $1
                         WHERE
@@ -351,7 +351,7 @@ impl crud::Update for Todo {
                             id,
                             description,
                             done
-                    "#,
+                    ",
                     new_description.0,
                     reference.id.0,
                     reference.container.trip_id,
@@ -382,12 +382,12 @@ impl crud::Delete for Todo {
                 component: db::Component::Todo,
             },
             &mut *(db.acquire().await?),
-            r#"
+            r"
                 DELETE FROM trip_todos
                 WHERE
                     id = $1
                     AND EXISTS (SELECT 1 FROM trips WHERE trip_id = $2 AND user_id = $3)
-            "#,
+            ",
             reference.id.0,
             reference.container.trip_id,
             ctx.user.id,

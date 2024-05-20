@@ -46,7 +46,7 @@ pub enum AuthError {
 }
 
 impl AuthError {
-    pub fn to_prom_metric_name(&self) -> &'static str {
+    #[must_use] pub fn to_prom_metric_name(&self) -> &'static str {
         match self {
             Self::AuthenticationUserNotFound { username: _ } => "user_not_found",
             Self::AuthenticationHeaderMissing => "header_missing",
@@ -70,7 +70,7 @@ impl AuthError {
 }
 
 impl<'a> AuthError {
-    pub fn to_prom_labels(&'a self) -> Vec<(&'static str, String)> {
+    #[must_use] pub fn to_prom_labels(&'a self) -> Vec<(&'static str, String)> {
         match self {
             Self::AuthenticationUserNotFound { username } => vec![("username", username.clone())],
             Self::AuthenticationHeaderMissing

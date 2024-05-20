@@ -30,11 +30,11 @@ impl<'a> view::View for List<'a> {
                 {
                     @for todo in self.todos {
                         @let state = input.edit_todo
-                            .map(|id| if todo.id == super::Id::new(id) {
+                            .map_or(super::UiState::Default, |id| if todo.id == super::Id::new(id) {
                                 super::UiState::Edit
                             } else {
                                 super::UiState::Default
-                            }).unwrap_or(super::UiState::Default);
+                            });
                         (todo.build(super::BuildInput{trip_id:self.trip.id, state}))
                     }
                     (NewTodo::build(&self.trip.id))

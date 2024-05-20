@@ -82,8 +82,8 @@ impl<'a> Cell<'a> {
                             format!(
                                 "width: {width}%;position:absolute;left:0;bottom:0;right:0;",
                                 width=(
-                                    (number.value as f64)
-                                    / (number.max_value as f64)
+                                    f64::from(number.value)
+                                    / f64::from(number.max_value)
                                     * 100.0
                                 )
                             )
@@ -206,7 +206,7 @@ impl<'hc, R> List<'hc, R>
 where
     R: Row,
 {
-    pub fn render(self) -> Markup {
+    #[must_use] pub fn render(self) -> Markup {
         html!(
             table
                 id=[self.id]
@@ -221,7 +221,7 @@ where
                     tr
                         ."h-10"
                     {
-                        @for header_cell in self.header.cells.iter() {
+                        @for header_cell in &self.header.cells {
                             th ."border" ."p-2" { (header_cell.as_ref().map_or("", |c| c.title())) }
                         }
                         @if self.editing_config.is_some() {
@@ -231,7 +231,7 @@ where
                     }
                 }
                 tbody {
-                    @for row in self.rows.into_iter() {
+                    @for row in self.rows {
                         @let active = row.is_active();
                         @let is_edit = row.is_edit();
                         tr

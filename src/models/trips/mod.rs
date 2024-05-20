@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::components::crud::*;
+use crate::components::crud::Read;
 
 use super::{
     error::{DatabaseError, Error, QueryError},
@@ -27,11 +27,11 @@ pub enum TripState {
 
 #[allow(clippy::new_without_default)]
 impl TripState {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         TripState::Init
     }
 
-    pub fn next(&self) -> Option<Self> {
+    #[must_use] pub fn next(&self) -> Option<Self> {
         match self {
             Self::Init => Some(Self::Planning),
             Self::Planning => Some(Self::Planned),
@@ -42,7 +42,7 @@ impl TripState {
         }
     }
 
-    pub fn prev(&self) -> Option<Self> {
+    #[must_use] pub fn prev(&self) -> Option<Self> {
         match self {
             Self::Init => None,
             Self::Planning => Some(Self::Init),
@@ -202,7 +202,7 @@ impl TripCategory {
             pool,
             Row,
             RowParsed,
-            r#"
+            r"
                 WITH category_items AS (
                      SELECT
                         trip.trip_id AS trip_id,
@@ -243,7 +243,7 @@ impl TripCategory {
                     LEFT JOIN category_items AS items
                     ON items.category_id = category.id
                 WHERE category.id = $3
-            "#,
+            ",
             trip_id,
             ctx.user.id,
             category_id
@@ -540,7 +540,7 @@ macro_rules! build_trip_edit {
             use maud::Markup;
             use crate::view::trip::{self, InputType};
 
-            pub fn info(
+            #[must_use] pub fn info(
                 trip: &super::Trip,
                 trip_edit_attribute: Option<&super::TripAttribute>,
             ) -> Vec<Markup> {
@@ -850,7 +850,7 @@ impl Trip {
                     component: db::Component::Trips,
                 },
                 &mut *transaction,
-                r#"INSERT INTO trip_items (
+                r"INSERT INTO trip_items (
                     item_id,
                     trip_id,
                     pick,
@@ -867,7 +867,7 @@ impl Trip {
                     false as new,
                     user_id
                 FROM trip_items
-                WHERE trip_id = $2 AND user_id = $3"#,
+                WHERE trip_id = $2 AND user_id = $3",
                 id,
                 copy_from_trip_id,
                 ctx.user.id
@@ -880,7 +880,7 @@ impl Trip {
                     component: db::Component::Trips,
                 },
                 &mut *transaction,
-                r#"INSERT INTO trip_items (
+                r"INSERT INTO trip_items (
                     item_id,
                     trip_id,
                     pick,
@@ -897,7 +897,7 @@ impl Trip {
                     false as new,
                     user_id
                 FROM inventory_items
-                WHERE user_id = $2"#,
+                WHERE user_id = $2",
                 id,
                 ctx.user.id
             )
@@ -1191,7 +1191,7 @@ impl Trip {
             pool,
             Row,
             RowParsed,
-            r#"
+            r"
                 WITH trip_items AS (
                     SELECT
                         trip.trip_id AS trip_id,
@@ -1232,7 +1232,7 @@ impl Trip {
                     LEFT JOIN trip_items
                     ON trip_items.category_id = category.id
                 WHERE category.user_id = $2
-            "#,
+            ",
             self.id,
             ctx.user.id
         )
