@@ -484,7 +484,7 @@ pub struct Trip {
 }
 
 macro_rules! build_trip_edit {
-    ( $( ($name:ident, $wire:expr, $type:path) ),* $(,)? ) => {
+    ( $( ($name:ident, $id:ident, $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
         #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
         pub enum TripAttributeUpdate {
             $(
@@ -535,6 +535,31 @@ macro_rules! build_trip_edit {
                 }
             }
         )*
+
+        pub mod view {
+            use maud::Markup;
+            use crate::view::trip::{self, InputType};
+
+            pub fn info(
+                trip: &super::Trip,
+                trip_edit_attribute: Option<&super::TripAttribute>,
+            ) -> Vec<Markup> {
+                vec![
+                    $(
+                        {
+                            trip::TripInfoRow::build(
+                                $human,
+                                (&trip.$id).into(),
+                                super::TripAttribute::$name,
+                                trip_edit_attribute,
+                                InputType::$input,
+                            )
+                        },
+                    )*
+                ]
+            }
+            }
+
 
         pub mod routes {
             use axum::{
@@ -597,17 +622,16 @@ macro_rules! build_trip_edit {
                 }
             }
         }
-
     }
 }
 
 build_trip_edit! {
-    (Name, "name", String),
-    (DateStart, "date_start", time::Date),
-    (DateEnd, "date_end", time::Date),
-    (Location, "location", String),
-    (TempMin, "temp_min", i32),
-    (TempMax, "temp_max", i32),
+    (Name, name, "Name", "name", String, Text),
+    (DateStart, date_start, "Start date", "date_start", time::Date, Date),
+    (DateEnd, date_end, "End date", "date_end", time::Date, Date),
+    (Location, location, "Location", "location", String, Text),
+    (TempMin, temp_min, "Temp (min)", "temp_min", i32, Number),
+    (TempMax, temp_max, "Temp (max)", "temp_max", i32, Number),
 }
 
 impl Trip {

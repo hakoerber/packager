@@ -381,18 +381,46 @@ impl Trip {
     }
 }
 
-pub struct TripInfoRow;
+pub struct TripInfoRow<T>(std::marker::PhantomData<T>)
+where
+    T: std::fmt::Debug + std::fmt::Display;
 
-impl TripInfoRow {
+#[derive(Debug)]
+pub struct AttributeValue<'a, T>(pub Option<&'a T>)
+where
+    T: std::fmt::Debug + std::fmt::Display;
+
+impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T>
+where
+    T: std::fmt::Debug + std::fmt::Display,
+{
+    fn from(value: &'a Option<T>) -> Self {
+        Self(value.as_ref())
+    }
+}
+
+impl<'a, T> From<&'a T> for AttributeValue<'a, T>
+where
+    T: std::fmt::Debug + std::fmt::Display,
+{
+    fn from(value: &'a T) -> Self {
+        Self(Some(value))
+    }
+}
+
+impl<T> TripInfoRow<T>
+where
+    T: std::fmt::Debug + std::fmt::Display,
+{
     #[tracing::instrument]
     pub fn build(
         name: &str,
-        value: Option<impl std::fmt::Display + std::fmt::Debug>,
-        attribute_key: &models::trips::TripAttribute,
+        value: AttributeValue<T>,
+        attribute_key: models::trips::TripAttribute,
         edit_attribute: Option<&models::trips::TripAttribute>,
         input_type: InputType,
     ) -> Markup {
-        let edit = edit_attribute.map_or(false, |a| a == attribute_key);
+        let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
         html!(
             @if edit {
                 form
@@ -413,7 +441,7 @@ impl TripInfoRow {
                                 id="new-value"
                                 name="new-value"
                                 form="edit-trip"
-                                value=(value.map_or(String::new(), |v| v.to_string()))
+                                value=(value.0.map_or(String::new(), |v| v.to_string()))
                             {}
                         }
                     }
@@ -476,7 +504,7 @@ impl TripInfoRow {
                     }
                 } @else {
                     td ."border" ."p-2" { (name) }
-                    td ."border" ."p-2" { (value.map_or(String::new(), |v| v.to_string())) }
+                    td ."border" ."p-2" { (value.0.map_or(String::new(), |v| v.to_string())) }
                     td
                         ."border-none"
                         ."bg-blue-100"
@@ -646,36 +674,10 @@ impl TripInfo {
                 ."w-full"
             {
                 tbody {
-                    (TripInfoRow::build("Location",
-                        trip.location.as_ref(),
-                        &models::trips::TripAttribute::Location,
-                        trip_edit_attribute,
-                        InputType::Text,
-                    ))
-                    (TripInfoRow::build("Start date",
-                        Some(trip.date_start),
-                        &models::trips::TripAttribute::DateStart,
-                        trip_edit_attribute,
-                        InputType::Date,
-                    ))
-                    (TripInfoRow::build("End date",
-                        Some(trip.date_end),
-                        &models::trips::TripAttribute::DateEnd,
-                        trip_edit_attribute,
-                        InputType::Date,
-                    ))
-                    (TripInfoRow::build("Temp (min)",
-                        trip.temp_min,
-                        &models::trips::TripAttribute::TempMin,
-                        trip_edit_attribute,
-                        InputType::Number,
-                    ))
-                    (TripInfoRow::build("Temp (max)",
-                        trip.temp_max,
-                        &models::trips::TripAttribute::TempMax,
-                        trip_edit_attribute,
-                        InputType::Number,
-                    ))
+                    @for row in crate::models::trips::view::info(trip, trip_edit_attribute) {
+                        (row)
+                    }
+
                     (TripInfoStateRow::build(&trip.state))
                     tr .h-full {
                         td ."border" ."p-2" { "Types" }
