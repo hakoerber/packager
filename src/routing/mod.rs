@@ -117,7 +117,7 @@ pub fn router(state: AppState) -> Router {
                         .route("/:id/total_weight", get(trip_total_weight_htmx))
                         .route("/:id/type/:id/add", get(trip_type_add))
                         .route("/:id/type/:id/remove", get(trip_type_remove))
-                        .route("/:id/edit/:attribute/submit", post(trip_edit_attribute))
+                        .nest("/:id/edit/", crate::models::trips::routes::router())
                         .route(
                             "/:id/items/:id/pick",
                             get(trip_item_set_pick).post(trip_item_set_pick_htmx),

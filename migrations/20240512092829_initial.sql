@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS "inventory_items" (
     description TEXT,
     weight INTEGER NOT NULL,
     category_id uuid NOT NULL,
-    product_id uuid NOT NULL,
+    product_id uuid,
     user_id uuid NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (category_id) REFERENCES inventory_items_categories(id),

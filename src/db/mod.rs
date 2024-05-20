@@ -202,15 +202,36 @@ macro_rules! strip_plus {
 }
 
 #[macro_export]
+macro_rules! execute_unchecked {
+    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {{
+        use tracing::Instrument as _;
+        async {
+            $crate::db::sqlx_query($class, $query, &[]);
+            let query = sqlx::query($query);
+
+            $(
+                let query = query.bind($args);
+            )*
+
+            let result: Result<sqlx::postgres::PgQueryResult, Error> =
+                query.execute($pool).await.map_err(|e| e.into());
+
+            result
+        }
+        .instrument(tracing::info_span!("packager::sql::query", "query"))
+    }};
+}
+
+#[macro_export]
 macro_rules! execute {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
+    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             async {
                 $crate::db::sqlx_query($class, $query, &[]);
                 let result: Result<sqlx::postgres::PgQueryResult, Error> = sqlx::query!(
                     $query,
-                    $( $args )*
+                    $( $args ),*
                 )
                 .execute($pool)
                 .await
@@ -224,7 +245,7 @@ macro_rules! execute {
 
 #[macro_export]
 macro_rules! execute_returning {
-    ( $class:expr, $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:tt )*) => {
+    ( $class:expr, $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:expr ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
@@ -232,7 +253,7 @@ macro_rules! execute_returning {
                 $crate::db::sqlx_query($class, $query, &[]);
                 let result: Result<$t, Error> = sqlx::query!(
                     $query,
-                    $( $args )*
+                    $( $args, )*
                 )
                 .fetch_one($pool)
                 .map_ok($fn)
@@ -249,7 +270,7 @@ macro_rules! execute_returning {
 
 #[macro_export]
 macro_rules! execute_returning_uuid {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
+    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
@@ -257,7 +278,7 @@ macro_rules! execute_returning_uuid {
                 $crate::db::sqlx_query($class, $query, &[]);
                 let result: Uuid = sqlx::query!(
                     $query,
-                    $( $args )*
+                    $( $args ),*
                 )
                 .fetch_one($pool)
                 .map_ok(|row| row.id)

@@ -90,13 +90,6 @@ pub struct CommentUpdate {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct TripUpdate {
-    #[serde(rename = "new-value")]
-    new_value: String,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
 pub struct NewCategory {
     #[serde(rename = "new-category-name")]
     name: String,
@@ -551,26 +544,6 @@ pub async fn trip_comment_set(
             message: format!("trip with id {trip_id} not found"),
         }))
     }
-}
-
-#[tracing::instrument]
-pub async fn trip_edit_attribute(
-    Extension(current_user): Extension<models::user::User>,
-    State(state): State<AppState>,
-    Path((trip_id, attribute)): Path<(Uuid, models::trips::TripAttributeUpdate)>,
-    Form(trip_update): Form<TripUpdate>,
-) -> Result<Redirect, Error> {
-    let ctx = Context::build(current_user);
-    if let models::trips::TripAttributeUpdate::Name(ref s) = attribute {
-        if s.is_empty() {
-            return Err(Error::Request(RequestError::EmptyFormElement {
-                name: "name".to_string(),
-            }));
-        }
-    }
-    models::trips::Trip::set_attribute(&ctx, &state.database_pool, trip_id, attribute).await?;
-
-    Ok(Redirect::to(&format!("/trips/{trip_id}/")))
 }
 
 #[tracing::instrument]

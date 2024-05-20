@@ -27,6 +27,7 @@ opt-level = 0
 lto = "off"
 
 [dependencies]
+paste = "1.0.15"
 
 [dependencies.async-trait]
 version = "0.1"

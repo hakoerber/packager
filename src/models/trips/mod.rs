@@ -483,36 +483,131 @@ pub struct Trip {
     pub categories: Option<Vec<TripCategory>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum TripAttributeUpdate {
-    #[serde(rename = "name")]
-    Name(String),
-    #[serde(rename = "date_start")]
-    DateStart(time::Date),
-    #[serde(rename = "date_end")]
-    DateEnd(time::Date),
-    #[serde(rename = "location")]
-    Location(String),
-    #[serde(rename = "temp_min")]
-    TempMin(i32),
-    #[serde(rename = "temp_max")]
-    TempMax(i32),
+macro_rules! build_trip_edit {
+    ( $( ($name:ident, $wire:expr, $type:path) ),* $(,)? ) => {
+        #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+        pub enum TripAttributeUpdate {
+            $(
+                #[serde(rename = $wire)]
+                $name($type),
+            )*
+        }
+
+        #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+        pub enum TripAttribute {
+            $(
+                #[serde(rename = $wire)]
+                $name,
+            )*
+        }
+
+        $(
+            paste::paste! {
+                #[tracing::instrument]
+                pub async fn [<set_attribute_ $name:lower >] (
+                    ctx: &Context,
+                    pool: &db::Pool,
+                    trip_id: Uuid,
+                    value: $type,
+                ) -> Result<(), Error> {
+                    let result = crate::execute_unchecked!(
+                        &db::QueryClassification {
+                            query_type: db::QueryType::Update,
+                            component: db::Component::Trips,
+                        },
+                        pool,
+                        concat!(
+                            "UPDATE trips ",
+                                "SET ", stringify!([< $wire >]), " = $1 ",
+                                "WHERE id = $2 AND user_id = $3"
+                        ),
+                        value,
+                        trip_id,
+                        ctx.user.id,
+                    )
+                    .await?;
+
+                    (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
+                        Error::Query(QueryError::NotFound {
+                            description: format!("trip {trip_id} not found"),
+                        })
+                    })
+                }
+            }
+        )*
+
+        pub mod routes {
+            use axum::{
+                extract::{Extension, Path, State},
+                response::{Redirect},
+                Form,
+            };
+
+            use serde::Deserialize;
+            use uuid::Uuid;
+
+            use crate::{AppState, models, Error, Context};
+
+            $(
+                paste::paste! {
+                    #[derive(Deserialize, Debug)]
+                    #[serde(deny_unknown_fields)]
+                    pub struct [< TripEditUpdate $name >] {
+                        #[serde(rename = "new-value")]
+                        value: $type,
+                    }
+
+                    impl From<[< TripEditUpdate $name >]> for crate::models::trips::TripAttributeUpdate {
+                        fn from(v: [< TripEditUpdate $name >]) -> Self {
+                            Self::$name(v.value)
+                        }
+                    }
+
+                    impl From<[< TripEditUpdate $name >]> for $type {
+                        fn from(v: [< TripEditUpdate $name >]) -> Self {
+                            v.value
+                        }
+                    }
+
+                    #[tracing::instrument]
+                    pub async fn [<trip_edit_attribute_ $name:lower >] (
+                        Extension(current_user): Extension<models::user::User>,
+                        State(state): State<AppState>,
+                        Path((trip_id,)): Path<(Uuid,)>,
+                        Form(trip_update): Form<[< TripEditUpdate $name >]>,
+                    ) -> Result<Redirect, Error> {
+                        let ctx = Context::build(current_user);
+                        models::trips::[<set_attribute_ $name:lower >](&ctx, &state.database_pool, trip_id, trip_update.into())
+                            .await?;
+
+                        Ok(Redirect::to(&format!("/trips/{trip_id}/")))
+                    }
+                }
+            )*
+
+            paste::paste! {
+                pub fn router() -> axum::Router<AppState> {
+                    axum::Router::new()
+                    $(
+                        .route(
+                            concat!("/", $wire,  "/submit" ),
+                            axum::routing::post([<trip_edit_attribute_ $name:lower >])
+                        )
+                    )*
+                }
+            }
+        }
+
+    }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum TripAttribute {
-    #[serde(rename = "name")]
-    Name,
-    #[serde(rename = "date_start")]
-    DateStart,
-    #[serde(rename = "date_end")]
-    DateEnd,
-    #[serde(rename = "location")]
-    Location,
-    #[serde(rename = "temp_min")]
-    TempMin,
-    #[serde(rename = "temp_max")]
-    TempMax,
+build_trip_edit! {
+    (Name, "name", String),
+    (DateStart, "date_start", time::Date),
+    (DateEnd, "date_end", time::Date),
+    (Location, "location", String),
+    (TempMin, "temp_min", i32),
+    (TempMax, "temp_max", i32),
 }
 
 impl Trip {
@@ -599,7 +694,7 @@ impl Trip {
             ",
             id,
             type_id,
-            ctx.user.id
+            ctx.user.id,
         )
         .await?;
 
@@ -688,120 +783,6 @@ impl Trip {
         .await?;
 
         Ok(result.rows_affected() != 0)
-    }
-
-    #[tracing::instrument]
-    pub async fn set_attribute(
-        ctx: &Context,
-        pool: &db::Pool,
-        trip_id: Uuid,
-        attribute: TripAttributeUpdate,
-    ) -> Result<(), Error> {
-        let result = match attribute {
-            TripAttributeUpdate::Name(value) => {
-                crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
-                    },
-                    pool,
-                    "UPDATE trips
-                SET name = $1
-                WHERE id = $2 AND user_id = $3",
-                    value,
-                    trip_id,
-                    ctx.user.id
-                )
-                .await
-            }
-
-            TripAttributeUpdate::DateStart(value) => {
-                crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
-                    },
-                    pool,
-                    "UPDATE trips
-                SET date_start = $1
-                WHERE id = $2 AND user_id = $3",
-                    value,
-                    trip_id,
-                    ctx.user.id
-                )
-                .await
-            }
-            TripAttributeUpdate::DateEnd(value) => {
-                crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
-                    },
-                    pool,
-                    "UPDATE trips
-                SET date_end = $1
-                WHERE id = $2 AND user_id = $3",
-                    value,
-                    trip_id,
-                    ctx.user.id
-                )
-                .await
-            }
-            TripAttributeUpdate::Location(value) => {
-                crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
-                    },
-                    pool,
-                    "UPDATE trips
-                SET location = $1
-                WHERE id = $2 AND user_id = $3",
-                    value,
-                    trip_id,
-                    ctx.user.id
-                )
-                .await
-            }
-            TripAttributeUpdate::TempMin(value) => {
-                crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
-                    },
-                    pool,
-                    "UPDATE trips
-                SET temp_min = $1
-                WHERE id = $2 AND user_id = $3",
-                    value,
-                    trip_id,
-                    ctx.user.id
-                )
-                .await
-            }
-            TripAttributeUpdate::TempMax(value) => {
-                crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
-                    },
-                    pool,
-                    "UPDATE trips
-                SET temp_max = $1
-                WHERE id = $2 AND user_id = $3",
-                    value,
-                    trip_id,
-                    ctx.user.id
-                )
-                .await
-            }
-        }?;
-
-        (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-            Error::Query(QueryError::NotFound {
-                description: format!("trip {trip_id} not found"),
-            })
-        })
     }
 
     #[tracing::instrument]
