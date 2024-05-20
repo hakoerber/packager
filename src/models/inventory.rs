@@ -381,7 +381,7 @@ impl InventoryItem {
                     AND category.user_id = $2
             ",
             i32,
-            |row| i32::from(row.weight.unwrap()),
+            |row| row.weight.unwrap(),
             category_id,
             ctx.user.id
         )

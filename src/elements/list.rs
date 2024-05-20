@@ -188,7 +188,7 @@ pub struct HeaderCell<'a> {
 
 impl<'c> HeaderCell<'c> {
     fn title(&self) -> &str {
-        &self.title
+        self.title
     }
 }
 
