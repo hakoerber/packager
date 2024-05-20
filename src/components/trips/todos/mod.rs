@@ -28,7 +28,7 @@ use crate::{
 
 use async_trait::async_trait;
 
-use crate::models::trips::Trip;
+use super::model::Trip;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum State {
@@ -697,7 +697,7 @@ impl route::Delete for Todo {
             }));
         }
 
-        let trip = crate::models::trips::Trip::find(&ctx, &state.database_pool, trip_id).await?;
+        let trip = super::model::Trip::find(&ctx, &state.database_pool, trip_id).await?;
         match trip {
             None => Err(crate::Error::Request(RequestError::NotFound {
                 message: format!("trip with id {trip_id} not found"),
@@ -718,6 +718,9 @@ impl route::Delete for Todo {
 impl route::Router for Todo {
     fn router() -> axum::Router<AppState> {
         axum::Router::new()
+            .route("/:id/edit", post(edit_todo))
+            .route("/:id/edit/save", post(edit_todo_save))
+            .route("/:id/edit/cancel", post(edit_todo_cancel))
             .route("/new", axum::routing::post(<Self as route::Create>::create))
             .route(
                 "/:id/delete",
@@ -818,7 +821,7 @@ pub struct TripTodoDescription {
 }
 
 #[tracing::instrument]
-pub async fn trip_todo_edit(
+pub async fn edit_todo(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,
@@ -849,7 +852,7 @@ pub async fn trip_todo_edit(
 }
 
 #[tracing::instrument]
-pub async fn trip_todo_edit_save(
+pub async fn edit_todo_save(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,
@@ -888,7 +891,7 @@ pub async fn trip_todo_edit_save(
 }
 
 #[tracing::instrument]
-pub async fn trip_todo_edit_cancel(
+pub async fn edit_todo_cancel(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,

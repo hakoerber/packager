@@ -1,13 +1,11 @@
 use maud::{html, Markup};
 use uuid::Uuid;
 
-use crate::models;
-
 pub struct TripPackageListRowReady;
 
 impl TripPackageListRowReady {
     #[tracing::instrument]
-    pub fn build(trip_id: Uuid, item: &models::trips::TripItem) -> Markup {
+    pub fn build(trip_id: Uuid, item: &super::super::model::TripItem) -> Markup {
         html!(
             li
                 ."flex"
@@ -84,7 +82,7 @@ pub struct TripPackageListRowUnready;
 
 impl TripPackageListRowUnready {
     #[tracing::instrument]
-    pub fn build(trip_id: Uuid, item: &models::trips::TripItem) -> Markup {
+    pub fn build(trip_id: Uuid, item: &super::super::model::TripItem) -> Markup {
         html!(
             li
                 ."flex"
@@ -161,7 +159,10 @@ pub struct TripPackageListCategoryBlockReady;
 
 impl TripPackageListCategoryBlockReady {
     #[tracing::instrument]
-    pub fn build(trip: &models::trips::Trip, category: &models::trips::TripCategory) -> Markup {
+    pub fn build(
+        trip: &super::super::model::Trip,
+        category: &super::super::model::TripCategory,
+    ) -> Markup {
         let empty = !category
             .items
             .as_ref()
@@ -218,7 +219,10 @@ pub struct TripPackageListCategoryBlockUnready;
 
 impl TripPackageListCategoryBlockUnready {
     #[tracing::instrument]
-    pub fn build(trip: &models::trips::Trip, category: &models::trips::TripCategory) -> Markup {
+    pub fn build(
+        trip: &super::super::model::Trip,
+        category: &super::super::model::TripCategory,
+    ) -> Markup {
         let empty = !category
             .items
             .as_ref()
@@ -274,7 +278,7 @@ pub struct TripPackageList;
 
 impl TripPackageList {
     #[tracing::instrument]
-    pub fn build(trip: &models::trips::Trip) -> Markup {
+    pub fn build(trip: &super::super::model::Trip) -> Markup {
         // let all_packed = trip.categories().iter().all(|category| {
         //     category
         //         .items

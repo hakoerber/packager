@@ -41,7 +41,6 @@ pub mod error;
 pub mod home;
 pub mod inventory;
 pub mod root;
-pub mod trip;
 
 pub use error::ErrorPage;
 pub use root::Root;

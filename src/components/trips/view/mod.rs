@@ -1,5 +1,4 @@
 use crate::htmx;
-use crate::models;
 
 use maud::{html, Markup, PreEscaped};
 use uuid::Uuid;
@@ -15,7 +14,7 @@ use crate::components::{self, view::View};
 
 impl TripManager {
     #[tracing::instrument]
-    pub fn build(trips: Vec<models::trips::Trip>) -> Markup {
+    pub fn build(trips: Vec<super::model::Trip>) -> Markup {
         html!(
             div
                 ."p-8"
@@ -49,14 +48,14 @@ impl From<InputType> for &'static str {
     }
 }
 
-fn trip_state_icon(state: &models::trips::TripState) -> &'static str {
+fn trip_state_icon(state: &super::model::TripState) -> &'static str {
     match state {
-        models::trips::TripState::Init => "mdi-magic-staff",
-        models::trips::TripState::Planning => "mdi-text-box-outline",
-        models::trips::TripState::Planned => "mdi-clock-outline",
-        models::trips::TripState::Active => "mdi-play",
-        models::trips::TripState::Review => "mdi-magnify",
-        models::trips::TripState::Done => "mdi-check",
+        super::model::TripState::Init => "mdi-magic-staff",
+        super::model::TripState::Planning => "mdi-text-box-outline",
+        super::model::TripState::Planned => "mdi-clock-outline",
+        super::model::TripState::Active => "mdi-play",
+        super::model::TripState::Review => "mdi-magnify",
+        super::model::TripState::Done => "mdi-check",
     }
 }
 
@@ -64,7 +63,7 @@ pub struct TripTable;
 
 impl TripTable {
     #[tracing::instrument]
-    pub fn build(trips: &Vec<models::trips::Trip>) -> Markup {
+    pub fn build(trips: &Vec<super::model::Trip>) -> Markup {
         html!(
             table
                 ."table"
@@ -128,7 +127,7 @@ pub struct NewTrip;
 
 impl NewTrip {
     #[tracing::instrument(skip(trips))]
-    pub fn build(trips: &[models::trips::Trip]) -> Markup {
+    pub fn build(trips: &[super::model::Trip]) -> Markup {
         html!(
             form
                 name="new_trip"
@@ -256,9 +255,9 @@ pub struct Trip;
 impl Trip {
     #[tracing::instrument]
     pub fn build(
-        trip: &models::trips::Trip,
-        trip_edit_attribute: Option<&models::trips::TripAttribute>,
-        active_category: Option<&models::trips::TripCategory>,
+        trip: &super::model::Trip,
+        trip_edit_attribute: Option<&super::model::TripAttribute>,
+        active_category: Option<&super::model::TripCategory>,
         edit_todo: Option<Uuid>,
     ) -> Markup {
         html!(
@@ -291,10 +290,10 @@ impl Trip {
                             }
                         }
                         div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                            @if trip_edit_attribute.map_or(false, |a| *a == models::trips::TripAttribute::Name) {
+                            @if trip_edit_attribute.map_or(false, |a| *a == super::model::TripAttribute::Name) {
                                 form
                                     id="edit-trip"
-                                    action=(format!("edit/{}/submit", to_variant_name(&models::trips::TripAttribute::Name).unwrap()))
+                                    action=(format!("edit/{}/submit", to_variant_name(&super::model::TripAttribute::Name).unwrap()))
                                     target="_self"
                                     method="post"
                                 {
@@ -348,7 +347,7 @@ impl Trip {
                                 h1 ."text-2xl" { (trip.name) }
                                 span {
                                     a
-                                        href={"?edit=" (to_variant_name(&models::trips::TripAttribute::Name).unwrap())}
+                                        href={"?edit=" (to_variant_name(&super::model::TripAttribute::Name).unwrap())}
                                     {
                                         span
                                             ."mdi"
@@ -416,8 +415,8 @@ where
     pub fn build(
         name: &str,
         value: AttributeValue<T>,
-        attribute_key: models::trips::TripAttribute,
-        edit_attribute: Option<&models::trips::TripAttribute>,
+        attribute_key: super::model::TripAttribute,
+        edit_attribute: Option<&super::model::TripAttribute>,
         input_type: InputType,
     ) -> Markup {
         let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
@@ -555,7 +554,7 @@ pub struct TripInfoStateRow;
 
 impl TripInfoStateRow {
     #[tracing::instrument]
-    pub fn build(trip_state: &models::trips::TripState) -> Markup {
+    pub fn build(trip_state: &super::model::TripState) -> Markup {
         let prev_state = trip_state.prev();
         let next_state = trip_state.next();
         html!(
@@ -661,8 +660,8 @@ pub struct TripInfo;
 impl TripInfo {
     #[tracing::instrument]
     pub fn build(
-        trip_edit_attribute: Option<&models::trips::TripAttribute>,
-        trip: &models::trips::Trip,
+        trip_edit_attribute: Option<&super::model::TripAttribute>,
+        trip: &super::model::Trip,
     ) -> Markup {
         html!(
             table
@@ -674,7 +673,7 @@ impl TripInfo {
                 ."w-full"
             {
                 tbody {
-                    @for row in crate::models::trips::view::info(trip, trip_edit_attribute) {
+                    @for row in super::model::view::info(trip, trip_edit_attribute) {
                         (row)
                     }
 
@@ -705,8 +704,8 @@ impl TripInfo {
                                 // the margins
                                 {
                                     @let types = trip.types();
-                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&models::trips::TripType>>();
-                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&models::trips::TripType>>();
+                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&super::model::TripType>>();
+                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&super::model::TripType>>();
 
                                     @if !active_triptypes.is_empty() {
                                         div
@@ -804,7 +803,7 @@ pub struct TripComment;
 
 impl TripComment {
     #[tracing::instrument]
-    pub fn build(trip: &models::trips::Trip) -> Markup {
+    pub fn build(trip: &super::model::Trip) -> Markup {
         html!(
             div
                 x-data="{ save_active: false }"
@@ -860,8 +859,8 @@ pub struct TripItems;
 impl TripItems {
     #[tracing::instrument]
     pub fn build(
-        active_category: Option<&models::trips::TripCategory>,
-        trip: &models::trips::Trip,
+        active_category: Option<&super::model::TripCategory>,
+        trip: &super::model::Trip,
     ) -> Markup {
         html!(
             div #trip-items ."grid" ."grid-cols-4" ."gap-3" {
@@ -889,7 +888,7 @@ impl TripCategoryListRow {
     #[tracing::instrument]
     pub fn build(
         trip_id: Uuid,
-        category: &models::trips::TripCategory,
+        category: &super::model::TripCategory,
         active: bool,
         biggest_category_weight: i32,
         htmx_swap: bool,
@@ -997,14 +996,14 @@ pub struct TripCategoryList;
 impl TripCategoryList {
     #[tracing::instrument]
     pub fn build(
-        active_category: Option<&models::trips::TripCategory>,
-        trip: &models::trips::Trip,
+        active_category: Option<&super::model::TripCategory>,
+        trip: &super::model::Trip,
     ) -> Markup {
         let categories = trip.categories();
 
         let biggest_category_weight: i32 = categories
             .iter()
-            .map(models::trips::TripCategory::total_picked_weight)
+            .map(super::model::TripCategory::total_picked_weight)
             .max()
             .unwrap_or(1);
 
@@ -1039,7 +1038,7 @@ impl TripCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(models::trips::TripCategory::total_picked_weight).sum::<i32>().to_string())
+                                (categories.iter().map(super::model::TripCategory::total_picked_weight).sum::<i32>().to_string())
                             }
                         }
                     }
@@ -1053,7 +1052,7 @@ pub struct TripItemList;
 
 impl TripItemList {
     #[tracing::instrument]
-    pub fn build(trip_id: Uuid, items: &Vec<models::trips::TripItem>) -> Markup {
+    pub fn build(trip_id: Uuid, items: &Vec<super::model::TripItem>) -> Markup {
         let biggest_item_weight: i32 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
         html!(
@@ -1093,11 +1092,7 @@ pub struct TripItemListRow;
 
 impl TripItemListRow {
     #[tracing::instrument]
-    pub fn build(
-        trip_id: Uuid,
-        item: &models::trips::TripItem,
-        biggest_item_weight: i32,
-    ) -> Markup {
+    pub fn build(trip_id: Uuid, item: &super::model::TripItem, biggest_item_weight: i32) -> Markup {
         html!(
             tr ."h-10" {
                 td

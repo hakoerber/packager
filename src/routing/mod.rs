@@ -11,14 +11,12 @@ use uuid::Uuid;
 use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
-use crate::{
-    components::{self, route::Router as _},
-    AppState, Error, RequestError, TopLevelPage,
-};
+use crate::{AppState, Error, RequestError, TopLevelPage};
 
 use super::auth;
 
-mod html;
+pub mod html;
+
 mod routes;
 use routes::*;
 
@@ -35,7 +33,7 @@ pub fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
         })
 }
 
-fn uuid_or_empty<'de, D>(input: D) -> Result<Option<Uuid>, D::Error>
+pub fn uuid_or_empty<'de, D>(input: D) -> Result<Option<Uuid>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -84,88 +82,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/debug", get(debug))
         .merge(
-            // thse are routes that require authentication
+            // these are routes that require authentication
             Router::new()
                 .route("/", get(root))
-                .nest(
-                    (&TopLevelPage::Trips.path()).into(),
-                    Router::new()
-                        .route("/", get(trips).post(trip_create))
-                        .route("/types/", get(trip_types).post(trip_type_create))
-                        .route("/types/:id/edit/name/submit", post(trip_types_edit_name))
-                        .route("/:id/", get(trip))
-                        .route("/:id/comment/submit", post(trip_comment_set))
-                        .route("/:id/categories/:id/select", post(trip_category_select))
-                        .route("/:id/packagelist/", get(trip_packagelist))
-                        .route(
-                            "/:id/packagelist/item/:id/pack",
-                            post(trip_item_packagelist_set_pack_htmx),
-                        )
-                        .route(
-                            "/:id/packagelist/item/:id/unpack",
-                            post(trip_item_packagelist_set_unpack_htmx),
-                        )
-                        .route(
-                            "/:id/packagelist/item/:id/ready",
-                            post(trip_item_packagelist_set_ready_htmx),
-                        )
-                        .route(
-                            "/:id/packagelist/item/:id/unready",
-                            post(trip_item_packagelist_set_unready_htmx),
-                        )
-                        .route("/:id/state/:id", post(trip_state_set))
-                        .route("/:id/total_weight", get(trip_total_weight_htmx))
-                        .route("/:id/type/:id/add", get(trip_type_add))
-                        .route("/:id/type/:id/remove", get(trip_type_remove))
-                        .nest("/:id/edit/", crate::models::trips::routes::router())
-                        .route(
-                            "/:id/items/:id/pick",
-                            get(trip_item_set_pick).post(trip_item_set_pick_htmx),
-                        )
-                        .route(
-                            "/:id/items/:id/unpick",
-                            get(trip_item_set_unpick).post(trip_item_set_unpick_htmx),
-                        )
-                        .route(
-                            "/:id/items/:id/pack",
-                            get(trip_item_set_pack).post(trip_item_set_pack_htmx),
-                        )
-                        .route(
-                            "/:id/items/:id/unpack",
-                            get(trip_item_set_unpack).post(trip_item_set_unpack_htmx),
-                        )
-                        .route(
-                            "/:id/items/:id/ready",
-                            get(trip_item_set_ready).post(trip_item_set_ready_htmx),
-                        )
-                        .route(
-                            "/:id/items/:id/unready",
-                            get(trip_item_set_unready).post(trip_item_set_unready_htmx),
-                        )
-                        // .route(
-                        //     "/:id/todo/:id/done",
-                        //     get(components::trips::todos::trip_todo_done)
-                        //         .post(components::trips::todos::trip_todo_done_htmx),
-                        // )
-                        // .route(
-                        //     "/:id/todo/:id/undone",
-                        //     get(components::trips::todos::trip_todo_undone)
-                        //         .post(components::trips::todos::trip_todo_undone_htmx),
-                        // )
-                        .route(
-                            "/:id/todo/:id/edit",
-                            post(components::trips::todos::trip_todo_edit),
-                        )
-                        .route(
-                            "/:id/todo/:id/edit/save",
-                            post(components::trips::todos::trip_todo_edit_save),
-                        )
-                        .route(
-                            "/:id/todo/:id/edit/cancel",
-                            post(components::trips::todos::trip_todo_edit_cancel),
-                        )
-                        .nest("/:id/todo/", components::trips::todos::Todo::router()),
-                )
+                .merge(crate::components::trips::routes::router())
                 .nest(
                     (&TopLevelPage::Inventory.path()).into(),
                     Router::new()

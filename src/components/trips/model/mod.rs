@@ -2,9 +2,9 @@ use std::fmt;
 
 use crate::components::crud::Read;
 
-use super::{
-    error::{DatabaseError, Error, QueryError},
-    inventory,
+use crate::{
+    models::error::{DatabaseError, Error, QueryError},
+    models::inventory,
 };
 
 use crate::{db, Context};
@@ -23,6 +23,18 @@ pub enum TripState {
     Active,
     Review,
     Done,
+}
+
+#[tracing::instrument]
+pub async fn trip_item_set_state(
+    ctx: &Context,
+    pool: &db::Pool,
+    trip_id: Uuid,
+    item_id: Uuid,
+    key: TripItemStateKey,
+    value: bool,
+) -> Result<(), Error> {
+    Ok(TripItem::set_state(ctx, &pool, trip_id, item_id, key, value).await?)
 }
 
 #[allow(clippy::new_without_default)]
@@ -541,7 +553,7 @@ macro_rules! build_trip_edit {
 
         pub mod view {
             use maud::Markup;
-            use crate::view::trip::{self, InputType};
+            use super::super::view::InputType;
 
             #[must_use] pub fn info(
                 trip: &super::Trip,
@@ -550,7 +562,7 @@ macro_rules! build_trip_edit {
                 vec![
                     $(
                         {
-                            trip::TripInfoRow::build(
+                            crate::components::trips::view::TripInfoRow::build(
                                 $human,
                                 (&trip.$id).into(),
                                 super::TripAttribute::$name,
@@ -585,7 +597,7 @@ macro_rules! build_trip_edit {
                         value: $type,
                     }
 
-                    impl From<[< TripEditUpdate $name >]> for crate::models::trips::TripAttributeUpdate {
+                    impl From<[< TripEditUpdate $name >]> for super::TripAttributeUpdate {
                         fn from(v: [< TripEditUpdate $name >]) -> Self {
                             Self::$name(v.value)
                         }
@@ -605,7 +617,7 @@ macro_rules! build_trip_edit {
                         Form(trip_update): Form<[< TripEditUpdate $name >]>,
                     ) -> Result<Redirect, Error> {
                         let ctx = Context::build(current_user);
-                        models::trips::[<set_attribute_ $name:lower >](&ctx, &state.database_pool, trip_id, trip_update.into())
+                        super::[<set_attribute_ $name:lower >](&ctx, &state.database_pool, trip_id, trip_update.into())
                             .await?;
 
                         Ok(Redirect::to(&format!("/trips/{trip_id}/")))
