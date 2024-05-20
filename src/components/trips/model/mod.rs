@@ -34,7 +34,7 @@ pub async fn trip_item_set_state(
     key: TripItemStateKey,
     value: bool,
 ) -> Result<(), Error> {
-    Ok(TripItem::set_state(ctx, &pool, trip_id, item_id, key, value).await?)
+    TripItem::set_state(ctx, pool, trip_id, item_id, key, value).await
 }
 
 #[allow(clippy::new_without_default)]
