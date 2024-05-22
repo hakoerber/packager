@@ -16,9 +16,6 @@ cargoargs=(
     --color=always
 )
 
-cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" migrate
-cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" admin user create --username hannes --fullname "Hannes Körber" || true
-
 serveargs=(
     --enable-opentelemetry true
     --enable-tokio-console true
