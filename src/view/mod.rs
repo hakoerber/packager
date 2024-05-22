@@ -39,7 +39,6 @@ use maud::Markup;
 
 pub mod error;
 pub mod home;
-pub mod inventory;
 pub mod root;
 
 pub use error::ErrorPage;

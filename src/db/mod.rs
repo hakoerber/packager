@@ -4,7 +4,6 @@ use std::fmt;
 
 pub mod error;
 pub mod postgres;
-// pub mod sqlite;
 
 use crate::StartError;
 

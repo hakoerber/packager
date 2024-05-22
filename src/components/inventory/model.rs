@@ -1,4 +1,4 @@
-use super::Error;
+use crate::models::Error;
 use crate::{db, Context};
 
 use uuid::Uuid;

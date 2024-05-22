@@ -1,6 +1,9 @@
-pub mod items;
-pub mod model;
-pub mod packagelist;
-pub mod routes;
-pub mod todos;
-pub mod view;
+mod items;
+mod model;
+mod packagelist;
+mod routes;
+mod todos;
+mod view;
+
+pub use model::TripAttribute;
+pub use routes::router;

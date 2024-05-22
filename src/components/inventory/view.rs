@@ -1,15 +1,12 @@
 use maud::{html, Markup};
 
-use crate::models;
-use crate::ClientState;
-use crate::{
-    elements::{
-        self,
-        list::{self, Action, List},
-    },
-    models::inventory::Item,
+use crate::elements::{
+    self,
+    list::{self, Action, List},
 };
+use crate::ClientState;
 
+use super::model;
 use uuid::Uuid;
 
 pub struct Inventory;
@@ -22,8 +19,8 @@ impl Inventory {
         skip(categories)
     )]
     pub fn build(
-        active_category: Option<&models::inventory::Category>,
-        categories: &Vec<models::inventory::Category>,
+        active_category: Option<&model::Category>,
+        categories: &Vec<model::Category>,
         edit_item_id: Option<Uuid>,
     ) -> Markup {
         html!(
@@ -57,17 +54,17 @@ impl InventoryCategoryList {
         skip(categories)
     )]
     pub fn build(
-        active_category: Option<&models::inventory::Category>,
-        categories: &[models::inventory::Category],
+        active_category: Option<&model::Category>,
+        categories: &[model::Category],
     ) -> Markup {
         let biggest_category_weight: i32 = categories
             .iter()
-            .map(models::inventory::Category::total_weight)
+            .map(model::Category::total_weight)
             .max()
             .unwrap_or(1);
 
         struct Row<'a> {
-            category: &'a models::inventory::Category,
+            category: &'a model::Category,
             active: bool,
             biggest_category_weight: i32,
         }
@@ -136,11 +133,11 @@ impl InventoryItemList {
         fields(component = "InventoryItemList"),
         skip(items)
     )]
-    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<models::inventory::Item>) -> Markup {
+    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<model::Item>) -> Markup {
         let biggest_item_weight: i32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
 
         struct Row<'a> {
-            item: &'a Item,
+            item: &'a model::Item,
             biggest_item_weight: i32,
             edit_item_id: Option<Uuid>,
         }
@@ -485,8 +482,8 @@ impl InventoryNewItemFormCategory {
         skip(categories)
     )]
     pub fn build(
-        active_category: Option<&models::inventory::Category>,
-        categories: &Vec<models::inventory::Category>,
+        active_category: Option<&model::Category>,
+        categories: &Vec<model::Category>,
     ) -> Markup {
         html!(
             div
@@ -531,8 +528,8 @@ impl InventoryNewItemForm {
         skip(categories)
     )]
     pub fn build(
-        active_category: Option<&models::inventory::Category>,
-        categories: &Vec<models::inventory::Category>,
+        active_category: Option<&model::Category>,
+        categories: &Vec<model::Category>,
     ) -> Markup {
         html!(
             form
@@ -640,7 +637,7 @@ impl InventoryItem {
         name = "build_inventory_item",
         fields(component = "InventoryItem")
     )]
-    pub fn build(_state: &ClientState, item: &models::inventory::InventoryItem) -> Markup {
+    pub fn build(_state: &ClientState, item: &model::InventoryItem) -> Markup {
         html!(
             div ."p-8" {
                 table

@@ -2,16 +2,17 @@ use axum::{
     error_handling::HandleErrorLayer,
     http::{header::HeaderMap, StatusCode},
     middleware,
-    routing::{get, post},
+    routing::get,
     BoxError, Router,
 };
+
 use serde::de;
 use uuid::Uuid;
 
 use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
-use crate::{AppState, Error, RequestError, TopLevelPage};
+use crate::{AppState, Error, RequestError};
 
 use super::auth;
 
@@ -85,21 +86,8 @@ pub fn router(state: AppState) -> Router {
             // these are routes that require authentication
             Router::new()
                 .route("/", get(root))
-                .merge(crate::components::trips::routes::router())
-                .nest(
-                    (&TopLevelPage::Inventory.path()).into(),
-                    Router::new()
-                        .route("/", get(inventory_inactive))
-                        .route("/categories/:id/select", post(inventory_category_select))
-                        .route("/category/", post(inventory_category_create))
-                        .route("/category/:id/", get(inventory_active))
-                        .route("/item/", post(inventory_item_create))
-                        .route("/item/:id/", get(inventory_item))
-                        .route("/item/:id/cancel", get(inventory_item_cancel))
-                        .route("/item/:id/delete", get(inventory_item_delete))
-                        .route("/item/:id/edit", post(inventory_item_edit))
-                        .route("/item/name/validate", post(inventory_item_validate_name)),
-                )
+                .merge(crate::components::trips::router())
+                .merge(crate::components::inventory::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth::authorize,

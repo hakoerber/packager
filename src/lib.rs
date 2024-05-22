@@ -39,7 +39,7 @@ impl Context {
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
-    pub trip_edit_attribute: Option<components::trips::model::TripAttribute>,
+    pub trip_edit_attribute: Option<components::trips::TripAttribute>,
     pub trip_type_edit: Option<Uuid>,
 }
 

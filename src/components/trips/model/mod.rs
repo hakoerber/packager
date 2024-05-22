@@ -3,8 +3,8 @@ use std::fmt;
 use crate::components::crud::Read;
 
 use crate::{
-    models::error::{DatabaseError, Error, QueryError},
-    models::inventory,
+    components::inventory,
+    models::{DatabaseError, Error, QueryError},
 };
 
 use crate::{db, Context};

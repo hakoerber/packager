@@ -1,5 +1,5 @@
-pub mod error;
-pub mod inventory;
+mod error;
+
 pub mod user;
 
 pub use error::{DatabaseError, Error, QueryError};

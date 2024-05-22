@@ -1,3 +1,4 @@
+pub mod inventory;
 pub mod trips;
 
 pub mod crud {
