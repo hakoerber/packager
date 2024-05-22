@@ -155,7 +155,7 @@ macro_rules! query_one {
 
             async {
                 $crate::db::sqlx_query($class, $query, &[]);
-                let result: Result<Option<$struct_into>, crate::error::Error> = sqlx::query_as!(
+                let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_as!(
                     $struct_row,
                     $query,
                     $( $args )*
