@@ -157,7 +157,6 @@ impl TripCategory {
         struct Row {
             category_id: Uuid,
             category_name: String,
-            category_description: Option<String>,
             #[allow(dead_code)]
             trip_id: Option<Uuid>,
             item_id: Option<Uuid>,
@@ -182,7 +181,6 @@ impl TripCategory {
                 let category = inventory::Category {
                     id: row.category_id,
                     name: row.category_name,
-                    description: row.category_description,
                     items: None,
                 };
                 Ok(Self {
@@ -225,7 +223,6 @@ impl TripCategory {
                         trip.trip_id AS trip_id,
                         category.id AS category_id,
                         category.name AS category_name,
-                        category.description AS category_description,
                         item.id AS item_id,
                         item.name AS item_name,
                         item.description AS item_description,
@@ -246,7 +243,6 @@ impl TripCategory {
                 SELECT
                     category.id AS category_id,
                     category.name AS category_name,
-                    category.description AS category_description,
                     items.trip_id AS trip_id,
                     items.item_id AS item_id,
                     items.item_name AS item_name,
@@ -1147,7 +1143,6 @@ impl Trip {
         struct Row {
             category_id: Uuid,
             category_name: String,
-            category_description: Option<String>,
             #[allow(dead_code)]
             trip_id: Option<Uuid>,
             item_id: Option<Uuid>,
@@ -1172,7 +1167,6 @@ impl Trip {
                 let category = inventory::Category {
                     id: row.category_id,
                     name: row.category_name,
-                    description: row.category_description,
                     items: None,
                 };
                 Ok(Self {
@@ -1215,7 +1209,6 @@ impl Trip {
                         trip.trip_id AS trip_id,
                         category.id AS category_id,
                         category.name AS category_name,
-                        category.description AS category_description,
                         item.id AS item_id,
                         item.name AS item_name,
                         item.description AS item_description,
@@ -1236,7 +1229,6 @@ impl Trip {
                 SELECT
                     category.id AS category_id,
                     category.name AS category_name,
-                    category.description AS category_description,
                     trip_items.trip_id AS trip_id,
                     trip_items.item_id AS item_id,
                     trip_items.item_name AS item_name,

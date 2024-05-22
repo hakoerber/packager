@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS "inventory_products" (
 CREATE TABLE IF NOT EXISTS "inventory_items_categories" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
-    description TEXT,
     user_id uuid NOT NULL,
     PRIMARY KEY (id),
     UNIQUE (name),

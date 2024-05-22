@@ -20,8 +20,7 @@ impl Inventory {
             Category,
             "SELECT
                     id,
-                    name,
-                    description
+                    name
                 FROM inventory_items_categories
                 WHERE user_id = $1",
             ctx.user.id
@@ -40,14 +39,12 @@ impl Inventory {
 pub(crate) struct Category {
     pub id: Uuid,
     pub name: String,
-    pub description: Option<String>,
     pub items: Option<Vec<Item>>,
 }
 
 pub(crate) struct DbCategoryRow {
     pub id: Uuid,
     pub name: String,
-    pub description: Option<String>,
 }
 
 impl TryFrom<DbCategoryRow> for Category {
@@ -57,7 +54,6 @@ impl TryFrom<DbCategoryRow> for Category {
         Ok(Category {
             id: row.id,
             name: row.name,
-            description: row.description,
             items: None,
         })
     }
@@ -80,8 +76,7 @@ impl Category {
             Category,
             "SELECT
                 id,
-                name,
-                description
+                name
             FROM inventory_items_categories AS category
             WHERE
                 category.id = $1
@@ -181,7 +176,6 @@ struct DbInventoryItemRow {
     pub weight: i32,
     pub category_id: Uuid,
     pub category_name: String,
-    pub category_description: Option<String>,
     pub product_id: Option<Uuid>,
     pub product_name: Option<String>,
     pub product_description: Option<String>,
@@ -200,7 +194,6 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
             category: Category {
                 id: row.category_id,
                 name: row.category_name,
-                description: row.category_description,
                 items: None,
             },
             product: row
@@ -236,7 +229,6 @@ impl InventoryItem {
                     weight,
                     category.id AS category_id,
                     category.name AS category_name,
-                    category.description AS category_description,
                     product.id AS product_id,
                     product.name AS product_name,
                     product.description AS product_description,
