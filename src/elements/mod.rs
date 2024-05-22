@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-pub mod list;
+pub(crate) mod list;
 
-pub enum HxSwap {
+pub(crate) enum HxSwap {
     OuterHtml,
 }
 
-pub enum Icon {
+pub(crate) enum Icon {
     Edit,
     Delete,
     Save,
@@ -57,7 +57,7 @@ impl Display for HxSwap {
     }
 }
 
-pub struct HxConfig {
+pub(crate) struct HxConfig {
     pub hx_post: String,
     pub hx_swap: HxSwap,
     pub hx_target: &'static str,

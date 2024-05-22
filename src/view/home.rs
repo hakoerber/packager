@@ -1,6 +1,6 @@
 use maud::{html, Markup};
 
-pub struct Home;
+pub(crate) struct Home;
 
 impl Home {
     #[tracing::instrument]

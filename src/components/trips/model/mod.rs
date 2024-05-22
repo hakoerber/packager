@@ -16,7 +16,7 @@ use uuid::Uuid;
 #[derive(PartialEq, PartialOrd, Deserialize, Debug, sqlx::Type)]
 #[sqlx(type_name = "trip_state")]
 #[sqlx(rename_all = "lowercase")]
-pub enum TripState {
+pub(crate) enum TripState {
     Init,
     Planning,
     Planned,
@@ -26,7 +26,7 @@ pub enum TripState {
 }
 
 #[tracing::instrument]
-pub async fn trip_item_set_state(
+pub(crate) async fn trip_item_set_state(
     ctx: &Context,
     pool: &db::Pool,
     trip_id: Uuid,
@@ -107,7 +107,7 @@ impl std::convert::TryFrom<&str> for TripState {
 }
 
 #[derive(Serialize, Debug)]
-pub enum TripItemStateKey {
+pub(crate) enum TripItemStateKey {
     Pick,
     Pack,
     Ready,
@@ -128,7 +128,7 @@ impl fmt::Display for TripItemStateKey {
 }
 
 #[derive(Debug)]
-pub struct TripCategory {
+pub(crate) struct TripCategory {
     pub category: inventory::Category,
     pub items: Option<Vec<TripItem>>,
 }
@@ -291,7 +291,7 @@ impl TripCategory {
 
 // TODO refactor the bools into an enum
 #[derive(Debug)]
-pub struct TripItem {
+pub(crate) struct TripItem {
     pub item: inventory::Item,
     pub picked: bool,
     pub packed: bool,
@@ -299,7 +299,7 @@ pub struct TripItem {
     pub new: bool,
 }
 
-pub struct DbTripsItemsRow {
+pub(crate) struct DbTripsItemsRow {
     pub picked: bool,
     pub packed: bool,
     pub ready: bool,
@@ -449,7 +449,7 @@ impl TripItem {
     }
 }
 
-pub struct DbTripRow {
+pub(crate) struct DbTripRow {
     pub id: Uuid,
     pub name: String,
     pub date_start: time::Date,
@@ -483,7 +483,7 @@ impl TryFrom<DbTripRow> for Trip {
 }
 
 #[derive(Debug)]
-pub struct Trip {
+pub(crate) struct Trip {
     pub id: Uuid,
     pub name: String,
     pub date_start: time::Date,
@@ -1337,7 +1337,7 @@ impl Trip {
 }
 
 #[derive(Debug)]
-pub struct TripType {
+pub(crate) struct TripType {
     pub id: Uuid,
     pub name: String,
     pub active: bool,
@@ -1436,13 +1436,13 @@ pub(crate) struct DbTripsTypesRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum TripTypeAttribute {
+pub(crate) enum TripTypeAttribute {
     #[serde(rename = "name")]
     Name,
 }
 
 #[derive(Debug)]
-pub struct TripsType {
+pub(crate) struct TripsType {
     pub id: Uuid,
     pub name: String,
 }

@@ -2,24 +2,24 @@ use maud::{html, Markup};
 
 use super::HxConfig;
 
-pub struct Link<'a> {
+pub(crate) struct Link<'a> {
     pub text: &'a str,
     pub href: String,
     pub hx_config: Option<HxConfig>,
 }
 
-pub struct NumberWithBar {
+pub(crate) struct NumberWithBar {
     pub value: i32,
     pub max_value: i32,
 }
 
-pub enum CellType<'a> {
+pub(crate) enum CellType<'a> {
     Text(&'a str),
     Link(Link<'a>),
     NumberWithBar(NumberWithBar),
 }
 
-pub struct Cell<'a> {
+pub(crate) struct Cell<'a> {
     pub cell_type: CellType<'a>,
 }
 
@@ -95,7 +95,7 @@ impl<'a> Cell<'a> {
     }
 }
 
-pub struct Button {
+pub(crate) struct Button {
     pub icon: super::Icon,
     pub action: Action,
     pub hx_config: Option<HxConfig>,
@@ -150,12 +150,12 @@ impl Button {
     }
 }
 
-pub enum Action {
+pub(crate) enum Action {
     Href(String),
     Submit(&'static str),
 }
 
-pub struct EditingConfig {
+pub(crate) struct EditingConfig {
     pub edit_action: Action,
     pub edit_hx_config: Option<HxConfig>,
     pub delete_action: Action,
@@ -166,7 +166,7 @@ pub struct EditingConfig {
     pub cancel_hx_config: Option<HxConfig>,
 }
 
-pub trait Row {
+pub(crate) trait Row {
     fn is_active(&self) -> bool {
         false
     }
@@ -178,11 +178,11 @@ pub trait Row {
     fn cells(&self) -> Vec<Cell>;
 }
 
-pub struct Header<'c> {
+pub(crate) struct Header<'c> {
     pub cells: Vec<Option<HeaderCell<'c>>>,
 }
 
-pub struct HeaderCell<'a> {
+pub(crate) struct HeaderCell<'a> {
     pub title: &'a str,
 }
 
@@ -192,7 +192,7 @@ impl<'c> HeaderCell<'c> {
     }
 }
 
-pub struct List<'hc, R>
+pub(crate) struct List<'hc, R>
 where
     R: Row,
 {

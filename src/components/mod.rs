@@ -1,7 +1,7 @@
-pub mod inventory;
-pub mod trips;
+pub(crate) mod inventory;
+pub(crate) mod trips;
 
-pub mod crud {
+pub(crate) mod crud {
     use async_trait::async_trait;
 
     use crate::{db, models::Error, Context};
@@ -120,7 +120,7 @@ pub mod crud {
     }
 }
 
-pub mod view {
+pub(crate) mod view {
     use maud::Markup;
 
     pub trait View {
@@ -130,7 +130,7 @@ pub mod view {
     }
 }
 
-pub mod route {
+pub(crate) mod route {
     use async_trait::async_trait;
 
     use crate::{models::user::User, AppState};

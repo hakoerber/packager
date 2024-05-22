@@ -12,13 +12,13 @@ use super::models;
 use super::{AppState, AuthError, Error};
 
 #[derive(Clone, Debug)]
-pub enum Config {
+pub(crate) enum Config {
     Enabled,
     Disabled { assume_user: String },
 }
 
 #[tracing::instrument(name = "check_auth", skip(state, request, next))]
-pub async fn authorize(
+pub(crate) async fn authorize(
     State(state): State<AppState>,
     mut request: Request,
     next: Next,

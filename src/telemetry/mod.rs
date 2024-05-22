@@ -1,3 +1,3 @@
 #[cfg(feature = "prometheus")]
-pub mod metrics;
-pub mod tracing;
+pub(crate) mod metrics;
+pub(crate) mod tracing;

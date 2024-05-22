@@ -13,7 +13,7 @@ use super::{model, view};
 use crate::models::User;
 
 #[tracing::instrument]
-pub async fn base(
+pub(crate) async fn base(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
@@ -35,7 +35,7 @@ pub async fn base(
 }
 
 #[tracing::instrument]
-pub async fn set_item_pack_html(
+pub(crate) async fn set_item_pack_html(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -63,7 +63,7 @@ pub async fn set_item_pack_html(
 }
 
 #[tracing::instrument]
-pub async fn set_item_unpack_htmx(
+pub(crate) async fn set_item_unpack_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -93,7 +93,7 @@ pub async fn set_item_unpack_htmx(
 }
 
 #[tracing::instrument]
-pub async fn set_item_ready_htmx(
+pub(crate) async fn set_item_ready_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -121,7 +121,7 @@ pub async fn set_item_ready_htmx(
 }
 
 #[tracing::instrument]
-pub async fn set_item_unready_html(
+pub(crate) async fn set_item_unready_html(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
@@ -150,7 +150,7 @@ pub async fn set_item_unready_html(
     ))
 }
 
-pub fn router() -> Router<AppState> {
+pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(base))
         .route("/item/:id/pack", post(set_item_pack_html))

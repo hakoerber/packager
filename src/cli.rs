@@ -6,7 +6,7 @@ use crate::StartError;
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(ValueEnum, Clone, Copy, Debug)]
-pub enum BoolArg {
+pub(crate) enum BoolArg {
     True,
     False,
 }
@@ -39,7 +39,7 @@ impl From<BoolArg> for clap::builder::OsStr {
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-pub struct Args {
+pub(crate) struct Args {
     #[arg(long)]
     pub database_url: String,
 
@@ -68,7 +68,7 @@ pub struct Args {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Command {
+pub(crate) enum Command {
     Serve(Serve),
     #[command(subcommand)]
     Admin(Admin),
@@ -76,7 +76,7 @@ pub enum Command {
 }
 
 #[derive(Parser, Debug)]
-pub struct Serve {
+pub(crate) struct Serve {
     #[arg(long, default_value_t = 3000)]
     pub port: u16,
     #[arg(long)]
@@ -86,18 +86,18 @@ pub struct Serve {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Admin {
+pub(crate) enum Admin {
     #[command(subcommand)]
     User(UserCommand),
 }
 
 #[derive(Subcommand, Debug)]
-pub enum UserCommand {
+pub(crate) enum UserCommand {
     Create(UserCreate),
 }
 
 #[derive(Parser, Debug)]
-pub struct UserCreate {
+pub(crate) struct UserCreate {
     #[arg(long)]
     pub username: String,
     #[arg(long)]

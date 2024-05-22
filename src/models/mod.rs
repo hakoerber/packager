@@ -1,6 +1,6 @@
 mod error;
 
-pub mod user;
+pub(crate) mod user;
 
-pub use error::{DatabaseError, Error, QueryError};
-pub use user::User;
+pub(crate) use error::{DatabaseError, Error, QueryError};
+pub(crate) use user::User;

@@ -4,20 +4,20 @@ use uuid::Uuid;
 use crate::db;
 
 #[derive(Debug, Clone)]
-pub struct User {
+pub(crate) struct User {
     pub id: Uuid,
     pub username: String,
     pub fullname: String,
 }
 
 #[derive(Debug)]
-pub struct NewUser<'a> {
+pub(crate) struct NewUser<'a> {
     pub username: &'a str,
     pub fullname: &'a str,
 }
 
 #[derive(Debug)]
-pub struct DbUserRow {
+pub(crate) struct DbUserRow {
     id: Uuid,
     username: String,
     fullname: String,
@@ -54,7 +54,7 @@ impl User {
 }
 
 #[tracing::instrument]
-pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
+pub(crate) async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
 
     crate::execute!(

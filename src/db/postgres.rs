@@ -4,7 +4,7 @@ use super::StartError;
 
 use tracing::Instrument as _;
 
-pub struct DB;
+pub(crate) struct DB;
 
 impl DB {
     fn opts(url: &str) -> Result<PgConnectOptions, StartError> {

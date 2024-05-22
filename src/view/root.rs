@@ -6,7 +6,7 @@ use super::{
     Component, ComponentId, FallbackAction, HtmxAction, HtmxComponent, HtmxTarget, Parent,
 };
 
-pub struct Header;
+pub(crate) struct Header;
 
 impl Header {
     #[tracing::instrument]
@@ -26,12 +26,12 @@ impl Header {
     }
 }
 
-pub struct HeaderLink<'a> {
+pub(crate) struct HeaderLink<'a> {
     htmx: HtmxComponent,
     args: HeaderLinkArgs<'a>,
 }
 
-pub struct HeaderLinkArgs<'a> {
+pub(crate) struct HeaderLinkArgs<'a> {
     pub item: TopLevelPage,
     pub active_page: Option<&'a TopLevelPage>,
 }
@@ -84,12 +84,12 @@ impl<'a> Component for HeaderLink<'a> {
     }
 }
 
-pub struct Body<'a> {
+pub(crate) struct Body<'a> {
     htmx: HtmxComponent,
     args: BodyArgs<'a>,
 }
 
-pub struct BodyArgs<'a> {
+pub(crate) struct BodyArgs<'a> {
     pub body: &'a Markup,
     pub active_page: Option<&'a TopLevelPage>,
 }
@@ -198,7 +198,7 @@ impl<'a> Component for Body<'a> {
     }
 }
 
-pub struct Root;
+pub(crate) struct Root;
 
 impl Root {
     #[tracing::instrument]

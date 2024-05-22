@@ -3,7 +3,7 @@ use crate::{db, Context};
 
 use uuid::Uuid;
 
-pub struct Inventory {
+pub(crate) struct Inventory {
     pub categories: Vec<Category>,
 }
 
@@ -37,14 +37,14 @@ impl Inventory {
 }
 
 #[derive(Debug)]
-pub struct Category {
+pub(crate) struct Category {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
     pub items: Option<Vec<Item>>,
 }
 
-pub struct DbCategoryRow {
+pub(crate) struct DbCategoryRow {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
@@ -157,7 +157,7 @@ impl Category {
 }
 
 #[derive(Debug)]
-pub struct Product {
+pub(crate) struct Product {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
@@ -165,7 +165,7 @@ pub struct Product {
 }
 
 #[derive(Debug)]
-pub struct InventoryItem {
+pub(crate) struct InventoryItem {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
@@ -392,7 +392,7 @@ impl InventoryItem {
 }
 
 #[derive(Debug)]
-pub struct Item {
+pub(crate) struct Item {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
@@ -400,7 +400,7 @@ pub struct Item {
     pub category_id: Uuid,
 }
 
-pub struct DbInventoryItemsRow {
+pub(crate) struct DbInventoryItemsRow {
     pub id: Uuid,
     pub name: String,
     pub weight: i32,

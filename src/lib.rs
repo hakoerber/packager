@@ -2,30 +2,30 @@ use uuid::Uuid;
 
 use std::fmt;
 
-pub mod auth;
-pub mod cli;
-pub mod components;
-pub mod db;
-pub mod elements;
-pub mod error;
-pub mod htmx;
-pub mod models;
-pub mod routing;
-pub mod telemetry;
+pub(crate) mod auth;
+pub(crate) mod cli;
+pub(crate) mod components;
+pub(crate) mod db;
+pub(crate) mod elements;
+pub(crate) mod error;
+pub(crate) mod htmx;
+pub(crate) mod models;
+pub(crate) mod routing;
+pub(crate) mod telemetry;
 
 mod view;
 
-pub use error::{AuthError, CommandError, Error, RequestError, StartError};
+pub(crate) use error::{AuthError, CommandError, Error, RequestError, StartError};
 
 #[derive(Clone, Debug)]
-pub struct AppState {
+pub(crate) struct AppState {
     pub database_pool: db::Pool,
     pub client_state: ClientState,
     pub auth_config: auth::Config,
 }
 
 #[derive(Clone, Debug)]
-pub struct Context {
+pub(crate) struct Context {
     user: models::user::User,
 }
 
@@ -36,7 +36,7 @@ impl Context {
 }
 
 #[derive(Clone, Debug)]
-pub struct ClientState {
+pub(crate) struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
     pub trip_edit_attribute: Option<components::trips::TripAttribute>,
@@ -76,7 +76,7 @@ impl<'a> From<&'a UriPath> for &'a str {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum TopLevelPage {
+pub(crate) enum TopLevelPage {
     Inventory,
     Trips,
 }

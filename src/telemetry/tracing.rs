@@ -22,12 +22,12 @@ use tracing::Instrument;
 
 use uuid::Uuid;
 
-pub enum OpenTelemetryConfig {
+pub(crate) enum OpenTelemetryConfig {
     Enabled,
     Disabled,
 }
 
-pub enum TokioConsoleConfig {
+pub(crate) enum TokioConsoleConfig {
     Enabled,
     Disabled,
 }
@@ -136,7 +136,7 @@ fn get_opentelemetry_layer<
 
 type ShutdownFunction = Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>>>;
 
-pub async fn init<Func, T>(
+pub(crate) async fn init<Func, T>(
     #[cfg(feature = "otel")] opentelemetry_config: OpenTelemetryConfig,
     #[cfg(feature = "tokio-console")] tokio_console_config: TokioConsoleConfig,
     args: crate::cli::Args,
@@ -197,7 +197,7 @@ impl fmt::Display for Latency {
     }
 }
 
-pub fn init_request_tracing(router: Router) -> Router {
+pub(crate) fn init_request_tracing(router: Router) -> Router {
     router.layer(
         TraceLayer::new_for_http()
             .make_span_with(|_request: &Request<_>| {

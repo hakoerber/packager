@@ -1,7 +1,7 @@
 use crate::ClientState;
 use maud::{html, Markup};
 
-pub struct TypeList;
+pub(crate) struct TypeList;
 
 impl TypeList {
     #[tracing::instrument]

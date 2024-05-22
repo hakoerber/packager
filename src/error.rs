@@ -10,7 +10,7 @@ use axum::{
 };
 
 #[derive(Debug)]
-pub enum RequestError {
+pub(crate) enum RequestError {
     EmptyFormElement { name: String },
     RefererNotFound,
     RefererInvalid { message: String },
@@ -39,7 +39,7 @@ impl fmt::Display for RequestError {
 }
 
 #[derive(Debug)]
-pub enum AuthError {
+pub(crate) enum AuthError {
     AuthenticationUserNotFound { username: String },
     AuthenticationHeaderMissing,
     AuthenticationHeaderInvalid { message: String },
@@ -104,7 +104,7 @@ impl From<AuthError> for Error {
 impl std::error::Error for AuthError {}
 
 #[derive(Debug)]
-pub enum Error {
+pub(crate) enum Error {
     Model(models::Error),
     Request(RequestError),
     Start(StartError),
@@ -222,7 +222,7 @@ impl IntoResponse for Error {
 }
 
 #[derive(Debug)]
-pub enum StartError {
+pub(crate) enum StartError {
     CallError { message: String },
     DatabaseInitError { message: String },
     DatabaseMigrationError { message: String },
@@ -271,7 +271,7 @@ impl From<sqlx::migrate::MigrateError> for StartError {
 }
 
 #[derive(Debug)]
-pub enum CommandError {
+pub(crate) enum CommandError {
     UserExists { username: String },
 }
 

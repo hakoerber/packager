@@ -2,12 +2,12 @@ use base64::Engine as _;
 use sha2::{Digest, Sha256};
 use std::fmt;
 
-pub mod error;
-pub mod postgres;
+pub(crate) mod error;
+pub(crate) mod postgres;
 
 use crate::StartError;
 
-pub trait Database {
+pub(crate) trait Database {
     type Pool;
 
     fn init_database_pool(
@@ -16,10 +16,10 @@ pub trait Database {
     fn migrate(url: &str) -> impl std::future::Future<Output = Result<(), StartError>> + Send;
 }
 
-pub type DB = self::postgres::DB;
-pub type Pool = sqlx::Pool<sqlx::Postgres>;
+pub(crate) type DB = self::postgres::DB;
+pub(crate) type Pool = sqlx::Pool<sqlx::Postgres>;
 
-pub enum QueryType {
+pub(crate) enum QueryType {
     Insert,
     Update,
     Select,
@@ -41,7 +41,7 @@ impl fmt::Display for QueryType {
     }
 }
 
-pub enum Component {
+pub(crate) enum Component {
     Inventory,
     User,
     Trips,
@@ -63,12 +63,12 @@ impl fmt::Display for Component {
     }
 }
 
-pub struct QueryClassification {
+pub(crate) struct QueryClassification {
     pub query_type: QueryType,
     pub component: Component,
 }
 
-pub fn sqlx_query(
+pub(crate) fn sqlx_query(
     classification: &QueryClassification,
     query: &str,
     labels: &[(&'static str, String)],

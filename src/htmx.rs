@@ -1,6 +1,6 @@
 use axum::http::header::{HeaderMap, HeaderName, HeaderValue};
 
-pub enum Event {
+pub(crate) enum Event {
     TripItemEdited,
 }
 
@@ -19,7 +19,7 @@ impl Event {
     }
 }
 
-pub enum ResponseHeaders {
+pub(crate) enum ResponseHeaders {
     Trigger,
     PushUrl,
 }
@@ -33,7 +33,7 @@ impl From<ResponseHeaders> for HeaderName {
     }
 }
 
-pub enum RequestHeaders {
+pub(crate) enum RequestHeaders {
     HtmxRequest,
 }
 
@@ -46,7 +46,7 @@ impl From<RequestHeaders> for HeaderName {
 }
 
 #[tracing::instrument]
-pub fn is_htmx(headers: &HeaderMap) -> bool {
+pub(crate) fn is_htmx(headers: &HeaderMap) -> bool {
     headers
         .get::<HeaderName>(RequestHeaders::HtmxRequest.into())
         .map_or(false, |value| value == "true")

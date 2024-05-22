@@ -1,7 +1,7 @@
 use maud::{html, Markup};
 use uuid::Uuid;
 
-pub struct TripPackageListRowReady;
+pub(crate) struct TripPackageListRowReady;
 
 impl TripPackageListRowReady {
     #[tracing::instrument]
@@ -78,7 +78,7 @@ impl TripPackageListRowReady {
     }
 }
 
-pub struct TripPackageListRowUnready;
+pub(crate) struct TripPackageListRowUnready;
 
 impl TripPackageListRowUnready {
     #[tracing::instrument]
@@ -155,7 +155,7 @@ impl TripPackageListRowUnready {
     }
 }
 
-pub struct TripPackageListCategoryBlockReady;
+pub(crate) struct TripPackageListCategoryBlockReady;
 
 impl TripPackageListCategoryBlockReady {
     #[tracing::instrument]
@@ -215,7 +215,7 @@ impl TripPackageListCategoryBlockReady {
     }
 }
 
-pub struct TripPackageListCategoryBlockUnready;
+pub(crate) struct TripPackageListCategoryBlockUnready;
 
 impl TripPackageListCategoryBlockUnready {
     #[tracing::instrument]
@@ -274,7 +274,7 @@ impl TripPackageListCategoryBlockUnready {
         )
     }
 }
-pub struct TripPackageList;
+pub(crate) struct TripPackageList;
 
 impl TripPackageList {
     #[tracing::instrument]

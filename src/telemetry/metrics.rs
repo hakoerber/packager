@@ -12,7 +12,7 @@ use crate::{Error, StartError};
 ///
 /// You will get two outputs back: Another router, and a task that you have
 /// to run to actually spawn the metrics server endpoint
-pub fn prometheus_server(
+pub(crate) fn prometheus_server(
     router: Router,
     addr: std::net::SocketAddr,
 ) -> (Router, impl Future<Output = Result<(), Error>>) {

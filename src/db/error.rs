@@ -2,7 +2,7 @@ use std::fmt;
 
 use sqlx::error::DatabaseError as _;
 
-pub enum DatabaseError {
+pub(crate) enum DatabaseError {
     /// Errors we can receive **from** the database that are caused by connection
     /// problems or schema problems (e.g. we get a return value that does not fit our enum,
     /// or a wrongly formatted date)
@@ -39,7 +39,7 @@ impl fmt::Display for DatabaseError {
     }
 }
 
-pub enum QueryError {
+pub(crate) enum QueryError {
     /// Errors that are caused by wrong input data, e.g. ids that cannot be found, or
     /// inserts that violate unique constraints
     Duplicate {
@@ -69,7 +69,7 @@ impl fmt::Display for QueryError {
     }
 }
 
-pub enum Error {
+pub(crate) enum Error {
     Database(DatabaseError),
     Query(QueryError),
 }

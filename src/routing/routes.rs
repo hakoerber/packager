@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[tracing::instrument]
-pub async fn root(
+pub(crate) async fn root(
     Extension(current_user): Extension<models::user::User>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
@@ -34,7 +34,7 @@ pub async fn root(
 }
 
 #[tracing::instrument]
-pub async fn icon() -> impl IntoResponse {
+pub(crate) async fn icon() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "image/svg+xml")],
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/luggage.svg")),
@@ -42,7 +42,7 @@ pub async fn icon() -> impl IntoResponse {
 }
 
 #[tracing::instrument]
-pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
+pub(crate) async fn debug(headers: HeaderMap) -> impl IntoResponse {
     let mut out = String::new();
     for (key, value) in &headers {
         out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));

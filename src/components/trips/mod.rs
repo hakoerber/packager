@@ -5,5 +5,5 @@ mod routes;
 mod todos;
 mod view;
 
-pub use model::TripAttribute;
-pub use routes::router;
+pub(crate) use model::TripAttribute;
+pub(crate) use routes::router;

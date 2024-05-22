@@ -16,13 +16,13 @@ use crate::{AppState, Error, RequestError};
 
 use super::auth;
 
-pub mod html;
+pub(crate) mod html;
 
 mod routes;
 use routes::*;
 
 #[tracing::instrument]
-pub fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
+pub(crate) fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
     headers
         .get("referer")
         .ok_or(Error::Request(RequestError::RefererNotFound))?
@@ -34,7 +34,7 @@ pub fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
         })
 }
 
-pub fn uuid_or_empty<'de, D>(input: D) -> Result<Option<Uuid>, D::Error>
+pub(crate) fn uuid_or_empty<'de, D>(input: D) -> Result<Option<Uuid>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -62,7 +62,7 @@ where
 }
 
 #[tracing::instrument]
-pub fn router(state: AppState) -> Router {
+pub(crate) fn router(state: AppState) -> Router {
     Router::new()
         .route("/favicon.svg", get(icon))
         .route("/assets/luggage.svg", get(icon))
