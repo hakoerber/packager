@@ -11,7 +11,7 @@ pub(crate) use crate::db::error::DataError;
 pub use crate::db::error::{Error as DatabaseError, QueryError};
 
 #[derive(Debug)]
-pub(crate) enum RequestError {
+pub enum RequestError {
     EmptyFormElement { name: String },
     RefererNotFound,
     RefererInvalid { message: String },
@@ -40,7 +40,7 @@ impl fmt::Display for RequestError {
 }
 
 #[derive(Debug)]
-pub(crate) enum AuthError {
+pub enum AuthError {
     AuthenticationUserNotFound { username: String },
     AuthenticationHeaderMissing,
     AuthenticationHeaderInvalid { message: String },

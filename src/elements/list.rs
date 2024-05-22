@@ -14,6 +14,7 @@ pub(crate) struct NumberWithBar {
 }
 
 pub(crate) enum CellType<'a> {
+    #[allow(dead_code)]
     Text(&'a str),
     Link(Link<'a>),
     NumberWithBar(NumberWithBar),
@@ -98,6 +99,7 @@ impl<'a> Cell<'a> {
 pub(crate) struct Button {
     pub icon: super::Icon,
     pub action: Action,
+    #[allow(dead_code)]
     pub hx_config: Option<HxConfig>,
 }
 

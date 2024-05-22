@@ -83,6 +83,7 @@ pub(crate) mod crud {
             // * A transaction will begin() (a noop) and then acquire() a new connection
             T: sqlx::Acquire<'c, Database = sqlx::Postgres> + Send + std::fmt::Debug;
 
+        #[allow(dead_code)]
         async fn delete_all<'c>(
             ctx: &Context,
             pool: &'c db::Pool,
@@ -142,11 +143,6 @@ pub(crate) mod route {
         Extension, Form,
     };
 
-    pub enum Method {
-        Get,
-        Post,
-    }
-
     #[async_trait]
     pub trait Create: super::crud::Create {
         type Form: Send + Sync + 'static;
@@ -165,6 +161,7 @@ pub(crate) mod route {
     }
 
     #[async_trait]
+    #[allow(dead_code)]
     pub trait Read: super::crud::Read {
         type UrlParams: Send + Sync + 'static;
         type QueryParams: Send + Sync + 'static;
@@ -181,6 +178,7 @@ pub(crate) mod route {
     }
 
     #[async_trait]
+    #[allow(dead_code)]
     pub trait Update: super::crud::Update {
         type UrlParams: Send + Sync + 'static;
         type UpdateForm: Send + Sync + 'static;

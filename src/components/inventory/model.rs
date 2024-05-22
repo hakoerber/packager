@@ -153,14 +153,18 @@ impl Category {
 
 #[derive(Debug)]
 pub(crate) struct Product {
+    #[allow(dead_code)]
     pub id: Uuid,
     pub name: String,
+    #[allow(dead_code)]
     pub description: Option<String>,
+    #[allow(dead_code)]
     pub comment: Option<String>,
 }
 
 #[derive(Debug)]
 pub(crate) struct InventoryItem {
+    #[allow(dead_code)]
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
@@ -387,6 +391,7 @@ impl InventoryItem {
 pub(crate) struct Item {
     pub id: Uuid,
     pub name: String,
+    #[allow(dead_code)]
     pub description: Option<String>,
     pub weight: i32,
     pub category_id: Uuid,
