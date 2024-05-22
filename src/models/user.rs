@@ -1,4 +1,4 @@
-use super::Error;
+use crate::Error;
 use uuid::Uuid;
 
 use crate::db;
@@ -11,7 +11,7 @@ pub(crate) struct User {
 }
 
 #[derive(Debug)]
-pub(crate) struct NewUser<'a> {
+pub struct NewUser<'a> {
     pub username: &'a str,
     pub fullname: &'a str,
 }
@@ -54,7 +54,7 @@ impl User {
 }
 
 #[tracing::instrument]
-pub(crate) async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
+pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
 
     crate::execute!(

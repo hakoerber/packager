@@ -4,7 +4,8 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use packager::{
-    auth, cli, db, models, routing, telemetry, AppState, ClientState, Error, StartError,
+    auth, cli, db, models, routing, telemetry, AppState, ClientState, DatabaseError, Error,
+    QueryError, StartError,
 };
 use tokio::net::TcpListener;
 
@@ -169,12 +170,12 @@ async fn main() -> MainResult {
                                 )
                                 .await
                                 .map_err(|error| match error {
-                                    models::Error::Query(models::QueryError::Duplicate {
-                                        description: _,
-                                    }) => Error::Command(packager::CommandError::UserExists {
+                                    Error::Database(DatabaseError::Query(
+                                        QueryError::Duplicate { description: _ },
+                                    )) => Error::Command(packager::CommandError::UserExists {
                                         username: user.username.clone(),
                                     }),
-                                    _ => Error::Model(error),
+                                    _ => error,
                                 }) {
                                     Ok(id) => id,
                                     Err(e) => {

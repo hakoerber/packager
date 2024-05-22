@@ -2,7 +2,7 @@ use std::fmt;
 
 use sqlx::error::DatabaseError as _;
 
-pub(crate) enum DatabaseError {
+pub enum DataError {
     /// Errors we can receive **from** the database that are caused by connection
     /// problems or schema problems (e.g. we get a return value that does not fit our enum,
     /// or a wrongly formatted date)
@@ -20,7 +20,7 @@ pub(crate) enum DatabaseError {
     },
 }
 
-impl fmt::Display for DatabaseError {
+impl fmt::Display for DataError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Sql { description } => {
@@ -39,7 +39,7 @@ impl fmt::Display for DatabaseError {
     }
 }
 
-pub(crate) enum QueryError {
+pub enum QueryError {
     /// Errors that are caused by wrong input data, e.g. ids that cannot be found, or
     /// inserts that violate unique constraints
     Duplicate {
@@ -69,9 +69,21 @@ impl fmt::Display for QueryError {
     }
 }
 
-pub(crate) enum Error {
-    Database(DatabaseError),
+pub enum Error {
+    Database(DataError),
     Query(QueryError),
+}
+
+impl From<DataError> for Error {
+    fn from(value: DataError) -> Self {
+        Self::Database(value)
+    }
+}
+
+impl From<QueryError> for Error {
+    fn from(value: QueryError) -> Self {
+        Self::Query(value)
+    }
 }
 
 impl fmt::Display for Error {
@@ -92,7 +104,7 @@ impl fmt::Debug for Error {
 
 impl From<uuid::Error> for Error {
     fn from(value: uuid::Error) -> Self {
-        Error::Database(DatabaseError::Uuid {
+        Error::Database(DataError::Uuid {
             description: value.to_string(),
         })
     }
@@ -100,7 +112,7 @@ impl From<uuid::Error> for Error {
 
 impl From<time::error::Format> for Error {
     fn from(value: time::error::Format) -> Self {
-        Error::Database(DatabaseError::TimeParse {
+        Error::Database(DataError::TimeParse {
             description: value.to_string(),
         })
     }
@@ -119,12 +131,12 @@ impl From<sqlx::Error> for Error {
                         description: "item with unique constraint already exists".to_string(),
                     })
                 } else {
-                    Error::Database(DatabaseError::Sql {
+                    Error::Database(DataError::Sql {
                         description: format!("got unknown error: {error}"),
                     })
                 }
             }
-            _ => Error::Database(DatabaseError::Sql {
+            _ => Error::Database(DataError::Sql {
                 description: format!("got unknown error: {value}"),
             }),
         }
@@ -133,7 +145,7 @@ impl From<sqlx::Error> for Error {
 
 impl From<time::error::Parse> for Error {
     fn from(value: time::error::Parse) -> Self {
-        Error::Database(DatabaseError::TimeParse {
+        Error::Database(DataError::TimeParse {
             description: value.to_string(),
         })
     }

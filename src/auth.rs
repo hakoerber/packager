@@ -12,7 +12,7 @@ use super::models;
 use super::{AppState, AuthError, Error};
 
 #[derive(Clone, Debug)]
-pub(crate) enum Config {
+pub enum Config {
     Enabled,
     Disabled { assume_user: String },
 }

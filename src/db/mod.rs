@@ -7,7 +7,7 @@ pub(crate) mod postgres;
 
 use crate::StartError;
 
-pub(crate) trait Database {
+pub trait Database {
     type Pool;
 
     fn init_database_pool(
@@ -16,7 +16,7 @@ pub(crate) trait Database {
     fn migrate(url: &str) -> impl std::future::Future<Output = Result<(), StartError>> + Send;
 }
 
-pub(crate) type DB = self::postgres::DB;
+pub type DB = self::postgres::DB;
 pub(crate) type Pool = sqlx::Pool<sqlx::Postgres>;
 
 pub(crate) enum QueryType {
@@ -152,9 +152,10 @@ macro_rules! query_one {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
         {
             use tracing::Instrument as _;
+
             async {
                 $crate::db::sqlx_query($class, $query, &[]);
-                let result: Result<Option<$struct_into>, Error> = sqlx::query_as!(
+                let result: Result<Option<$struct_into>, crate::error::Error> = sqlx::query_as!(
                     $struct_row,
                     $query,
                     $( $args )*

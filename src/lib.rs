@@ -2,23 +2,24 @@ use uuid::Uuid;
 
 use std::fmt;
 
-pub(crate) mod auth;
-pub(crate) mod cli;
+pub mod auth;
+pub mod cli;
 pub(crate) mod components;
-pub(crate) mod db;
+pub mod db;
 pub(crate) mod elements;
-pub(crate) mod error;
+pub mod error;
 pub(crate) mod htmx;
-pub(crate) mod models;
-pub(crate) mod routing;
-pub(crate) mod telemetry;
+pub mod models;
+pub mod routing;
+pub mod telemetry;
 
 mod view;
 
-pub(crate) use error::{AuthError, CommandError, Error, RequestError, StartError};
+pub(crate) use error::{AuthError, RequestError};
+pub use error::{CommandError, DatabaseError, Error, QueryError, StartError};
 
 #[derive(Clone, Debug)]
-pub(crate) struct AppState {
+pub struct AppState {
     pub database_pool: db::Pool,
     pub client_state: ClientState,
     pub auth_config: auth::Config,
@@ -36,7 +37,7 @@ impl Context {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ClientState {
+pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
     pub trip_edit_attribute: Option<components::trips::TripAttribute>,

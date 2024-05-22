@@ -1,13 +1,14 @@
-use std::fmt;
-use std::net::SocketAddr;
+use std::{fmt, net::SocketAddr};
 
-use crate::models;
-use crate::view;
+use crate::{db, view};
 
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+
+pub(crate) use crate::db::error::DataError;
+pub use crate::db::error::{Error as DatabaseError, QueryError};
 
 #[derive(Debug)]
 pub(crate) enum RequestError {
@@ -104,12 +105,12 @@ impl From<AuthError> for Error {
 impl std::error::Error for AuthError {}
 
 #[derive(Debug)]
-pub(crate) enum Error {
-    Model(models::Error),
+pub enum Error {
     Request(RequestError),
     Start(StartError),
     Command(CommandError),
     Exec(tokio::task::JoinError),
+    Database(crate::db::error::Error),
 }
 
 impl std::error::Error for Error {}
@@ -117,24 +118,30 @@ impl std::error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Model(model_error) => write!(f, "Model error: {model_error}"),
             Self::Request(request_error) => write!(f, "Request error: {request_error}"),
             Self::Start(start_error) => write!(f, "{start_error}"),
             Self::Command(command_error) => write!(f, "{command_error}"),
             Self::Exec(join_error) => write!(f, "{join_error}"),
+            Self::Database(db_error) => write!(f, "{db_error}"),
         }
-    }
-}
-
-impl From<models::Error> for Error {
-    fn from(value: models::Error) -> Self {
-        Self::Model(value)
     }
 }
 
 impl From<StartError> for Error {
     fn from(value: StartError) -> Self {
         Self::Start(value)
+    }
+}
+
+impl From<crate::db::error::Error> for Error {
+    fn from(value: crate::db::error::Error) -> Self {
+        Self::Database(value)
+    }
+}
+
+impl From<sqlx::Error> for Error {
+    fn from(value: sqlx::Error) -> Self {
+        Self::Database(value.into())
     }
 }
 
@@ -163,13 +170,13 @@ impl From<(String, std::net::AddrParseError)> for Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
-            Self::Model(ref model_error) => match model_error {
-                models::Error::Database(_) => (
+            Self::Database(ref db_error) => match db_error {
+                db::error::Error::Database(_) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     view::ErrorPage::build(&self.to_string()),
                 ),
-                models::Error::Query(error) => match error {
-                    models::QueryError::NotFound { description } => {
+                db::error::Error::Query(error) => match error {
+                    db::error::QueryError::NotFound { description } => {
                         (StatusCode::NOT_FOUND, view::ErrorPage::build(description))
                     }
                     _ => (
@@ -222,7 +229,7 @@ impl IntoResponse for Error {
 }
 
 #[derive(Debug)]
-pub(crate) enum StartError {
+pub enum StartError {
     CallError { message: String },
     DatabaseInitError { message: String },
     DatabaseMigrationError { message: String },
@@ -271,7 +278,7 @@ impl From<sqlx::migrate::MigrateError> for StartError {
 }
 
 #[derive(Debug)]
-pub(crate) enum CommandError {
+pub enum CommandError {
     UserExists { username: String },
 }
 

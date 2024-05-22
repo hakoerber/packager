@@ -19,7 +19,7 @@ use super::auth;
 pub(crate) mod html;
 
 mod routes;
-use routes::*;
+use routes::{debug, icon, root};
 
 #[tracing::instrument]
 pub(crate) fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
@@ -62,7 +62,7 @@ where
 }
 
 #[tracing::instrument]
-pub(crate) fn router(state: AppState) -> Router {
+pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/favicon.svg", get(icon))
         .route("/assets/luggage.svg", get(icon))

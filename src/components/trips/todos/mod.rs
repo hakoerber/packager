@@ -20,8 +20,10 @@ use crate::{
         route::{self, Toggle},
         view::{self, View},
     },
-    db, htmx,
-    models::{user::User, Error},
+    db,
+    error::Error,
+    htmx,
+    models::User,
     routing::get_referer,
     AppState, Context, RequestError,
 };

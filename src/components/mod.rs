@@ -4,7 +4,7 @@ pub(crate) mod trips;
 pub(crate) mod crud {
     use async_trait::async_trait;
 
-    use crate::{db, models::Error, Context};
+    use crate::{db, error::Error, Context};
 
     #[async_trait]
     pub trait Create: Sized {

@@ -4,13 +4,12 @@ use crate::components::crud::Read;
 
 use crate::{
     components::inventory,
-    models::{DatabaseError, Error, QueryError},
+    error::{DataError, Error, QueryError},
 };
 
 use crate::{db, Context};
 
 use serde::{Deserialize, Serialize};
-use time;
 use uuid::Uuid;
 
 #[derive(PartialEq, PartialOrd, Deserialize, Debug, sqlx::Type)]
@@ -98,9 +97,12 @@ impl std::convert::TryFrom<&str> for TripState {
             "Review" => Self::Review,
             "Done" => Self::Done,
             _ => {
-                return Err(Error::Database(DatabaseError::Enum {
-                    description: format!("{value} is not a valid value for TripState"),
-                }))
+                return Err(Error::Database(
+                    DataError::Enum {
+                        description: format!("{value} is not a valid value for TripState"),
+                    }
+                    .into(),
+                ))
             }
         })
     }
@@ -442,9 +444,10 @@ impl TripItem {
         }?;
 
         (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-            Error::Query(QueryError::NotFound {
+            crate::db::error::Error::Query(QueryError::NotFound {
                 description: format!("item {item_id} not found for trip {trip_id}"),
             })
+            .into()
         })
     }
 }
@@ -543,9 +546,9 @@ macro_rules! build_trip_edit {
                     .await?;
 
                     (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-                        Error::Query(QueryError::NotFound {
+                        Error::Database(QueryError::NotFound {
                             description: format!("trip {trip_id} not found"),
-                        })
+                        }.into())
                     })
                 }
             }
