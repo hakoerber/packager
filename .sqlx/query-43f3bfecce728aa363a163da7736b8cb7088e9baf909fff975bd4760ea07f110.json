@@ -1,14 +1,13 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO trips\n                (id, name, date_start, date_end, state, user_id)\n            VALUES\n                ($1, $2, $3, $4, $5, $6)",
+  "query": "INSERT INTO trips\n                (id, name, date, state, user_id)\n            VALUES\n                ($1, $2, $3, $4, $5)",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Uuid",
         "Text",
-        "Date",
-        "Date",
+        "DateRange",
         {
           "Custom": {
             "name": "trip_state",
@@ -29,5 +28,5 @@
     },
     "nullable": []
   },
-  "hash": "32d0f8af41a9d9a5bfa2e019033c1e5db37744b7e2b95f3db117cb1e4a93cc31"
+  "hash": "43f3bfecce728aa363a163da7736b8cb7088e9baf909fff975bd4760ea07f110"
 }

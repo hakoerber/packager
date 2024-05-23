@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS "inventory_items" (
     category_id uuid NOT NULL,
     product_id uuid,
     user_id uuid NOT NULL,
+    CHECK (weight >= 0),
+    UNIQUE (name),
     PRIMARY KEY (id),
     FOREIGN KEY (category_id) REFERENCES inventory_items_categories(id),
     FOREIGN KEY (product_id) REFERENCES inventory_products(id),
@@ -46,16 +48,19 @@ CREATE TYPE trip_state AS ENUM ('init', 'planning', 'planned', 'active', 'review
 CREATE TABLE IF NOT EXISTS "trips" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
-    date_start DATE NOT NULL,
-    date_end DATE NOT NULL,
+    date daterange NOT NULL,
     location TEXT,
     state trip_state NOT NULL,
     comment TEXT,
     temp_min INTEGER,
     temp_max INTEGER,
     user_id uuid NOT NULL,
-    CHECK (date_start <= date_end),
     CHECK (temp_min <= temp_max),
+    CONSTRAINT date_range_lower_not_infinite CHECK (NOT lower_inf(date)),
+    CONSTRAINT date_range_lower_inclusive CHECK (lower_inc(date)),
+    CONSTRAINT date_range_upper_not_infinite CHECK (NOT upper_inf(date)),
+    CONSTRAINT date_range_upper_exclusive CHECK (NOT upper_inc(date)),
+    CONSTRAINT date_range_not_empty CHECK (NOT isempty(date)),
     PRIMARY KEY (id),
     UNIQUE (name),
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -77,10 +82,13 @@ CREATE TABLE IF NOT EXISTS "trip_to_trip_types" (
     FOREIGN KEY(trip_type_id) REFERENCES "trip_types" (id)
 );
 
+-- CREATE TYPE todo_state AS ENUM ('todo', 'done');
+
 CREATE TABLE IF NOT EXISTS "trip_todos" (
     id uuid NOT NULL,
     trip_id uuid NOT NULL,
     description TEXT NOT NULL,
+    -- state todo_state NOT NULL,
     done BOOLEAN NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY(trip_id) REFERENCES "trips" (id)

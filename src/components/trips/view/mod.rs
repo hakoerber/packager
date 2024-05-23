@@ -10,11 +10,13 @@ pub(crate) struct TripManager;
 pub(crate) mod packagelist;
 pub(crate) mod types;
 
+use super::model;
+
 use crate::components::{self, view::View};
 
 impl TripManager {
     #[tracing::instrument]
-    pub fn build(trips: Vec<super::model::Trip>) -> Markup {
+    pub fn build(trips: Vec<model::Trip>) -> Markup {
         html!(
             div
                 ."p-8"
@@ -30,32 +32,14 @@ impl TripManager {
     }
 }
 
-#[derive(Debug)]
-pub(crate) enum InputType {
-    Text,
-    Number,
-    Date,
-}
-
-impl From<InputType> for &'static str {
-    #[tracing::instrument]
-    fn from(value: InputType) -> &'static str {
-        match value {
-            InputType::Text => "text",
-            InputType::Number => "number",
-            InputType::Date => "date",
-        }
-    }
-}
-
-fn trip_state_icon(state: &super::model::TripState) -> &'static str {
+fn trip_state_icon(state: &model::TripState) -> &'static str {
     match state {
-        super::model::TripState::Init => "mdi-magic-staff",
-        super::model::TripState::Planning => "mdi-text-box-outline",
-        super::model::TripState::Planned => "mdi-clock-outline",
-        super::model::TripState::Active => "mdi-play",
-        super::model::TripState::Review => "mdi-magnify",
-        super::model::TripState::Done => "mdi-check",
+        model::TripState::Init => "mdi-magic-staff",
+        model::TripState::Planning => "mdi-text-box-outline",
+        model::TripState::Planned => "mdi-clock-outline",
+        model::TripState::Active => "mdi-play",
+        model::TripState::Review => "mdi-magnify",
+        model::TripState::Done => "mdi-check",
     }
 }
 
@@ -63,7 +47,7 @@ pub(crate) struct TripTable;
 
 impl TripTable {
     #[tracing::instrument]
-    pub fn build(trips: &Vec<super::model::Trip>) -> Markup {
+    pub fn build(trips: &Vec<model::Trip>) -> Markup {
         html!(
             table
                 ."table"
@@ -86,9 +70,9 @@ impl TripTable {
                     @for trip in trips {
                         tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
                             (TripTableRow::build(trip.id, &trip.name))
-                            (TripTableRow::build(trip.id, trip.date_start.to_string()))
-                            (TripTableRow::build(trip.id, trip.date_end.to_string()))
-                            (TripTableRow::build(trip.id, (trip.date_end - trip.date_start).whole_days()))
+                            (TripTableRow::build(trip.id, trip.date.start.to_string()))
+                            (TripTableRow::build(trip.id, trip.date.end.to_string()))
+                            (TripTableRow::build(trip.id, (trip.date.end - trip.date.start).whole_days()))
                             (TripTableRow::build(trip.id, html!(
                                 span .flex .flex-row .items-center {
                                     span ."mdi" .(trip_state_icon(&trip.state)) ."text-xl" ."mr-2" {}
@@ -127,7 +111,7 @@ pub(crate) struct NewTrip;
 
 impl NewTrip {
     #[tracing::instrument(skip(trips))]
-    pub fn build(trips: &[super::model::Trip]) -> Markup {
+    pub fn build(trips: &[model::Trip]) -> Markup {
         html!(
             form
                 name="new_trip"
@@ -225,8 +209,8 @@ impl NewTrip {
                                     @for trip in trips.iter().rev() {
                                         option value=(trip.id) {
                                             (format!("{year}-{month:02} {name}",
-                                                year = trip.date_start.year(),
-                                                month = trip.date_start.month() as u8,
+                                                year = trip.date.start.year(),
+                                                month = trip.date.start.month() as u8,
                                                 name = trip.name
                                             ))
                                         }
@@ -255,9 +239,9 @@ pub(crate) struct Trip;
 impl Trip {
     #[tracing::instrument]
     pub fn build(
-        trip: &super::model::Trip,
-        trip_edit_attribute: Option<&super::model::TripAttribute>,
-        active_category: Option<&super::model::TripCategory>,
+        trip: &model::Trip,
+        trip_edit_attribute: Option<&model::TripAttribute>,
+        active_category: Option<&model::TripCategory>,
         edit_todo: Option<Uuid>,
     ) -> Markup {
         html!(
@@ -290,10 +274,10 @@ impl Trip {
                             }
                         }
                         div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                            @if trip_edit_attribute.map_or(false, |a| *a == super::model::TripAttribute::Name) {
+                            @if trip_edit_attribute.map_or(false, |a| *a == model::TripAttribute::Name) {
                                 form
                                     id="edit-trip"
-                                    action=(format!("edit/{}/submit", to_variant_name(&super::model::TripAttribute::Name).unwrap()))
+                                    action=(format!("edit/{}/submit", to_variant_name(&model::TripAttribute::Name).unwrap()))
                                     target="_self"
                                     method="post"
                                 {
@@ -309,7 +293,7 @@ impl Trip {
                                             ."w-full"
                                             ."text-2xl"
                                             ."font-semibold"
-                                            type=(<InputType as Into<&'static str>>::into(InputType::Text))
+                                            type="text"
                                             name="new-value"
                                             form="edit-trip"
                                             value=(trip.name)
@@ -347,7 +331,7 @@ impl Trip {
                                 h1 ."text-2xl" { (trip.name) }
                                 span {
                                     a
-                                        href={"?edit=" (to_variant_name(&super::model::TripAttribute::Name).unwrap())}
+                                        href={"?edit=" (to_variant_name(&model::TripAttribute::Name).unwrap())}
                                     {
                                         span
                                             ."mdi"
@@ -380,18 +364,70 @@ impl Trip {
     }
 }
 
+pub(crate) trait Input {
+    fn input(&self, id: &str, form: &str) -> Markup;
+}
+
+impl Input for Option<&String> {
+    fn input(&self, id: &str, form: &str) -> Markup {
+        html!(
+            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                type="text"
+                id=(id)
+                name="new-value"
+                form=(form)
+                value=(self.unwrap_or(&String::new()))
+            {}
+        )
+    }
+}
+
+impl Input for Option<&i32> {
+    fn input(&self, id: &str, form: &str) -> Markup {
+        html!(
+            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                type="number"
+                id=(id)
+                name="new-value"
+                form=(form)
+                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
+            {}
+        )
+    }
+}
+
+impl Input for Option<&model::TripDate> {
+    fn input(&self, id: &str, form: &str) -> Markup {
+        html!(
+            p { "this could be your form!" }
+        )
+    }
+}
+
 pub(crate) struct TripInfoRow<T>(std::marker::PhantomData<T>)
 where
     T: std::fmt::Debug + std::fmt::Display;
 
+impl<'a, T> Input for AttributeValue<'a, T>
+where
+    T: std::fmt::Debug + std::fmt::Display,
+    Option<&'a T>: Input,
+{
+    fn input(&self, id: &str, form: &str) -> Markup {
+        <Option<&'a T> as Input>::input(&self.0, id, form)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct AttributeValue<'a, T>(pub Option<&'a T>)
 where
-    T: std::fmt::Debug + std::fmt::Display;
+    T: std::fmt::Debug + std::fmt::Display,
+    Option<&'a T>: Input;
 
 impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T>
 where
     T: std::fmt::Debug + std::fmt::Display,
+    Option<&'a T>: Input,
 {
     fn from(value: &'a Option<T>) -> Self {
         Self(value.as_ref())
@@ -401,24 +437,48 @@ where
 impl<'a, T> From<&'a T> for AttributeValue<'a, T>
 where
     T: std::fmt::Debug + std::fmt::Display,
+    Option<&'a T>: Input,
 {
     fn from(value: &'a T) -> Self {
         Self(Some(value))
     }
 }
 
+impl<'a, T> AttributeValue<'a, T>
+where
+    T: std::fmt::Debug + std::fmt::Display,
+    Option<&'a T>: Input,
+{
+    fn input(&self, id: &str, form: &str) -> Markup {
+        self.0.input(id, form)
+    }
+}
+// html!(
+//     input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+//         type="text"
+//         id="new-value"
+//         name="new-value"
+//         form="edit-trip"
+//         value=(self.0.map_or(String::new(), std::string::ToString::to_string))
+//     {}
+// )
+//     }
+// }
+
 impl<T> TripInfoRow<T>
 where
     T: std::fmt::Debug + std::fmt::Display,
 {
     #[tracing::instrument]
-    pub fn build(
+    pub fn build<'a>(
         name: &str,
-        value: AttributeValue<T>,
-        attribute_key: super::model::TripAttribute,
-        edit_attribute: Option<&super::model::TripAttribute>,
-        input_type: InputType,
-    ) -> Markup {
+        value: AttributeValue<'a, T>,
+        attribute_key: model::TripAttribute,
+        edit_attribute: Option<&model::TripAttribute>,
+    ) -> Markup
+    where
+        Option<&'a T>: Input,
+    {
         let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
         html!(
             @if edit {
@@ -435,13 +495,7 @@ where
                     td ."border" ."p-2" { (name) }
                     td ."border" ."bg-blue-300" ."px-2" ."py-0" {
                         div ."h-full" ."w-full" ."flex" {
-                            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
-                                type=(<InputType as Into<&'static str>>::into(input_type))
-                                id="new-value"
-                                name="new-value"
-                                form="edit-trip"
-                                value=(value.0.map_or(String::new(), std::string::ToString::to_string))
-                            {}
+                            (value.input(attribute_key.id(), "edit-trip"))
                         }
                     }
                     td
@@ -554,7 +608,7 @@ pub(crate) struct TripInfoStateRow;
 
 impl TripInfoStateRow {
     #[tracing::instrument]
-    pub fn build(trip_state: &super::model::TripState) -> Markup {
+    pub fn build(trip_state: &model::TripState) -> Markup {
         let prev_state = trip_state.prev();
         let next_state = trip_state.next();
         html!(
@@ -659,10 +713,7 @@ pub(crate) struct TripInfo;
 
 impl TripInfo {
     #[tracing::instrument]
-    pub fn build(
-        trip_edit_attribute: Option<&super::model::TripAttribute>,
-        trip: &super::model::Trip,
-    ) -> Markup {
+    pub fn build(trip_edit_attribute: Option<&model::TripAttribute>, trip: &model::Trip) -> Markup {
         html!(
             table
                 ."table"
@@ -673,7 +724,7 @@ impl TripInfo {
                 ."w-full"
             {
                 tbody {
-                    @for row in super::model::view::info(trip, trip_edit_attribute) {
+                    @for row in model::view::info(trip, trip_edit_attribute) {
                         (row)
                     }
 
@@ -704,8 +755,8 @@ impl TripInfo {
                                 // the margins
                                 {
                                     @let types = trip.types();
-                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&super::model::TripType>>();
-                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&super::model::TripType>>();
+                                    @let active_triptypes = types.iter().filter(|t| t.active).collect::<Vec<&model::TripType>>();
+                                    @let inactive_triptypes = types.iter().filter(|t| !t.active).collect::<Vec<&model::TripType>>();
 
                                     @if !active_triptypes.is_empty() {
                                         div
@@ -803,7 +854,7 @@ pub(crate) struct TripComment;
 
 impl TripComment {
     #[tracing::instrument]
-    pub fn build(trip: &super::model::Trip) -> Markup {
+    pub fn build(trip: &model::Trip) -> Markup {
         html!(
             div
                 x-data="{ save_active: false }"
@@ -858,10 +909,7 @@ pub(crate) struct TripItems;
 
 impl TripItems {
     #[tracing::instrument]
-    pub fn build(
-        active_category: Option<&super::model::TripCategory>,
-        trip: &super::model::Trip,
-    ) -> Markup {
+    pub fn build(active_category: Option<&model::TripCategory>, trip: &model::Trip) -> Markup {
         html!(
             div #trip-items ."grid" ."grid-cols-4" ."gap-3" {
                 div ."col-span-2" {
@@ -888,7 +936,7 @@ impl TripCategoryListRow {
     #[tracing::instrument]
     pub fn build(
         trip_id: Uuid,
-        category: &super::model::TripCategory,
+        category: &model::TripCategory,
         active: bool,
         biggest_category_weight: i32,
         htmx_swap: bool,
@@ -995,15 +1043,12 @@ pub(crate) struct TripCategoryList;
 
 impl TripCategoryList {
     #[tracing::instrument]
-    pub fn build(
-        active_category: Option<&super::model::TripCategory>,
-        trip: &super::model::Trip,
-    ) -> Markup {
+    pub fn build(active_category: Option<&model::TripCategory>, trip: &model::Trip) -> Markup {
         let categories = trip.categories();
 
         let biggest_category_weight: i32 = categories
             .iter()
-            .map(super::model::TripCategory::total_picked_weight)
+            .map(model::TripCategory::total_picked_weight)
             .max()
             .unwrap_or(1);
 
@@ -1038,7 +1083,7 @@ impl TripCategoryList {
                         }
                         td ."border" ."p-0" ."m-0" {
                             p ."p-2" ."m-2" {
-                                (categories.iter().map(super::model::TripCategory::total_picked_weight).sum::<i32>().to_string())
+                                (categories.iter().map(model::TripCategory::total_picked_weight).sum::<i32>().to_string())
                             }
                         }
                     }
@@ -1052,7 +1097,7 @@ pub(crate) struct TripItemList;
 
 impl TripItemList {
     #[tracing::instrument]
-    pub fn build(trip_id: Uuid, items: &Vec<super::model::TripItem>) -> Markup {
+    pub fn build(trip_id: Uuid, items: &Vec<model::TripItem>) -> Markup {
         let biggest_item_weight: i32 = items.iter().map(|item| item.item.weight).max().unwrap_or(1);
 
         html!(
@@ -1092,7 +1137,7 @@ pub(crate) struct TripItemListRow;
 
 impl TripItemListRow {
     #[tracing::instrument]
-    pub fn build(trip_id: Uuid, item: &super::model::TripItem, biggest_item_weight: i32) -> Markup {
+    pub fn build(trip_id: Uuid, item: &model::TripItem, biggest_item_weight: i32) -> Markup {
         html!(
             tr ."h-10" {
                 td

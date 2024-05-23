@@ -30,4 +30,4 @@ serveargs=(
     --disable-auth-and-assume-user hannes
 )
 
-cargo "${cargoargs[@]}" watch --why --clear --ignore pgdata -- cargo "${cargoargs[@]}" run  "${cargobuildargs[@]}"  -- "${baseargs[@]}" "${serveargs[@]}"
+cargo "${cargoargs[@]}" watch --why --clear --ignore pgdata -- cargo "${cargoargs[@]}" run "${cargobuildargs[@]}"  -- "${baseargs[@]}" "${serveargs[@]}" 2>&1

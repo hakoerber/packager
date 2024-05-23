@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                id,\n                name,\n                date_start,\n                date_end,\n                state as \"state: _\",\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE user_id = $1",
+  "query": "SELECT\n                id,\n                name,\n                date,\n                state as \"state: _\",\n                location,\n                temp_min,\n                temp_max,\n                comment\n            FROM trips\n            WHERE id = $1 and user_id = $2",
   "describe": {
     "columns": [
       {
@@ -15,16 +15,11 @@
       },
       {
         "ordinal": 2,
-        "name": "date_start",
-        "type_info": "Date"
+        "name": "date",
+        "type_info": "DateRange"
       },
       {
         "ordinal": 3,
-        "name": "date_end",
-        "type_info": "Date"
-      },
-      {
-        "ordinal": 4,
         "name": "state: _",
         "type_info": {
           "Custom": {
@@ -43,33 +38,33 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "location",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "temp_min",
         "type_info": "Int4"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "temp_max",
         "type_info": "Int4"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "comment",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
     "nullable": [
-      false,
       false,
       false,
       false,
@@ -80,5 +75,5 @@
       true
     ]
   },
-  "hash": "92d63fbe91b09613e2fa197f23c3340e587eee9726c1d5817e707d32c4cdfcdb"
+  "hash": "ed611542849695c6381159090e0202b01de54931407783effd7dc968a62ed705"
 }

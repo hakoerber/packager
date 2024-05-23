@@ -4,13 +4,66 @@ use crate::components::crud::Read;
 
 use crate::{
     components::inventory,
-    error::{DataError, Error, QueryError},
+    error::{DataError, DatabaseError, Error, QueryError},
 };
 
 use crate::{db, Context};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[derive(Debug, sqlx::Type, Serialize, Clone, Deserialize)]
+/// Both ends are **inclusive**
+pub(crate) struct TripDate {
+    pub start: time::Date,
+    pub end: time::Date,
+}
+
+impl fmt::Display for TripDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} - {}", self.start, self.end)
+    }
+}
+
+impl From<sqlx::postgres::types::PgRange<time::Date>> for TripDate {
+    fn from(value: sqlx::postgres::types::PgRange<time::Date>) -> Self {
+        Self {
+            start: match value.start {
+                core::ops::Bound::Included(d) => d,
+                core::ops::Bound::Excluded(_d) => {
+                    panic!("lower bound is exclusive, type contraint is wrong")
+                }
+                _ => panic!("lower bound missing, type contraint is wrong"),
+            },
+            end: match value.end {
+                core::ops::Bound::Included(_d) => {
+                    panic!("upper bound is inclusive, type contraint is wrong")
+                }
+                core::ops::Bound::Excluded(d) => d
+                    .previous_day()
+                    // this cannot even happen, as the range would be empty then
+                    .expect("upper bound is Date::MIN, type contraint is wrong"),
+                _ => panic!("lower bound missing, type contraint is wrong"),
+            },
+        }
+    }
+}
+
+impl TryFrom<TripDate> for sqlx::postgres::types::PgRange<time::Date> {
+    type Error = Error;
+
+    fn try_from(value: TripDate) -> Result<Self, Error> {
+        Ok(Self {
+            start: core::ops::Bound::Included(value.start),
+            end: core::ops::Bound::Excluded(value.end.next_day().ok_or_else(|| {
+                DatabaseError::Database(DataError::Overflow {
+                    description: "upper bound is Date::MAX, would overflow exclusive upper bound"
+                        .into(),
+                })
+            })?),
+        })
+    }
+}
 
 #[derive(PartialEq, PartialOrd, Deserialize, Debug, sqlx::Type)]
 #[sqlx(type_name = "trip_state")]
@@ -451,8 +504,7 @@ impl TripItem {
 pub(crate) struct DbTripRow {
     pub id: Uuid,
     pub name: String,
-    pub date_start: time::Date,
-    pub date_end: time::Date,
+    pub date: TripDate,
     pub state: TripState,
     pub location: Option<String>,
     pub temp_min: Option<i32>,
@@ -467,8 +519,7 @@ impl TryFrom<DbTripRow> for Trip {
         Ok(Trip {
             id: row.id,
             name: row.name,
-            date_start: row.date_start,
-            date_end: row.date_end,
+            date: row.date,
             state: row.state,
             location: row.location,
             temp_min: row.temp_min,
@@ -485,8 +536,7 @@ impl TryFrom<DbTripRow> for Trip {
 pub(crate) struct Trip {
     pub id: Uuid,
     pub name: String,
-    pub date_start: time::Date,
-    pub date_end: time::Date,
+    pub date: TripDate,
     pub state: TripState,
     pub location: Option<String>,
     pub temp_min: Option<i32>,
@@ -498,9 +548,9 @@ pub(crate) struct Trip {
 }
 
 macro_rules! build_trip_edit {
-    ( $( ($name:ident, $id:ident, $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
-        #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-        pub enum TripAttributeUpdate {
+    ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
+        #[derive(Clone, Debug, Serialize, Deserialize)]
+        pub(crate) enum TripAttributeUpdate {
             $(
                 #[serde(rename = $wire)]
                 $name($type),
@@ -515,10 +565,21 @@ macro_rules! build_trip_edit {
             )*
         }
 
+        impl TripAttribute {
+            pub(crate) fn id(&self) -> &'static str {
+                match self {
+                    $(
+                        Self::$name => $wire,
+                    )*
+
+                }
+            }
+        }
+
         $(
             paste::paste! {
                 #[tracing::instrument]
-                pub async fn [<set_attribute_ $name:lower >] (
+                pub(crate) async fn [<set_attribute_ $name:lower >] (
                     ctx: &Context,
                     pool: &db::Pool,
                     trip_id: Uuid,
@@ -532,7 +593,7 @@ macro_rules! build_trip_edit {
                         pool,
                         concat!(
                             "UPDATE trips ",
-                                "SET ", stringify!([< $wire >]), " = $1 ",
+                                "SET ", stringify!($( $id ).*), " = $1 ",
                                 "WHERE id = $2 AND user_id = $3"
                         ),
                         value,
@@ -550,11 +611,11 @@ macro_rules! build_trip_edit {
             }
         )*
 
-        pub mod view {
+        pub(crate) mod view {
             use maud::Markup;
-            use super::super::view::InputType;
 
-            #[must_use] pub fn info(
+            #[must_use]
+            pub(crate) fn info(
                 trip: &super::Trip,
                 trip_edit_attribute: Option<&super::TripAttribute>,
             ) -> Vec<Markup> {
@@ -563,19 +624,24 @@ macro_rules! build_trip_edit {
                         {
                             crate::components::trips::view::TripInfoRow::build(
                                 $human,
-                                (&trip.$id).into(),
+                                (&trip.$( $id ).*).into(),
                                 super::TripAttribute::$name,
                                 trip_edit_attribute,
-                                InputType::$input,
                             )
                         },
                     )*
                 ]
             }
+        }
+
+
+        $(
+            paste::paste! {
+                pub(crate) use $type as [< Type$name >];
             }
+        )*
 
-
-        pub mod routes {
+        pub(crate) mod routes {
             use axum::{
                 extract::{Extension, Path, State},
                 response::{Redirect},
@@ -591,9 +657,9 @@ macro_rules! build_trip_edit {
                 paste::paste! {
                     #[derive(Deserialize, Debug)]
                     #[serde(deny_unknown_fields)]
-                    pub struct [< TripEditUpdate $name >] {
+                    pub(crate) struct [< TripEditUpdate $name >] {
                         #[serde(rename = "new-value")]
-                        value: $type,
+                        value: super::[< Type$name >],
                     }
 
                     impl From<[< TripEditUpdate $name >]> for super::TripAttributeUpdate {
@@ -602,14 +668,14 @@ macro_rules! build_trip_edit {
                         }
                     }
 
-                    impl From<[< TripEditUpdate $name >]> for $type {
+                    impl From<[< TripEditUpdate $name >]> for super::[< Type$name >] {
                         fn from(v: [< TripEditUpdate $name >]) -> Self {
                             v.value
                         }
                     }
 
                     #[tracing::instrument]
-                    pub async fn [<trip_edit_attribute_ $name:lower >] (
+                    pub(crate) async fn [<trip_edit_attribute_ $name:lower >] (
                         Extension(current_user): Extension<models::user::User>,
                         State(state): State<AppState>,
                         Path((trip_id,)): Path<(Uuid,)>,
@@ -641,8 +707,7 @@ macro_rules! build_trip_edit {
 
 build_trip_edit! {
     (Name, name, "Name", "name", String, Text),
-    (DateStart, date_start, "Start date", "date_start", time::Date, Date),
-    (DateEnd, date_end, "End date", "date_end", time::Date, Date),
+    (TripDate, date, "Date", "date", TripDate, DateRange),
     (Location, location, "Location", "location", String, Text),
     (TempMin, temp_min, "Temp (min)", "temp_min", i32, Number),
     (TempMax, temp_max, "Temp (max)", "temp_max", i32, Number),
@@ -662,8 +727,7 @@ impl Trip {
             r#"SELECT
                 id,
                 name,
-                date_start,
-                date_end,
+                date,
                 state as "state: _",
                 location,
                 temp_min,
@@ -675,7 +739,7 @@ impl Trip {
         )
         .await?;
 
-        trips.sort_by_key(|trip| trip.date_start);
+        trips.sort_by_key(|trip| trip.date.start);
         Ok(trips)
     }
 
@@ -696,8 +760,7 @@ impl Trip {
             r#"SELECT
                 id,
                 name,
-                date_start,
-                date_end,
+                date,
                 state as "state: _",
                 location,
                 temp_min,
@@ -828,8 +891,7 @@ impl Trip {
         ctx: &Context,
         pool: &db::Pool,
         name: &str,
-        date_start: time::Date,
-        date_end: time::Date,
+        date: TripDate,
         copy_from: Option<Uuid>,
     ) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
@@ -838,6 +900,8 @@ impl Trip {
 
         let mut transaction = pool.begin().await?;
 
+        println!("date: {date:?}");
+
         crate::execute!(
             &db::QueryClassification {
                 query_type: db::QueryType::Insert,
@@ -845,13 +909,12 @@ impl Trip {
             },
             &mut *transaction,
             "INSERT INTO trips
-                (id, name, date_start, date_end, state, user_id)
+                (id, name, date, state, user_id)
             VALUES
-                ($1, $2, $3, $4, $5, $6)",
+                ($1, $2, $3, $4, $5)",
             id,
             name,
-            date_start,
-            date_end,
+            <TripDate as TryInto<sqlx::postgres::types::PgRange<time::Date>>>::try_into(date)?,
             trip_state as _,
             ctx.user.id,
         )

@@ -87,8 +87,10 @@ pub(crate) async fn create(
         &ctx,
         &state.database_pool,
         &new_trip.name,
-        new_trip.date_start,
-        new_trip.date_end,
+        model::TripDate {
+            start: new_trip.date_start,
+            end: new_trip.date_end,
+        },
         new_trip.copy_from,
     )
     .await?;

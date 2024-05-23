@@ -18,6 +18,9 @@ pub enum DataError {
     TimeParse {
         description: String,
     },
+    Overflow {
+        description: String,
+    },
 }
 
 impl fmt::Display for DataError {
@@ -34,6 +37,9 @@ impl fmt::Display for DataError {
             }
             Self::TimeParse { description } => {
                 write!(f, "Date parse error: {description}")
+            }
+            Self::Overflow { description } => {
+                write!(f, "Overflow error: {description}")
             }
         }
     }
