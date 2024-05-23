@@ -658,7 +658,7 @@ macro_rules! build_trip_edit {
                     #[derive(Deserialize, Debug)]
                     #[serde(deny_unknown_fields)]
                     pub(crate) struct [< TripEditUpdate $name >] {
-                        #[serde(rename = "new-value")]
+                        #[serde(rename = $wire)]
                         value: super::[< Type$name >],
                     }
 

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::htmx;
 
 use maud::{html, Markup, PreEscaped};
@@ -365,16 +367,19 @@ impl Trip {
 }
 
 pub(crate) trait Input {
-    fn input(&self, id: &str, form: &str) -> Markup;
+    type Ids;
+
+    fn input(&self, ids: Self::Ids, form: &str) -> Markup;
 }
 
 impl Input for Option<&String> {
-    fn input(&self, id: &str, form: &str) -> Markup {
+    type Ids = (&'static str,);
+    fn input(&self, ids: Self::Ids, form: &str) -> Markup {
         html!(
             input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
                 type="text"
-                id=(id)
-                name="new-value"
+                id=(ids.0)
+                name=(ids.0)
                 form=(form)
                 value=(self.unwrap_or(&String::new()))
             {}
@@ -383,12 +388,13 @@ impl Input for Option<&String> {
 }
 
 impl Input for Option<&i32> {
-    fn input(&self, id: &str, form: &str) -> Markup {
+    type Ids = (&'static str,);
+    fn input(&self, ids: Self::Ids, form: &str) -> Markup {
         html!(
             input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
                 type="number"
-                id=(id)
-                name="new-value"
+                id=(ids.0)
+                name=(ids.0)
                 form=(form)
                 value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
             {}
@@ -397,18 +403,34 @@ impl Input for Option<&i32> {
 }
 
 impl Input for Option<&model::TripDate> {
-    fn input(&self, id: &str, form: &str) -> Markup {
+    type Ids = (&'static str, &'static str);
+    fn input(&self, ids: Self::Ids, form: &str) -> Markup {
         html!(
+            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                type="number"
+                id=(ids.0)
+                name=(ids.0)
+                form=(form)
+                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
+            {}
+            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
+                type="number"
+                id=(ids.1)
+                name=(ids.1)
+                form=(form)
+                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
+            {}
+
             p { "this could be your form!" }
         )
     }
 }
 
-pub(crate) struct TripInfoRow<T>(std::marker::PhantomData<T>)
+pub(crate) struct TripInfoRow<T>(PhantomData<T>)
 where
     T: std::fmt::Debug + std::fmt::Display;
 
-impl<'a, T> Input for AttributeValue<'a, T>
+impl<'a, T, I> AttributeValue<'a, T, I>
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input,
@@ -419,12 +441,12 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct AttributeValue<'a, T>(pub Option<&'a T>)
+pub(crate) struct AttributeValue<'a, T, I>(pub Option<&'a T>, std::marker::PhantomData<I>)
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input;
 
-impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T>
+impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T, I>
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input,
@@ -434,7 +456,7 @@ where
     }
 }
 
-impl<'a, T> From<&'a T> for AttributeValue<'a, T>
+impl<'a, T> From<&'a T> for AttributeValue<'a, T, I>
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input,
@@ -443,27 +465,6 @@ where
         Self(Some(value))
     }
 }
-
-impl<'a, T> AttributeValue<'a, T>
-where
-    T: std::fmt::Debug + std::fmt::Display,
-    Option<&'a T>: Input,
-{
-    fn input(&self, id: &str, form: &str) -> Markup {
-        self.0.input(id, form)
-    }
-}
-// html!(
-//     input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
-//         type="text"
-//         id="new-value"
-//         name="new-value"
-//         form="edit-trip"
-//         value=(self.0.map_or(String::new(), std::string::ToString::to_string))
-//     {}
-// )
-//     }
-// }
 
 impl<T> TripInfoRow<T>
 where
