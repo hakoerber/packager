@@ -548,7 +548,7 @@ pub(crate) struct Trip {
 }
 
 macro_rules! build_trip_edit {
-    ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
+    ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $formtype:ty, ($( $formid:ident ),*), $type:path, $input:ident) ),* $(,)? ) => {
         #[derive(Clone, Debug, Serialize, Deserialize)]
         pub(crate) enum TripAttributeUpdate {
             $(
@@ -566,7 +566,7 @@ macro_rules! build_trip_edit {
         }
 
         impl TripAttribute {
-            pub(crate) fn id(&self) -> &'static str {
+            pub(crate) fn ids(&self) -> &'static str {
                 match self {
                     $(
                         Self::$name => $wire,
@@ -575,6 +575,21 @@ macro_rules! build_trip_edit {
                 }
             }
         }
+            // paste::paste!(
+            //     #[derive(Debug, PartialEq)]
+            //     pub struct [< TripKey$name >]<
+
+            //     impl TripKey {
+            //         pub(crate) fn ids(&self) -> I {
+            //             match self {
+            //                 $(
+            //                     Self::$name => ( $( stringify!($formid) ),* ),
+            //                 )*
+
+            //             }
+            //         }
+            //     }
+            // )
 
         $(
             paste::paste! {
@@ -706,11 +721,11 @@ macro_rules! build_trip_edit {
 }
 
 build_trip_edit! {
-    (Name, name, "Name", "name", String, Text),
-    (TripDate, date, "Date", "date", TripDate, DateRange),
-    (Location, location, "Location", "location", String, Text),
-    (TempMin, temp_min, "Temp (min)", "temp_min", i32, Number),
-    (TempMax, temp_max, "Temp (max)", "temp_max", i32, Number),
+    (Name, name, "Name", "name", &'static str, (name), String, Text),
+    (TripDate, date, "Date", "date", (&'static str, &'static str), (date_start, date_end), TripDate, DateRange),
+    (Location, location, "Location", "location", &'static str, (location), String, Text),
+    (TempMin, temp_min, "Temp (min)", "temp_min", &'static str, (temp_min), i32, Number),
+    (TempMax, temp_max, "Temp (max)", "temp_max", &'static str, (temp_max), i32, Number),
 }
 
 impl Trip {

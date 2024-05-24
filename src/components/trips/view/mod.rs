@@ -430,7 +430,7 @@ pub(crate) struct TripInfoRow<T>(PhantomData<T>)
 where
     T: std::fmt::Debug + std::fmt::Display;
 
-impl<'a, T, I> AttributeValue<'a, T, I>
+impl<'a, T> AttributeValue<'a, T>
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input,
@@ -441,12 +441,12 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct AttributeValue<'a, T, I>(pub Option<&'a T>, std::marker::PhantomData<I>)
+pub(crate) struct AttributeValue<'a, T>(pub Option<&'a T>)
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input;
 
-impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T, I>
+impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T>
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input,
@@ -456,7 +456,7 @@ where
     }
 }
 
-impl<'a, T> From<&'a T> for AttributeValue<'a, T, I>
+impl<'a, T> From<&'a T> for AttributeValue<'a, T>
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input,
@@ -496,7 +496,7 @@ where
                     td ."border" ."p-2" { (name) }
                     td ."border" ."bg-blue-300" ."px-2" ."py-0" {
                         div ."h-full" ."w-full" ."flex" {
-                            (value.input(attribute_key.id(), "edit-trip"))
+                            (value.input(attribute_key.ids(), "edit-trip"))
                         }
                     }
                     td
