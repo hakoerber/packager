@@ -12,7 +12,7 @@ pub(crate) struct TripManager;
 pub(crate) mod packagelist;
 pub(crate) mod types;
 
-use super::model;
+use super::{model, AttributeValue, Input};
 
 use crate::components::{self, view::View};
 
@@ -366,114 +366,22 @@ impl Trip {
     }
 }
 
-pub(crate) trait Input {
-    type Ids;
-
-    fn input(&self, ids: Self::Ids, form: &str) -> Markup;
-}
-
-impl Input for Option<&String> {
-    type Ids = (&'static str,);
-    fn input(&self, ids: Self::Ids, form: &str) -> Markup {
-        html!(
-            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
-                type="text"
-                id=(ids.0)
-                name=(ids.0)
-                form=(form)
-                value=(self.unwrap_or(&String::new()))
-            {}
-        )
-    }
-}
-
-impl Input for Option<&i32> {
-    type Ids = (&'static str,);
-    fn input(&self, ids: Self::Ids, form: &str) -> Markup {
-        html!(
-            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
-                type="number"
-                id=(ids.0)
-                name=(ids.0)
-                form=(form)
-                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
-            {}
-        )
-    }
-}
-
-impl Input for Option<&model::TripDate> {
-    type Ids = (&'static str, &'static str);
-    fn input(&self, ids: Self::Ids, form: &str) -> Markup {
-        html!(
-            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
-                type="number"
-                id=(ids.0)
-                name=(ids.0)
-                form=(form)
-                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
-            {}
-            input ."m-auto" ."px-1" ."block" ."w-full" ."bg-blue-100" ."hover:bg-white"
-                type="number"
-                id=(ids.1)
-                name=(ids.1)
-                form=(form)
-                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
-            {}
-
-            p { "this could be your form!" }
-        )
-    }
-}
-
-pub(crate) struct TripInfoRow<T>(PhantomData<T>)
+pub(crate) struct TripInfoRow<'a, T, I>(PhantomData<&'a T>, PhantomData<I>)
 where
-    T: std::fmt::Debug + std::fmt::Display;
+    T: std::fmt::Debug + 'a,
+    Option<&'a T>: Input<Ids = I>,
+    I: std::fmt::Debug;
 
-impl<'a, T> AttributeValue<'a, T>
+impl<'a, T, I> TripInfoRow<'a, T, I>
 where
-    T: std::fmt::Debug + std::fmt::Display,
-    Option<&'a T>: Input,
-{
-    fn input(&self, id: &str, form: &str) -> Markup {
-        <Option<&'a T> as Input>::input(&self.0, id, form)
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct AttributeValue<'a, T>(pub Option<&'a T>)
-where
-    T: std::fmt::Debug + std::fmt::Display,
-    Option<&'a T>: Input;
-
-impl<'a, T> From<&'a Option<T>> for AttributeValue<'a, T>
-where
-    T: std::fmt::Debug + std::fmt::Display,
-    Option<&'a T>: Input,
-{
-    fn from(value: &'a Option<T>) -> Self {
-        Self(value.as_ref())
-    }
-}
-
-impl<'a, T> From<&'a T> for AttributeValue<'a, T>
-where
-    T: std::fmt::Debug + std::fmt::Display,
-    Option<&'a T>: Input,
-{
-    fn from(value: &'a T) -> Self {
-        Self(Some(value))
-    }
-}
-
-impl<T> TripInfoRow<T>
-where
-    T: std::fmt::Debug + std::fmt::Display,
+    T: std::fmt::Debug + 'a,
+    Option<&'a T>: Input<Ids = I>,
+    I: std::fmt::Debug,
 {
     #[tracing::instrument]
-    pub fn build<'a>(
+    pub fn build(
         name: &str,
-        value: AttributeValue<'a, T>,
+        value: AttributeValue<'a, T, I>,
         attribute_key: model::TripAttribute,
         edit_attribute: Option<&model::TripAttribute>,
     ) -> Markup
@@ -496,7 +404,7 @@ where
                     td ."border" ."p-2" { (name) }
                     td ."border" ."bg-blue-300" ."px-2" ."py-0" {
                         div ."h-full" ."w-full" ."flex" {
-                            (value.input(attribute_key.ids(), "edit-trip"))
+                            (value.input("edit-trip"))
                         }
                     }
                     td

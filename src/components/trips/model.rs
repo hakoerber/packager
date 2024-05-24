@@ -518,12 +518,12 @@ impl TryFrom<DbTripRow> for Trip {
     fn try_from(row: DbTripRow) -> Result<Self, Self::Error> {
         Ok(Trip {
             id: row.id,
-            name: row.name,
+            name: Name(row.name),
             date: row.date,
             state: row.state,
-            location: row.location,
-            temp_min: row.temp_min,
-            temp_max: row.temp_max,
+            location: row.location.map(Location),
+            temp_min: row.temp_min.map(Temperature),
+            temp_max: row.temp_max.map(Temperature),
             comment: row.comment,
             todos: None,
             types: None,
@@ -535,12 +535,12 @@ impl TryFrom<DbTripRow> for Trip {
 #[derive(Debug)]
 pub(crate) struct Trip {
     pub id: Uuid,
-    pub name: String,
+    pub name: Name,
     pub date: TripDate,
     pub state: TripState,
-    pub location: Option<String>,
-    pub temp_min: Option<i32>,
-    pub temp_max: Option<i32>,
+    pub location: Option<Location>,
+    pub temp_min: Option<Temperature>,
+    pub temp_max: Option<Temperature>,
     pub comment: Option<String>,
     pub todos: Option<Vec<crate::components::trips::todos::Todo>>,
     pub types: Option<Vec<TripType>>,
@@ -550,10 +550,10 @@ pub(crate) struct Trip {
 macro_rules! build_trip_edit {
     ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $formtype:ty, ($( $formid:ident ),*), $type:path, $input:ident) ),* $(,)? ) => {
         #[derive(Clone, Debug, Serialize, Deserialize)]
-        pub(crate) enum TripAttributeUpdate {
+        pub(crate) enum TripAttributeUpdate<'a> {
             $(
                 #[serde(rename = $wire)]
-                $name($type),
+                $name(super::AttributeValue<'a, $type, $formtype>),
             )*
         }
 
@@ -677,9 +677,9 @@ macro_rules! build_trip_edit {
                         value: super::[< Type$name >],
                     }
 
-                    impl From<[< TripEditUpdate $name >]> for super::TripAttributeUpdate {
+                    impl<'a> From<[< TripEditUpdate $name >]> for super::TripAttributeUpdate<'a> {
                         fn from(v: [< TripEditUpdate $name >]) -> Self {
-                            Self::$name(v.value)
+                            Self::$name(super::super::AttributeValue(v.value))
                         }
                     }
 
@@ -720,12 +720,21 @@ macro_rules! build_trip_edit {
     }
 }
 
+#[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
+pub(crate) struct Name(pub String);
+
+#[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
+pub(crate) struct Location(pub String);
+
+#[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
+pub(crate) struct Temperature(pub i32);
+
 build_trip_edit! {
-    (Name, name, "Name", "name", &'static str, (name), String, Text),
+    (Name, name, "Name", "name", (&'static str,), (name), Name, Text),
     (TripDate, date, "Date", "date", (&'static str, &'static str), (date_start, date_end), TripDate, DateRange),
-    (Location, location, "Location", "location", &'static str, (location), String, Text),
-    (TempMin, temp_min, "Temp (min)", "temp_min", &'static str, (temp_min), i32, Number),
-    (TempMax, temp_max, "Temp (max)", "temp_max", &'static str, (temp_max), i32, Number),
+    (Location, location, "Location", "location", (&'static str,), (location), Location, Text),
+    (TempMin, temp_min, "Temp (min)", "temp_min", (&'static str,), (temp_min), Temperature, Number),
+    (TempMax, temp_max, "Temp (max)", "temp_max", (&'static str,), (temp_max), Temperature, Number),
 }
 
 impl Trip {
