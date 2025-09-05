@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
 set -o nounset
+set -o errexit
 
 if [[ ! -e "./pgdata" ]] ; then
     initdb --locale=C.UTF-8 --encoding=UTF8 -D './pgdata' --username postgres
     mkdir ./pgdata/run
 fi
 
-postgres -D ./pgdata -k run -h "" &o
+postgres -D ./pgdata -k run -h "" &
+pg_pid="$!"
 
 sleep 1
 
@@ -16,4 +18,5 @@ CREATE ROLE packager NOSUPERUSER NOCREATEDB NOCREATEROLE LOGIN CONNECTION LIMIT 
 CREATE DATABASE packager WITH OWNER 'packager';
 SQLCMD
 
+kill "${pg_pid}"
 wait

@@ -1,4 +1,5 @@
 /target/
+*.sql
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
