@@ -173,6 +173,7 @@ pub(crate) struct InventoryItem {
     pub product: Option<Product>,
 }
 
+#[derive(Debug)]
 struct DbInventoryItemRow {
     pub id: Uuid,
     pub name: String,
@@ -190,6 +191,7 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
     type Error = Error;
 
     fn try_from(row: DbInventoryItemRow) -> Result<Self, Self::Error> {
+        println!("{row:?}");
         Ok(InventoryItem {
             id: row.id,
             name: row.name,
