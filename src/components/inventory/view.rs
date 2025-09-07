@@ -517,18 +517,22 @@ impl InventoryItem {
                         }
                     }
                 }
-                @match item.product {
-                    Some(ref product) => p { "this item is part of product" (product.name) },
-                    None => p { "this item is not part of a product" },
+                div ."mt-6" ."border-2" ."border-gray-200" ."p-2" {
+                    @match item.product {
+                        Some(ref product) => p { "this item is part of product \"" a href={"/products/" (product.id)} { (product.name) } "\"" },
+                        None => p { "this item is not part of a product" },
+                    }
                 }
-                @if item.trips.is_empty() {
-                    p { "this item has never been used in a trip" }
-                } @else {
-                    p { "this item was used in the following trips:" }
-                    ul {
-                        @for trip in item.trips.iter() {
-                            li {
-                                p { (trip.name) " [" (trip.state) ("]") }
+                div ."mt-6" ."border-2" ."border-gray-200" ."p-2" {
+                    @if item.trips.is_empty() {
+                        p { "this item has never been used in a trip" }
+                    } @else {
+                        p { "this item was used in the following trips:" }
+                        ul {
+                            @for trip in item.trips.iter() {
+                                li {
+                                    p { (trip.name) " [" (trip.state) ("]") }
+                                }
                             }
                         }
                     }

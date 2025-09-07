@@ -88,6 +88,7 @@ pub fn router(state: AppState) -> Router {
                 .route("/", get(root))
                 .merge(crate::components::trips::router())
                 .merge(crate::components::inventory::router())
+                .merge(crate::components::products::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth::authorize,

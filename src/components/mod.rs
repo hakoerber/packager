@@ -1,4 +1,5 @@
 pub(crate) mod inventory;
+pub(crate) mod products;
 pub(crate) mod trips;
 
 pub(crate) mod crud {

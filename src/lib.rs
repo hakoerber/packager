@@ -80,6 +80,7 @@ impl<'a> From<&'a UriPath> for &'a str {
 pub(crate) enum TopLevelPage {
     Inventory,
     Trips,
+    Products,
 }
 
 impl TopLevelPage {
@@ -87,6 +88,7 @@ impl TopLevelPage {
         match self {
             Self::Inventory => "inventory",
             Self::Trips => "trips",
+            Self::Products => "products",
         }
     }
 
@@ -95,6 +97,7 @@ impl TopLevelPage {
             match self {
                 Self::Inventory => "/inventory/",
                 Self::Trips => "/trips/",
+                Self::Products => "/products/",
             }
             .to_string(),
         )
@@ -104,6 +107,7 @@ impl TopLevelPage {
         match self {
             Self::Inventory => "Inventory",
             Self::Trips => "Trips",
+            Self::Products => "Products",
         }
     }
 }

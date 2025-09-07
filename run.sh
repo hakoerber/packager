@@ -16,7 +16,7 @@ cargoargs=(
     --color=always
 )
 
-cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" migrate
+./migrate.sh
 cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" admin user create --username hannes --fullname "Hannes Körber" || true
 
 serveargs=(

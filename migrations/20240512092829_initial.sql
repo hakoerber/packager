@@ -7,13 +7,24 @@ CREATE TABLE IF NOT EXISTS "users" (
 
 -- INVENTORY
 
-CREATE TABLE IF NOT EXISTS "inventory_products" (
+CREATE TABLE IF NOT EXISTS "products" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    comment TEXT,
+    user_id uuid NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE (name)
+    UNIQUE (name),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS "product_links" (
+    id uuid NOT NULL,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    product_id uuid NOT NULL,
+    UNIQUE (name),
+    PRIMARY KEY (id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
 CREATE TABLE IF NOT EXISTS "inventory_items_categories" (
@@ -37,7 +48,7 @@ CREATE TABLE IF NOT EXISTS "inventory_items" (
     UNIQUE (name),
     PRIMARY KEY (id),
     FOREIGN KEY (category_id) REFERENCES inventory_items_categories(id),
-    FOREIGN KEY (product_id) REFERENCES inventory_products(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

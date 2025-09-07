@@ -3,6 +3,15 @@ use crate::{db, Context};
 
 use uuid::Uuid;
 
+#[derive(Debug)]
+pub(crate) struct Product {
+    #[allow(dead_code)]
+    pub id: Uuid,
+    pub name: String,
+    #[allow(dead_code)]
+    pub description: Option<String>,
+}
+
 pub(crate) struct Inventory {
     pub categories: Vec<Category>,
 }
@@ -152,17 +161,6 @@ impl Category {
 }
 
 #[derive(Debug)]
-pub(crate) struct Product {
-    #[allow(dead_code)]
-    pub id: Uuid,
-    pub name: String,
-    #[allow(dead_code)]
-    pub description: Option<String>,
-    #[allow(dead_code)]
-    pub comment: Option<String>,
-}
-
-#[derive(Debug)]
 pub(crate) struct InventoryItemTrip {
     pub name: String,
     // pub date: crate::components::trips::TripDate,
@@ -283,7 +281,6 @@ struct DbInventoryItemRow {
     pub product_id: Option<Uuid>,
     pub product_name: Option<String>,
     pub product_description: Option<String>,
-    pub product_comment: Option<String>,
     pub trip_name: Option<String>,
     // pub trip_date: Option<crate::components::trips::TripDate>,
     pub trip_state: Option<crate::components::trips::TripState>,
@@ -305,15 +302,6 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
     type Error = Error;
 
     fn try_from(mut rows: DbInventoryItemRows) -> Result<Self, Self::Error> {
-        println!("==========================================================");
-        println!("==========================================================");
-        println!("==========================================================");
-        println!("==========================================================");
-        println!("==========================================================");
-        println!("==========================================================");
-        println!("==========================================================");
-        println!("{rows:?}");
-
         let first_id = rows.first().id;
 
         let mut trips: Vec<InventoryItemTrip> = vec![];
@@ -346,7 +334,6 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
                         id,
                         name: item.product_name.unwrap(),
                         description: item.product_description,
-                        comment: item.product_comment,
                     })
                 })
                 .transpose()?,
@@ -377,14 +364,13 @@ impl InventoryItem {
                     product.id AS "product_id?",
                     product.name AS "product_name?",
                     product.description AS "product_description?",
-                    product.comment AS "product_comment?",
                     trip.name AS "trip_name?",
                     -- trip.date AS "trip_date?: crate::components::trips::TripDate",
                     trip.state AS "trip_state?: crate::components::trips::TripState"
                 FROM inventory_items AS item
                 INNER JOIN inventory_items_categories as category
                     ON item.category_id = category.id
-                LEFT JOIN inventory_products AS product
+                LEFT JOIN products AS product
                     ON item.product_id = product.id
                 LEFT OUTER JOIN trip_items as ti
                     ON ti.item_id = item.id
