@@ -20,11 +20,9 @@ cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" migrate
 cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" admin user create --username hannes --fullname "Hannes Körber" || true
 
 serveargs=(
-    --enable-opentelemetry true
-    --enable-tokio-console true
-    --enable-prometheus true
-    --prometheus-bind 0.0.0.0
-    --prometheus-port 3001
+    --enable-opentelemetry false
+    --enable-tokio-console false
+    --enable-prometheus false
     serve
     --bind 127.0.0.1
     --disable-auth-and-assume-user hannes

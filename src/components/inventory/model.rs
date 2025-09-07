@@ -163,14 +163,115 @@ pub(crate) struct Product {
 }
 
 #[derive(Debug)]
-pub(crate) struct InventoryItem {
-    #[allow(dead_code)]
-    pub id: Uuid,
+pub(crate) struct InventoryItemTrip {
     pub name: String,
-    pub description: Option<String>,
-    pub weight: i32,
-    pub category: Category,
-    pub product: Option<Product>,
+    // pub date: crate::components::trips::TripDate,
+    pub state: crate::components::trips::TripState,
+}
+
+#[derive(Debug)]
+struct DbInventoryItemRows {
+    first: DbInventoryItemRow,
+    rest: Vec<DbInventoryItemRow>,
+}
+
+impl DbInventoryItemRows {
+    fn first(&self) -> &DbInventoryItemRow {
+        &self.first
+    }
+
+    fn into_first(self) -> DbInventoryItemRow {
+        self.first
+    }
+}
+
+impl<'a> DbInventoryItemRows {
+    fn iter(&'a self) -> DbInventoryItemRowsIterRef<'a> {
+        DbInventoryItemRowsIterRef {
+            first: Some(&self.first),
+            inner_iter: self.rest.iter(),
+        }
+    }
+
+    fn iter_mut(&'a mut self) -> DbInventoryItemRowsIterRefMut<'a> {
+        DbInventoryItemRowsIterRefMut {
+            first: Some(&mut self.first),
+            inner_iter: self.rest.iter_mut(),
+        }
+    }
+}
+
+struct DbInventoryItemRowsIterRef<'a> {
+    first: Option<&'a DbInventoryItemRow>,
+    inner_iter: std::slice::Iter<'a, DbInventoryItemRow>,
+}
+
+impl<'a> Iterator for DbInventoryItemRowsIterRef<'a> {
+    type Item = &'a DbInventoryItemRow;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(first) = self.first.take() {
+            Some(first)
+        } else {
+            self.inner_iter.next()
+        }
+    }
+}
+
+struct DbInventoryItemRowsIterRefMut<'a> {
+    first: Option<&'a mut DbInventoryItemRow>,
+    inner_iter: std::slice::IterMut<'a, DbInventoryItemRow>,
+}
+
+impl<'a> Iterator for DbInventoryItemRowsIterRefMut<'a> {
+    type Item = &'a mut DbInventoryItemRow;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(first) = self.first.take() {
+            Some(first)
+        } else {
+            self.inner_iter.next()
+        }
+    }
+}
+
+struct DbInventoryItemRowsIter {
+    first: Option<DbInventoryItemRow>,
+    inner_iter: std::vec::IntoIter<DbInventoryItemRow>,
+}
+
+impl Iterator for DbInventoryItemRowsIter {
+    type Item = DbInventoryItemRow;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(first) = self.first.take() {
+            Some(first)
+        } else {
+            self.inner_iter.next()
+        }
+    }
+}
+
+impl IntoIterator for DbInventoryItemRows {
+    type Item = DbInventoryItemRow;
+
+    type IntoIter = DbInventoryItemRowsIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            first: Some(self.first),
+            inner_iter: self.rest.into_iter(),
+        }
+    }
+}
+
+impl From<Vec<DbInventoryItemRow>> for DbInventoryItemRows {
+    fn from(mut value: Vec<DbInventoryItemRow>) -> Self {
+        match value.pop() {
+            Some(first) => Self { first, rest: value },
+            None => panic!("received empty vec, this is a bug"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -185,34 +286,73 @@ struct DbInventoryItemRow {
     pub product_name: Option<String>,
     pub product_description: Option<String>,
     pub product_comment: Option<String>,
+    pub trip_name: Option<String>,
+    // pub trip_date: Option<crate::components::trips::TripDate>,
+    pub trip_state: Option<crate::components::trips::TripState>,
 }
 
-impl TryFrom<DbInventoryItemRow> for InventoryItem {
+#[derive(Debug)]
+pub(crate) struct InventoryItem {
+    #[allow(dead_code)]
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub weight: i32,
+    pub category: Category,
+    pub product: Option<Product>,
+    pub trips: Vec<InventoryItemTrip>,
+}
+
+impl TryFrom<DbInventoryItemRows> for InventoryItem {
     type Error = Error;
 
-    fn try_from(row: DbInventoryItemRow) -> Result<Self, Self::Error> {
-        println!("{row:?}");
+    fn try_from(mut rows: DbInventoryItemRows) -> Result<Self, Self::Error> {
+        println!("==========================================================");
+        println!("==========================================================");
+        println!("==========================================================");
+        println!("==========================================================");
+        println!("==========================================================");
+        println!("==========================================================");
+        println!("==========================================================");
+        println!("{rows:?}");
+
+        let first_id = rows.first().id;
+
+        let mut trips: Vec<InventoryItemTrip> = vec![];
+
+        for row in rows.iter_mut() {
+            assert_eq!(row.id, first_id);
+            if let Some(name) = row.trip_name.take() {
+                // safe because trip_id is non-NULL
+                let state = row.trip_state.take().unwrap();
+                trips.push(InventoryItemTrip { name, state });
+            }
+        }
+
+        let item = rows.first;
+
         Ok(InventoryItem {
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            weight: row.weight,
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            weight: item.weight,
             category: Category {
-                id: row.category_id,
-                name: row.category_name,
+                id: item.category_id,
+                name: item.category_name,
                 items: None,
             },
-            product: row
+            product: item
                 .product_id
                 .map(|id| -> Result<Product, Error> {
                     Ok(Product {
                         id,
-                        name: row.product_name.unwrap(),
-                        description: row.product_description,
-                        comment: row.product_comment,
+                        name: item.product_name.unwrap(),
+                        description: item.product_description,
+                        comment: item.product_comment,
                     })
                 })
                 .transpose()?,
+            trips: trips,
         })
     }
 }
@@ -220,33 +360,42 @@ impl TryFrom<DbInventoryItemRow> for InventoryItem {
 impl InventoryItem {
     #[tracing::instrument]
     pub async fn find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+        crate::query_many_to_many_single!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
                 component: db::Component::Inventory,
             },
             pool,
             DbInventoryItemRow,
+            DbInventoryItemRows,
             Self,
-            "SELECT
+            r#"SELECT
                     item.id AS id,
                     item.name AS name,
                     item.description AS description,
                     weight,
                     category.id AS category_id,
                     category.name AS category_name,
-                    product.id AS product_id,
-                    product.name AS product_name,
-                    product.description AS product_description,
-                    product.comment AS product_comment
+                    product.id AS "product_id?",
+                    product.name AS "product_name?",
+                    product.description AS "product_description?",
+                    product.comment AS "product_comment?",
+                    trip.name AS "trip_name?",
+                    -- trip.date AS "trip_date?: crate::components::trips::TripDate",
+                    trip.state AS "trip_state?: crate::components::trips::TripState"
                 FROM inventory_items AS item
                 INNER JOIN inventory_items_categories as category
                     ON item.category_id = category.id
                 LEFT JOIN inventory_products AS product
                     ON item.product_id = product.id
+                LEFT OUTER JOIN trip_items as ti
+                    ON ti.item_id = item.id
+                    AND ti.pick = TRUE
+                LEFT OUTER JOIN trips as trip
+                    ON ti.trip_id = trip.id
                 WHERE
                     item.id = $1
-                    AND item.user_id = $2",
+                    AND item.user_id = $2"#,
             id,
             ctx.user.id,
         )

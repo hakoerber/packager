@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    item.id AS id,\n                    item.name AS name,\n                    item.description AS description,\n                    weight,\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    product.id AS \"product_id?\",\n                    product.name AS \"product_name?\",\n                    product.description AS \"product_description?\",\n                    product.comment AS \"product_comment?\",\n                    trip.name AS \"trip_name?\",\n                    -- trip.date AS \"trip_date?: crate::components::trips::TripDate\",\n                    trip.state AS \"trip_state?: crate::components::trips::TripState\"\n                FROM inventory_items AS item\n                INNER JOIN inventory_items_categories as category\n                    ON item.category_id = category.id\n                LEFT JOIN inventory_products AS product\n                    ON item.product_id = product.id\n                LEFT OUTER JOIN trip_items as ti\n                    ON ti.item_id = item.id\n                    AND ti.pick = TRUE\n                LEFT OUTER JOIN trips as trip\n                    ON ti.trip_id = trip.id\n                WHERE\n                    item.id = $1\n                    AND item.user_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "weight",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "category_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "category_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "product_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "product_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "product_description?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "product_comment?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "trip_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "trip_state?: crate::components::trips::TripState",
+        "type_info": {
+          "Custom": {
+            "name": "trip_state",
+            "kind": {
+              "Enum": [
+                "init",
+                "planning",
+                "planned",
+                "active",
+                "review",
+                "done"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "a92a391fe6d932f59db4dc11eb6a0eabf5b765b21bbbf192ab921ff17dd10bcf"
+}

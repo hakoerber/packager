@@ -148,6 +148,36 @@ macro_rules! query_all {
 }
 
 #[macro_export]
+macro_rules! query_many_to_many_single {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+        {
+            use tracing::Instrument as _;
+            use futures::TryStreamExt as _;
+            async {
+                $crate::db::sqlx_query($class, $query, &[]);
+                let result: Vec<$struct_row> = sqlx::query_as!(
+                    $struct_row,
+                    $query,
+                    $( $args )*
+                )
+                .fetch($pool)
+                .try_collect::<Vec<$struct_row>>()
+                .await?;
+
+                if result.is_empty() {
+                    Ok(None)
+                } else {
+                    let out: $struct_rows = result.into();
+                    let out: $struct_into = out.try_into()?;
+                    Ok::<_, $crate::error::Error>(Some(out))
+                }
+
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! query_one {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
         {
