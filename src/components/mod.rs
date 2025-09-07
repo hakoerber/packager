@@ -149,7 +149,7 @@ pub(crate) mod route {
 
         type UrlParams: Send + Sync + 'static;
 
-        const URL: &'static str;
+        // const URL: &'static str;
 
         async fn create(
             user: Extension<User>,
@@ -297,7 +297,7 @@ pub(crate) mod route {
     pub trait Delete: super::crud::Delete {
         type UrlParams: Send + Sync + 'static;
 
-        const URL: &'static str;
+        // const URL: &'static str;
 
         async fn delete(
             user: Extension<User>,

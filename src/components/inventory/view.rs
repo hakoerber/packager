@@ -133,7 +133,7 @@ impl InventoryItemList {
         fields(component = "InventoryItemList"),
         skip(items)
     )]
-    pub fn build(edit_item_id: Option<Uuid>, items: &Vec<model::Item>) -> Markup {
+    pub fn build(edit_item_id: Option<Uuid>, items: &[model::Item]) -> Markup {
         let biggest_item_weight: i32 = items.iter().map(|item| item.weight).max().unwrap_or(1);
 
         struct Row<'a> {
@@ -528,7 +528,7 @@ impl InventoryItem {
                     ul {
                         @for trip in item.trips.iter() {
                             li {
-                                p { (trip.name) }
+                                p { (trip.name) " [" (trip.state) ("]") }
                             }
                         }
                     }

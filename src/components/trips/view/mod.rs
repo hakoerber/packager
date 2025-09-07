@@ -397,7 +397,7 @@ impl Input for Option<&i32> {
 }
 
 impl Input for Option<&model::TripDate> {
-    fn input(&self, id: &str, form: &str) -> Markup {
+    fn input(&self, _id: &str, _form: &str) -> Markup {
         html!(
             p { "this could be your form!" }
         )

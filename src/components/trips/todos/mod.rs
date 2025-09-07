@@ -625,7 +625,7 @@ impl route::Create for Todo {
     type Form = TripTodoNew;
     type UrlParams = (Uuid,);
 
-    const URL: &'static str = "/:id/todo/new";
+    // const URL: &'static str = "/:id/todo/new";
 
     #[tracing::instrument]
     async fn create(
@@ -673,7 +673,7 @@ impl route::Create for Todo {
 impl route::Delete for Todo {
     type UrlParams = (Uuid, Uuid);
 
-    const URL: &'static str = "/:id/todo/:id/delete";
+    // const URL: &'static str = "/:id/todo/:id/delete";
 
     #[tracing::instrument]
     async fn delete(
@@ -733,6 +733,7 @@ impl route::Router for Todo {
 }
 
 #[tracing::instrument]
+#[allow(dead_code)]
 pub(crate) async fn trip_todo_done(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
@@ -755,6 +756,7 @@ pub(crate) async fn trip_todo_done(
 }
 
 #[tracing::instrument]
+#[allow(dead_code)]
 pub(crate) async fn trip_todo_undone_htmx(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
@@ -794,6 +796,7 @@ pub(crate) async fn trip_todo_undone_htmx(
 }
 
 #[tracing::instrument]
+#[allow(dead_code)]
 pub(crate) async fn trip_todo_undone(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,

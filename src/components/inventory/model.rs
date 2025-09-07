@@ -179,13 +179,10 @@ impl DbInventoryItemRows {
     fn first(&self) -> &DbInventoryItemRow {
         &self.first
     }
-
-    fn into_first(self) -> DbInventoryItemRow {
-        self.first
-    }
 }
 
 impl<'a> DbInventoryItemRows {
+    #[allow(dead_code)]
     fn iter(&'a self) -> DbInventoryItemRowsIterRef<'a> {
         DbInventoryItemRowsIterRef {
             first: Some(&self.first),
@@ -201,6 +198,7 @@ impl<'a> DbInventoryItemRows {
     }
 }
 
+#[allow(dead_code)]
 struct DbInventoryItemRowsIterRef<'a> {
     first: Option<&'a DbInventoryItemRow>,
     inner_iter: std::slice::Iter<'a, DbInventoryItemRow>,
