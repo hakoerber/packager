@@ -177,7 +177,7 @@ pub(crate) trait Row {
         false
     }
 
-    fn cells(&self) -> Vec<Cell>;
+    fn cells(&self) -> Vec<Cell<'_>>;
 }
 
 pub(crate) struct Header<'c> {

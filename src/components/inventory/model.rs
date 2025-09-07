@@ -352,7 +352,7 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
                     })
                 })
                 .transpose()?,
-            trips: trips,
+            trips,
         })
     }
 }

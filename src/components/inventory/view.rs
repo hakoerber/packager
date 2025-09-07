@@ -73,7 +73,7 @@ impl InventoryCategoryList {
                 self.active
             }
 
-            fn cells(&self) -> Vec<list::Cell> {
+            fn cells(&self) -> Vec<list::Cell<'_>> {
                 vec![
                     list::Cell {
                         cell_type: list::CellType::Link(list::Link {
@@ -111,7 +111,7 @@ impl InventoryCategoryList {
             rows: categories
                 .iter()
                 .map(|category| {
-                    let active = active_category.map_or(false, |c| category.id == c.id);
+                    let active = active_category.is_some_and(|c| category.id == c.id);
                     Row {
                         category,
                         active,
@@ -143,7 +143,7 @@ impl InventoryItemList {
         }
 
         impl<'a> list::Row for Row<'a> {
-            fn cells(&self) -> Vec<list::Cell> {
+            fn cells(&self) -> Vec<list::Cell<'_>> {
                 vec![
                     list::Cell {
                         cell_type: list::CellType::Link(list::Link {
@@ -162,7 +162,7 @@ impl InventoryItemList {
             }
 
             fn is_edit(&self) -> bool {
-                self.edit_item_id.map_or(false, |id| id == self.item.id)
+                self.edit_item_id == Some(self.item.id)
             }
         }
 

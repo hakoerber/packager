@@ -27,7 +27,7 @@ impl TypeList {
                             ."justify-between"
                             ."items-stretch"
                         {
-                            @if state.trip_type_edit.map_or(false, |id| id == trip_type.id) {
+                            @if state.trip_type_edit == Some(trip_type.id) {
                                 form
                                     ."hidden"
                                     id="edit-trip-type"

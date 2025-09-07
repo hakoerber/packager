@@ -274,7 +274,7 @@ impl Trip {
                             }
                         }
                         div ."flex" ."flex-row" ."items-center" ."gap-x-3" {
-                            @if trip_edit_attribute.map_or(false, |a| *a == model::TripAttribute::Name) {
+                            @if trip_edit_attribute.is_some_and(|a| *a == model::TripAttribute::Name) {
                                 form
                                     id="edit-trip"
                                     action=(format!("edit/{}/submit", to_variant_name(&model::TripAttribute::Name).unwrap()))
@@ -479,7 +479,7 @@ where
     where
         Option<&'a T>: Input,
     {
-        let edit = edit_attribute.map_or(false, |a| *a == attribute_key);
+        let edit = edit_attribute.is_some_and(|a| *a == attribute_key);
         html!(
             @if edit {
                 form
@@ -1074,7 +1074,7 @@ impl TripCategoryList {
                 }
                 tbody {
                     @for category in trip.categories() {
-                        @let active = active_category.map_or(false, |c| category.category.id == c.category.id);
+                        @let active = active_category.is_some_and(|c| category.category.id == c.category.id);
                         (TripCategoryListRow::build(trip.id, category, active, biggest_category_weight, false))
                     }
                     tr ."h-10" ."bg-gray-300" ."font-bold" {

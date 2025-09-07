@@ -57,7 +57,7 @@ impl<'a> Component for HeaderLink<'a> {
         let active = self
             .args
             .active_page
-            .map_or(false, |page| *page == self.args.item);
+            .is_some_and(|page| *page == self.args.item);
         html!(
             a
                 href=(self.args.item.path())
