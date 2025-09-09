@@ -96,6 +96,34 @@ pub(crate) fn sqlx_query(
     metrics::counter!("packager_database_queries_total", &labels).increment(1);
 }
 
+pub(crate) fn sqlx_query_file(
+    classification: &QueryClassification,
+    path: &str,
+    labels: &[(&'static str, String)],
+) {
+    let query_id = {
+        let mut hasher = Sha256::new();
+        hasher.update(path);
+        hasher.finalize()
+    };
+
+    // 9 bytes is enough to be unique
+    // If this is divisible by 3, it means that we can base64-encode it without
+    // any "=" padding
+    //
+    // cannot panic, as the output for sha256 will always be bit
+    let query_id = &query_id[..9];
+
+    let query_id = base64::engine::general_purpose::STANDARD.encode(query_id);
+    let mut labels = Vec::from(labels);
+    labels.extend_from_slice(&[
+        ("query_id", query_id),
+        ("query_type", classification.query_type.to_string()),
+        ("query_component", classification.component.to_string()),
+    ]);
+    metrics::counter!("packager_database_queries_total", &labels).increment(1);
+}
+
 // This does not work, as the query*! macros expect a string literal for the query, so
 // it has to be there at compile time
 //
@@ -189,6 +217,32 @@ macro_rules! query_one {
                 let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_as!(
                     $struct_row,
                     $query,
+                    $( $args )*
+                )
+                .fetch_optional($pool)
+                .await?
+                .map(|row: $struct_row| row.try_into())
+                .transpose();
+
+                result
+
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! query_one_file {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $path:literal, $( $args:tt )*) => {
+
+        {
+            use tracing::Instrument as _;
+
+            async {
+                $crate::db::sqlx_query_file($class, $path, &[]);
+                let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_file_as!(
+                    $struct_row,
+                    $path,
                     $( $args )*
                 )
                 .fetch_optional($pool)
