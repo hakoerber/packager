@@ -180,6 +180,7 @@ macro_rules! query_many_to_many_single {
 #[macro_export]
 macro_rules! query_one {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
+
         {
             use tracing::Instrument as _;
 

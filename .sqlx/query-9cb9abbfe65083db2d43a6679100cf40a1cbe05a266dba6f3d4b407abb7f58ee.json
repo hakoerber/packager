@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH one AS (\n                    SELECT\n                        product.id AS id,\n                        product.user_id AS user_id,\n                        product.name AS name,\n                        product.description AS description,\n                        product.price AS price,\n                        product.bought_at AS bought_at,\n                        product.bought_from AS bought_from, \n                        array_agg(link.id) AS link_ids,\n                        array_agg(link.name) AS link_names,\n                        array_agg(link.url) AS link_urls\n                    FROM products AS product\n                    LEFT JOIN product_links AS link\n                        ON link.product_id = product.id  \n                    GROUP BY product.id\n                ), two AS (\n                    SELECT \n                        product.id AS id,\n                        array_agg(comment.id) AS comment_ids,\n                        array_agg(comment.content) AS comment_contents,\n                        array_agg(comment.date) AS comment_dates\n                    FROM products AS product\n                    LEFT JOIN product_comments AS comment\n                        ON comment.product_id = product.id\n                    GROUP BY product.id\n                ), product AS (\n                    SELECT\n                        one.id AS id,\n                        one.user_id AS user_id,\n                        one.name AS name,\n                        one.description AS description,\n                        one.price AS price,\n                        one.bought_at AS bought_at,\n                        one.bought_from AS bought_from, \n                        one.link_ids AS link_ids,\n                        one.link_names AS link_names,\n                        one.link_urls AS link_urls,\n                        two.comment_ids AS comment_ids,\n                        two.comment_contents AS comment_contents,\n                        two.comment_dates AS comment_dates\n                    FROM one\n                    INNER JOIN two ON one.id = two.id\n                )\n                SELECT\n                    product.id AS id,\n                    product.name AS name,\n                    product.description AS description,\n                    product.price AS price,\n                    product.bought_at AS purchase_date,\n                    product.bought_from AS purchase_from,\n                    product.link_ids AS \"link_ids!\",\n                    product.link_names AS \"link_names!\",\n                    product.link_urls AS \"link_urls!\",\n                    product.comment_ids AS \"comment_ids!\",\n                    product.comment_contents AS \"comment_contents!\",\n                    product.comment_dates AS \"comment_dates!\"\n                FROM product\n                WHERE\n                    product.id = $1\n                    AND product.user_id = $2\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "price",
+        "type_info": "Money"
+      },
+      {
+        "ordinal": 4,
+        "name": "purchase_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 5,
+        "name": "purchase_from",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "link_ids!",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 7,
+        "name": "link_names!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 8,
+        "name": "link_urls!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 9,
+        "name": "comment_ids!",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 10,
+        "name": "comment_contents!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "comment_dates!",
+        "type_info": "DateArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9cb9abbfe65083db2d43a6679100cf40a1cbe05a266dba6f3d4b407abb7f58ee"
+}
