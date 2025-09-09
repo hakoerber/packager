@@ -2,8 +2,8 @@ use maud::{html, Markup};
 use uuid::Uuid;
 
 use super::Todo;
-use crate::components::trips::model::Trip;
-use crate::components::view;
+use crate::domains::trips::model::Trip;
+use crate::domains::view;
 
 #[derive(Debug)]
 pub(crate) struct List<'a> {

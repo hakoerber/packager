@@ -163,8 +163,8 @@ impl Category {
 #[derive(Debug)]
 pub(crate) struct InventoryItemTrip {
     pub name: String,
-    // pub date: crate::components::trips::TripDate,
-    pub state: crate::components::trips::TripState,
+    // pub date: crate::domains::trips::TripDate,
+    pub state: crate::domains::trips::TripState,
 }
 
 #[derive(Debug)]
@@ -282,8 +282,8 @@ struct DbInventoryItemRow {
     pub product_name: Option<String>,
     pub product_description: Option<String>,
     pub trip_name: Option<String>,
-    // pub trip_date: Option<crate::components::trips::TripDate>,
-    pub trip_state: Option<crate::components::trips::TripState>,
+    // pub trip_date: Option<crate::domains::trips::TripDate>,
+    pub trip_state: Option<crate::domains::trips::TripState>,
 }
 
 #[derive(Debug)]
@@ -365,8 +365,8 @@ impl InventoryItem {
                     product.name AS "product_name?",
                     product.description AS "product_description?",
                     trip.name AS "trip_name?",
-                    -- trip.date AS "trip_date?: crate::components::trips::TripDate",
-                    trip.state AS "trip_state?: crate::components::trips::TripState"
+                    -- trip.date AS "trip_date?: crate::domains::trips::TripDate",
+                    trip.state AS "trip_state?: crate::domains::trips::TripState"
                 FROM inventory_items AS item
                 INNER JOIN inventory_items_categories as category
                     ON item.category_id = category.id

@@ -1,9 +1,9 @@
 use std::fmt;
 
-use crate::components::crud::Read;
+use crate::domains::crud::Read;
 
 use crate::{
-    components::inventory,
+    domains::inventory,
     error::{DataError, DatabaseError, Error, QueryError},
 };
 
@@ -542,7 +542,7 @@ pub(crate) struct Trip {
     pub temp_min: Option<i32>,
     pub temp_max: Option<i32>,
     pub comment: Option<String>,
-    pub todos: Option<Vec<crate::components::trips::todos::Todo>>,
+    pub todos: Option<Vec<crate::domains::trips::todos::Todo>>,
     pub types: Option<Vec<TripType>>,
     pub categories: Option<Vec<TripCategory>>,
 }
@@ -623,7 +623,7 @@ macro_rules! build_trip_edit {
                 vec![
                     $(
                         {
-                            crate::components::trips::view::TripInfoRow::build(
+                            crate::domains::trips::view::TripInfoRow::build(
                                 $human,
                                 (&trip.$( $id ).*).into(),
                                 super::TripAttribute::$name,
@@ -1036,7 +1036,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub fn todos(&self) -> &Vec<crate::components::trips::todos::Todo> {
+    pub fn todos(&self) -> &Vec<crate::domains::trips::todos::Todo> {
         self.todos.as_ref().expect("you need to call load_todos()")
     }
 
@@ -1059,10 +1059,10 @@ impl Trip {
     #[tracing::instrument]
     pub async fn load_todos(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
         self.todos = Some(
-            crate::components::trips::todos::Todo::findall(
+            crate::domains::trips::todos::Todo::findall(
                 ctx,
                 pool,
-                crate::components::trips::todos::Container { trip_id: self.id },
+                crate::domains::trips::todos::Container { trip_id: self.id },
             )
             .await?,
         );

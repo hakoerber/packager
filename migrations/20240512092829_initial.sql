@@ -11,10 +11,22 @@ CREATE TABLE IF NOT EXISTS "products" (
     id uuid NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
+    bought_from TEXT,
+    bought_at date,
+    price money,
     user_id uuid NOT NULL,
     PRIMARY KEY (id),
     UNIQUE (name),
     FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS "product_comments" (
+    id uuid NOT NULL,
+    content TEXT NOT NULL,
+    date date NOT NULL,
+    product_id uuid NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
 CREATE TABLE IF NOT EXISTS "product_links" (

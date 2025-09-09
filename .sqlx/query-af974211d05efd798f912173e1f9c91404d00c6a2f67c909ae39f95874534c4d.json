@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    product.id AS id,\n                    product.name AS name,\n                    product.description AS description,\n                    product.price AS price,\n                    product.bought_at AS purchase_date,\n                    product.bought_from AS purchase_from,\n                    link.id AS \"link_id?\",\n                    link.name AS \"link_name?\",\n                    link.url AS \"link_url?\",\n                    comment.id AS \"comment_id?\",\n                    comment.content AS \"comment_content?\",\n                    comment.date AS \"comment_date?\"\n                FROM products AS product\n                LEFT JOIN product_links AS link\n                    ON link.product_id = product.id\n                LEFT JOIN product_comments AS comment\n                    ON comment.product_id = product.id\n                WHERE\n                    product.id = $1\n                    AND product.user_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "price",
+        "type_info": "Money"
+      },
+      {
+        "ordinal": 4,
+        "name": "purchase_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 5,
+        "name": "purchase_from",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "link_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "link_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "link_url?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "comment_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "comment_content?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "comment_date?",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "af974211d05efd798f912173e1f9c91404d00c6a2f67c909ae39f95874534c4d"
+}

@@ -6,6 +6,7 @@ pub mod auth;
 pub mod cli;
 pub(crate) mod components;
 pub mod db;
+pub(crate) mod domains;
 pub(crate) mod elements;
 pub mod error;
 pub(crate) mod htmx;
@@ -40,7 +41,7 @@ impl Context {
 pub struct ClientState {
     pub active_category_id: Option<Uuid>,
     pub edit_item: Option<Uuid>,
-    pub trip_edit_attribute: Option<components::trips::TripAttribute>,
+    pub trip_edit_attribute: Option<domains::trips::TripAttribute>,
     pub trip_type_edit: Option<Uuid>,
 }
 

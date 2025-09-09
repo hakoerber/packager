@@ -35,7 +35,7 @@ async fn trip_row(
     let item_row = view::TripItemListRow::build(
         trip_id,
         &item,
-        crate::components::inventory::InventoryItem::get_category_max_weight(
+        crate::domains::inventory::InventoryItem::get_category_max_weight(
             ctx,
             &state.database_pool,
             item.item.category_id,

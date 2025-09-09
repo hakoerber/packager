@@ -14,7 +14,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    components::{
+    domains::{
         self,
         crud::{self, Read, Update},
         route::{self, Toggle},
@@ -688,7 +688,7 @@ impl route::Delete for Todo {
             &state.database_pool,
             &Reference {
                 container: Container { trip_id },
-                id: components::trips::todos::Id(todo_id),
+                id: domains::trips::todos::Id(todo_id),
             },
         )
         .await?;

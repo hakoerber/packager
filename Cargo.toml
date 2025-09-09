@@ -28,6 +28,7 @@ lto = "off"
 
 [dependencies]
 paste = "1.0.15"
+rust_decimal = { version = "1.37.2", default-features = false }
 
 [dependencies.async-trait]
 version = "0.1"

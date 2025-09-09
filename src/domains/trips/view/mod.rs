@@ -12,7 +12,7 @@ pub(crate) mod types;
 
 use super::model;
 
-use crate::components::{self, view::View};
+use crate::domains::{self, view::View};
 
 impl TripManager {
     #[tracing::instrument]
@@ -356,7 +356,7 @@ impl Trip {
                     }
                 }
                 (TripInfo::build(trip_edit_attribute, trip))
-                (components::trips::todos::List{todos: trip.todos(), trip}.build(components::trips::todos::list::BuildInput { edit_todo}))
+                (domains::trips::todos::List{todos: trip.todos(), trip}.build(domains::trips::todos::list::BuildInput { edit_todo}))
                 (TripComment::build(trip))
                 (TripItems::build(active_category, trip))
             }

@@ -11,7 +11,7 @@ use time::Date;
 use uuid::Uuid;
 
 use crate::{
-    components::{crud::Delete as _, route::Router as _, trips::todos},
+    domains::{crud::Delete as _, route::Router as _, trips::todos},
     htmx,
     routing::{get_referer, uuid_or_empty},
     view::Component,

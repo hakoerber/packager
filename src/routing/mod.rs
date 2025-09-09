@@ -86,9 +86,9 @@ pub fn router(state: AppState) -> Router {
             // these are routes that require authentication
             Router::new()
                 .route("/", get(root))
-                .merge(crate::components::trips::router())
-                .merge(crate::components::inventory::router())
-                .merge(crate::components::products::router())
+                .merge(crate::domains::trips::router())
+                .merge(crate::domains::inventory::router())
+                .merge(crate::domains::products::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth::authorize,
