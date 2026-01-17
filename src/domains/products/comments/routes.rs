@@ -1,12 +1,12 @@
 use axum::{
+    Form, Router,
     extract::{Extension, Path, State},
     response::{IntoResponse, Redirect},
     routing::{get, post},
-    Form, Router,
 };
 use uuid::Uuid;
 
-use crate::{models, AppState, Context, Error, RequestError, TopLevelPage};
+use crate::{AppState, Context, Error, RequestError, TopLevelPage, models};
 
 #[tracing::instrument]
 pub(crate) async fn comment_create(
@@ -24,7 +24,7 @@ pub(crate) async fn comment_create(
     }
 
     let _new_id =
-        super::model::Comment::new(&ctx, &state.database_pool, product_id, new_comment).await?;
+        super::model::Comment::create(&ctx, &state.database_pool, product_id, new_comment).await?;
 
     Ok(Redirect::to(&format!("/products/{product_id}")))
 }

@@ -1,4 +1,4 @@
-use crate::{db, error::Error, Context, RequestError};
+use crate::{Context, RequestError, db, error::Error};
 
 use serde::Deserialize;
 use uuid::Uuid;
@@ -31,7 +31,7 @@ pub(crate) struct Comment {
 
 impl Comment {
     #[tracing::instrument]
-    pub async fn new(
+    pub async fn create(
         ctx: &Context,
         pool: &db::Pool,
         product_id: Uuid,
