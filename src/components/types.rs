@@ -25,6 +25,7 @@ impl From<&'static str> for NameString {
 }
 
 impl NameString {
+    #[must_use]
     pub fn capitalize(&self) -> Self {
         let value = self.0.to_inner_owned();
         let mut chars = value.chars();

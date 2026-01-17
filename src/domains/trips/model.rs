@@ -7,7 +7,7 @@ use crate::{
     error::{DataError, DatabaseError, Error, QueryError},
 };
 
-use crate::{db, Context};
+use crate::{Context, db};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -155,7 +155,7 @@ impl std::convert::TryFrom<&str> for TripState {
                         description: format!("{value} is not a valid value for TripState"),
                     }
                     .into(),
-                ))
+                ));
             }
         })
     }
@@ -291,7 +291,7 @@ impl TripCategory {
                         ON category.id = item.category_id
                     WHERE
                         trip.trip_id = $1
-                        AND trip.user_id = $2                   
+                        AND trip.user_id = $2
                 )
                 SELECT
                     category.id AS category_id,
@@ -1288,7 +1288,6 @@ impl Trip {
                     INNER JOIN inventory_items_categories AS category
                         ON category.id = item.category_id
                     WHERE trip.trip_id = $1 AND trip.user_id = $2
-                    
                 )
                 SELECT
                     category.id AS category_id,

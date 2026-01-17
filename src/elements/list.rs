@@ -106,6 +106,7 @@ pub struct Button {
 }
 
 impl Button {
+    #[must_use]
     pub fn render(self) -> Markup {
         html!(
             td
