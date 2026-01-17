@@ -1,5 +1,7 @@
 use maud::{html, Markup};
 
+use crate::components::{types::Url, Render as _};
+
 use super::HxConfig;
 
 pub(crate) struct Link<'a> {
@@ -104,7 +106,7 @@ pub(crate) struct Button {
 }
 
 impl Button {
-    fn render(self) -> Markup {
+    pub fn render(self) -> Markup {
         html!(
             td
                 ."border-none"
@@ -117,9 +119,9 @@ impl Button {
                     @match self.action {
                         Action::Href(href) => {
                             a
-                                href=(href)
-                                ."aspect-square"
+                                href=(href.render())
                                 ."flex"
+                                ."h-full"
                             {
                                 span
                                     ."m-auto"
@@ -131,7 +133,6 @@ impl Button {
                         }
                         Action::Submit(form) => {
                             button
-                                ."aspect-square"
                                 ."flex"
                                 ."w-full"
                                 ."h-full"
@@ -153,7 +154,7 @@ impl Button {
 }
 
 pub(crate) enum Action {
-    Href(String),
+    Href(Url),
     Submit(&'static str),
 }
 

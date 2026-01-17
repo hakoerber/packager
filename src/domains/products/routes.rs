@@ -1,7 +1,7 @@
 use axum::{
     extract::{Extension, Path, State},
     response::IntoResponse,
-    routing::{get, post},
+    routing::get,
     Router,
 };
 
@@ -13,7 +13,7 @@ use crate::{AppState, Context, Error, RequestError, TopLevelPage};
 use super::{model, view};
 
 #[tracing::instrument]
-pub(crate) async fn item(
+pub(crate) async fn product(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -36,7 +36,7 @@ pub(crate) fn router() -> Router<AppState> {
     Router::new().nest(
         (&TopLevelPage::Products.path()).into(),
         Router::new()
-            .route("/:id", get(item))
+            .route("/:id", get(product))
             .nest("/:id/comments/", super::comments::routes::router()),
     )
 }

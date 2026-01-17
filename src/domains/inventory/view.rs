@@ -1,10 +1,13 @@
 use maud::{html, Markup};
 
-use crate::elements::{
-    self,
-    list::{self, Action, List},
-};
 use crate::ClientState;
+use crate::{
+    components::types::Url,
+    elements::{
+        self,
+        list::{self, Action, List},
+    },
+};
 
 use super::model;
 use uuid::Uuid;
@@ -169,22 +172,22 @@ impl InventoryItemList {
         let table = list::List {
             id: None,
             editing_config: Some(Box::new(|row: Row| list::EditingConfig {
-                edit_action: Action::Href(format!("?edit_item={id}", id = row.item.id)),
+                edit_action: Action::Href(Url(format!("?edit_item={id}", id = row.item.id))),
                 edit_hx_config: None,
 
-                delete_action: Action::Href(format!(
+                delete_action: Action::Href(Url(format!(
                     "/inventory/item/{id}/delete",
                     id = row.item.id
-                )),
+                ))),
                 delete_hx_config: None,
 
                 save_action: Action::Submit("edit-item"),
                 save_hx_config: None,
 
-                cancel_action: Action::Href(format!(
+                cancel_action: Action::Href(Url(format!(
                     "/inventory/item/{id}/cancel",
                     id = row.item.id
-                )),
+                ))),
                 cancel_hx_config: None,
             })),
             header: list::Header {

@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    comment.id AS id,\n                    comment.content AS content,\n                    comment.date AS date\n                FROM product_comments AS comment\n                INNER JOIN products AS product\n                    ON product.id = comment.product_id\n                WHERE\n                    comment.id = $1\n                    AND product.id = $2\n                    AND product.user_id = $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "date",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d510a78e73ab8344b0ac1ffec8c6402cb2ec4abdf724c374bc14e58e8fa0b51c"
+}

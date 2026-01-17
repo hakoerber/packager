@@ -1,19 +1,15 @@
+pub(crate) mod infobox;
 pub(crate) mod listtable;
+pub(crate) mod text;
 pub(crate) mod types;
 
-pub(crate) use listtable::{InfoBox, List};
+pub(crate) use infobox::InfoBox;
+pub(crate) use listtable::TextListWithDate;
+pub(crate) use text::Text;
 
 use maud::Markup;
 
-#[macro_export]
-macro_rules! impl_for_all_tuples {
-    ($name: ident) => {
-        $name!((0: T0));
-        $name!((0: T0), (1:T1));
-        $name!((0: T0), (1:T1), (2:T2));
-    }
-}
-
+#[allow(dead_code)]
 pub(crate) trait Component: Render {}
 
 pub(crate) trait Render {

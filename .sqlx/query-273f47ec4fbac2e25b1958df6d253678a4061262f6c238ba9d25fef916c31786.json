@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM product_comments AS comment\n            WHERE comment.product_id = $1\n                AND comment.id = $2\n            AND EXISTS(SELECT * FROM products WHERE id = $1 AND user_id = $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "273f47ec4fbac2e25b1958df6d253678a4061262f6c238ba9d25fef916c31786"
+}

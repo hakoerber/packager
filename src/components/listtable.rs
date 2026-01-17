@@ -1,129 +1,71 @@
-use maud::{html, Markup};
+use crate::elements::{
+    list::{Action, Button},
+    Icon,
+};
 
 use super::{
     types::{Name, Url},
     Render,
 };
 
-pub(crate) trait Row: Render {}
+use bon::Builder;
+use maud::{html, Markup};
+use uuid::Uuid;
 
-macro_rules! impl_row_for_tuple {
-    ( $(($i:literal: $ty:ident)),* ) => {
-        impl<$($ty),*> Render for ($($ty),*,)
-        where
-            $( $ty: Render, )+
-        {
-            fn render(&self) -> Markup {
-                #[allow(non_snake_case)]
-                // https://stackoverflow.com/a/77932996
-                let ( $( $ty, )+ ) = self;
-                html!(
-                    tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
-                        $( td ."border" ."p-2" { ( $ty.render() ) } )+
-                        td {
-                            a
-                                ."flex"
-                                ."flex-row"
-                                ."aspect-square"
-                                ."bg-red-100"
-                                ."hover:bg-red-200"
-                                href=(format!("?delete_todo=foo"))
-                                hx-post={
-                                    "/foo"
-                                }
-                                hx-target="#todolist"
-                                hx-swap="outerHTML"
-                            {
-                                span ."m-auto" ."mdi" ."mdi-delete-outline" ."text-xl" {}
-                            }
-                        }
-                    }
-                )
-            }
-        }
+pub struct TextListWithDateRow<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> {
+    id: Uuid,
+    date: time::Date,
+    content: String,
+    delete: DelFn,
+    edit: EditFn,
+}
 
-        impl<$($ty),*> Row for ($($ty),*,)
-        where
-            $( $ty: Render, )+
-        {
+impl<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url>
+    From<(Uuid, time::Date, String, DelFn, EditFn)> for TextListWithDateRow<DelFn, EditFn>
+{
+    fn from((id, date, content, delete, edit): (Uuid, time::Date, String, DelFn, EditFn)) -> Self {
+        Self {
+            id,
+            date,
+            content,
+            delete,
+            edit,
         }
     }
 }
 
-crate::impl_for_all_tuples!(impl_row_for_tuple);
-
-pub(crate) trait InfoRow: Render {}
-
-macro_rules! impl_info_row_for_tuple {
-    ( $(($i:literal: $ty:ident)),* ) => {
-        impl<$($ty),*> Render for ($($ty),*,)
-        where
-            $( $ty: Render, )+
-        {
-            fn render(&self) -> Markup {
-                #[allow(non_snake_case)]
-                // https://stackoverflow.com/a/77932996
-                let ( $( $ty, )+ ) = self;
-                html!(
-                    tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
-                        $( td ."border" ."p-2" { ( $ty.render() ) } )+
-                    }
-                )
-            }
-        }
-
-        impl<$($ty),*> InfoRow for ($($ty),*,)
-        where
-            $( $ty: Render, )+
-        {
-        }
-    }
-}
-
-crate::impl_for_all_tuples!(impl_info_row_for_tuple);
-
-pub(crate) struct InfoBox {
-    rows: Vec<Box<dyn Row>>,
-}
-
-impl InfoBox {
-    pub(crate) fn from_rows(rows: Vec<Box<dyn Row>>) -> Self {
-        Self { rows }
-    }
-}
-
-impl Render for InfoBox {
+impl<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> Render
+    for TextListWithDateRow<DelFn, EditFn>
+{
     fn render(&self) -> Markup {
         html!(
-            table
-                ."table"
-                ."table-auto"
-                ."border-collapse"
-                ."border-spacing-0"
-                ."border"
-                ."w-full"
-            {
-                tbody {
-                    @for row in &self.rows {
-                        (row.render())
-                    }
-                }
+            tr ."h-10" ."even:bg-gray-100" ."hover:bg-gray-100" ."h-full" {
+                td ."border" ."p-2" { ( self.date ) }
+                td ."border" ."p-2" { ( self.content ) }
+                (Button {
+                    icon: Icon::Edit,
+                    action: Action::Href((self.edit)(self.id)),
+                    hx_config: None,
+                }.render())
+                (Button {
+                    icon: Icon::Delete,
+                    action: Action::Href((self.delete)(self.id)),
+                    hx_config: None,
+                }.render())
             }
         )
     }
 }
 
-use bon::Builder;
-
 #[derive(Builder)]
-pub(crate) struct List<R: Row> {
+pub(crate) struct TextListWithDate<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> {
     ident: &'static str,
     name: Name,
-    rows: Vec<R>,
+    rows: Vec<TextListWithDateRow<DelFn, EditFn>>,
     new_row: Url,
 }
 
-impl<R: Row> Render for List<R> {
+impl<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> Render for TextListWithDate<DelFn, EditFn> {
     fn render(&self) -> Markup {
         let add_form_id = format!("new-{}", self.ident);
 

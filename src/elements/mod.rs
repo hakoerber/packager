@@ -27,8 +27,8 @@ impl Icon {
     #[must_use]
     pub fn background(&self) -> &'static str {
         match self {
-            Icon::Edit => "bg-blue-200",
-            Icon::Delete => "bg-red-200",
+            Icon::Edit => "bg-blue-100",
+            Icon::Delete => "bg-red-100",
             Icon::Save => "bg-green-100",
             Icon::Cancel => "bg-red-100",
         }

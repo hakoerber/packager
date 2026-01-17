@@ -1,8 +1,8 @@
 use maud::{html, Markup};
 
 use crate::components::{
-    types::{Currency, Date, Link, Name, Raw, Url},
-    InfoBox, List, Render as _,
+    types::{Currency, Date, Link, Raw, Url},
+    InfoBox, Render as _,
 };
 
 use super::model;
