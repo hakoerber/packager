@@ -3,7 +3,7 @@ use std::future::Future;
 use axum::routing::get;
 use axum::Router;
 
-use axum_prometheus::{Handle, MakeDefaultHandle, PrometheusMetricLayerBuilder};
+use axum_prometheus::PrometheusMetricLayerBuilder;
 use tokio::net::TcpListener;
 
 use crate::{Error, StartError};
@@ -18,7 +18,7 @@ pub fn prometheus_server(
 ) -> (Router, impl Future<Output = Result<(), Error>>) {
     let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
         .with_prefix(env!("CARGO_PKG_NAME"))
-        .with_metrics_from_fn(Handle::make_default_handle)
+        .with_default_metrics()
         .build_pair();
 
     let app = Router::new().route("/metrics", get(|| async move { metric_handle.render() }));

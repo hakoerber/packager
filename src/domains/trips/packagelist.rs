@@ -153,8 +153,8 @@ pub(crate) async fn set_item_unready_html(
 pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(base))
-        .route("/item/:id/pack", post(set_item_pack_html))
-        .route("/item/:id/unpack", post(set_item_unpack_htmx))
-        .route("/item/:id/ready", post(set_item_ready_htmx))
-        .route("/item/:id/unready", post(set_item_unready_html))
+        .route("/item/{id}/pack", post(set_item_pack_html))
+        .route("/item/{id}/unpack", post(set_item_unpack_htmx))
+        .route("/item/{id}/ready", post(set_item_ready_htmx))
+        .route("/item/{id}/unready", post(set_item_unready_html))
 }

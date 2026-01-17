@@ -344,14 +344,14 @@ pub(crate) fn router() -> Router<AppState> {
         (&TopLevelPage::Inventory.path()).into(),
         Router::new()
             .route("/", get(inactive))
-            .route("/categories/:id/select", post(select_category))
+            .route("/categories/{id}/select", post(select_category))
             .route("/category/", post(create_category))
-            .route("/category/:id/", get(active))
+            .route("/category/{id}/", get(active))
             .route("/item/", post(create_item))
-            .route("/item/:id/", get(item))
-            .route("/item/:id/cancel", get(item_cancel))
-            .route("/item/:id/delete", get(item_delete))
-            .route("/item/:id/edit", post(item_edit))
+            .route("/item/{id}/", get(item))
+            .route("/item/{id}/cancel", get(item_cancel))
+            .route("/item/{id}/delete", get(item_delete))
+            .route("/item/{id}/edit", post(item_edit))
             .route("/item/name/validate", post(item_validate_name)),
     )
 }

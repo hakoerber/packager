@@ -14,13 +14,13 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
+    db,
     domains::{
         self,
         crud::{self, Read, Update},
         route::{self, Toggle},
         view::{self, View},
     },
-    db,
     error::Error,
     htmx,
     models::User,
@@ -720,12 +720,12 @@ impl route::Delete for Todo {
 impl route::Router for Todo {
     fn router() -> axum::Router<AppState> {
         axum::Router::new()
-            .route("/:id/edit", post(edit_todo))
-            .route("/:id/edit/save", post(edit_todo_save))
-            .route("/:id/edit/cancel", post(edit_todo_cancel))
+            .route("/{id}/edit", post(edit_todo))
+            .route("/{id}/edit/save", post(edit_todo_save))
+            .route("/{id}/edit/cancel", post(edit_todo_cancel))
             .route("/new", axum::routing::post(<Self as route::Create>::create))
             .route(
-                "/:id/delete",
+                "/{id}/delete",
                 axum::routing::post(<Self as route::Delete>::delete),
             )
             .merge(StateUpdate::router())
@@ -945,8 +945,8 @@ impl crud::Toggle for StateUpdate {
 impl route::ToggleFallback for StateUpdate {
     type UrlParams = (Uuid, Uuid);
 
-    const URL_TRUE: &'static str = "/:id/done/true";
-    const URL_FALSE: &'static str = "/:id/done/false";
+    const URL_TRUE: &'static str = "/{id}/done/true";
+    const URL_FALSE: &'static str = "/{id}/done/false";
 
     async fn set(
         current_user: User,
@@ -981,8 +981,8 @@ impl route::ToggleFallback for StateUpdate {
 impl route::ToggleHtmx for StateUpdate {
     type UrlParams = (Uuid, Uuid);
 
-    const URL_TRUE: &'static str = "/:id/done/htmx/true";
-    const URL_FALSE: &'static str = "/:id/done/htmx/false";
+    const URL_TRUE: &'static str = "/{id}/done/htmx/true";
+    const URL_FALSE: &'static str = "/{id}/done/htmx/false";
 
     async fn set(
         current_user: User,

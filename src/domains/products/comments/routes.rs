@@ -95,7 +95,7 @@ pub(crate) async fn comment_edit_save(
 pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route("/new", post(comment_create))
-        .route("/:id/delete", get(comment_delete))
-        .route("/:id/edit", get(comment_edit))
-        .route("/:id/edit/save", post(comment_edit_save))
+        .route("/{id}/delete", get(comment_delete))
+        .route("/{id}/edit", get(comment_edit))
+        .route("/{id}/edit/save", post(comment_edit_save))
 }

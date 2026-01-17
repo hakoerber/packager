@@ -36,7 +36,7 @@ pub(crate) fn router() -> Router<AppState> {
     Router::new().nest(
         (&TopLevelPage::Products.path()).into(),
         Router::new()
-            .route("/:id", get(product))
-            .nest("/:id/comments/", super::comments::routes::router()),
+            .route("/{id}", get(product))
+            .nest("/{id}/comments/", super::comments::routes::router()),
     )
 }

@@ -27,78 +27,79 @@ opt-level = 0
 lto = "off"
 
 [dependencies]
-paste = "1.0.15"
-rust_decimal = { version = "1.37.2", default-features = false }
+paste = "*"
+rust_decimal = { version = "*", default-features = false }
 
 [dependencies.async-trait]
-version = "0.1"
+version = "*"
 
 [dependencies.axum]
-version = "0.7"
+version = "*"
 features = ["macros"]
 
 [dependencies.axum-prometheus]
-version = "0.6"
+version = "*"
 optional = true
 
 [dependencies.base64]
-version = "0.22"
+version = "*"
 
 [dependencies.clap]
-version = "4"
+version = "*"
 features = ["derive"]
 
 [dependencies.console-subscriber]
-version = "0.2"
+version = "*"
 optional = true
 
 [dependencies.futures]
-version = "0.3"
+version = "*"
 
 [dependencies.http]
-version = "1.1"
+version = "*"
 
 [dependencies.hyper]
-version = "1.3"
+version = "*"
 features = ["full"]
 
 [dependencies.log]
-version = "0.4"
+version = "*"
 
 [dependencies.maud]
-version = "0.26"
+version = "*"
 features = [
   "axum",
 ]
 
 [dependencies.metrics]
-version = "0.22"
+version = "*"
 
 [dependencies.opentelemetry]
-version = "0.22"
+version = "*"
 optional = true
 
 [dependencies.opentelemetry-otlp]
-version = "0.15"
+version = "*"
+features = ["grpc-tonic"]
 optional = true
 
 [dependencies.opentelemetry_sdk]
-version = "0.22"
+version = "*"
 features = ["rt-tokio"]
 optional = true
 
 [dependencies.serde]
-version = "1"
+version = "*"
 features = ["derive"]
 
 [dependencies.serde_variant]
-version = "0.1"
+version = "*"
 
 [dependencies.sha2]
-version = "0.10"
+version = "*"
 
 [dependencies.sqlx]
-version = "0.8"
+version = "*"
 #path = "./vendor/sqlx"
 features = [
   "runtime-tokio-rustls",
@@ -110,48 +111,48 @@ features = [
 ]
 
 [dependencies.time]
-version = "0.3"
+version = "*"
 features = ["serde"]
 
 [dependencies.tokio]
-version = "1"
+version = "*"
 features = ["macros", "rt-multi-thread"]
 
 [dependencies.tonic]
-version = "0.11"
+version = "*"
 optional = true
 
 [dependencies.tower]
-version = "0.4"
+version = "*"
 features = ["timeout"]
 
 [dependencies.tower-http]
-version = "0.5"
+version = "*"
 features = ["trace", "request-id"]
 
 [dependencies.tracing]
-version = "0.1"
+version = "*"
 
 [dependencies.tracing-attributes]
-version = "0.1"
+version = "*"
 
 [dependencies.tracing-log]
-version = "0.2"
+version = "*"
 
 [dependencies.tracing-opentelemetry]
-version = "0.23"
+version = "*"
 optional = true
 
 [dependencies.tracing-subscriber]
-version = "0.3"
+version = "*"
 features = ["json", "env-filter"]
 
 [dependencies.uuid]
-version = "1"
+version = "*"
 features = [
     "v4",
     "serde",
 ]
 
 [dependencies.bon]
-version = "3"
+version = "*"

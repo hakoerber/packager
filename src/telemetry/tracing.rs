@@ -5,11 +5,16 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use axum::Router;
-
 use http::Request;
+use opentelemetry::KeyValue;
+use opentelemetry_otlp::{WithExportConfig as _, WithTonicConfig};
+use opentelemetry_sdk::{
+    trace::{RandomIdGenerator, Sampler},
+    Resource,
+};
+use tonic::metadata::MetadataMap;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::Span;
-
 use tracing_subscriber::{
     filter::{LevelFilter, Targets},
     fmt::{format::Format, Layer},
@@ -18,7 +23,7 @@ use tracing_subscriber::{
     registry::Registry,
 };
 
-use tracing::Instrument;
+use tracing::Instrument as _;
 
 use uuid::Uuid;
 
@@ -70,43 +75,33 @@ fn get_opentelemetry_layer<
 ) -> Option<impl tracing_subscriber::Layer<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
-            use opentelemetry::{global, KeyValue};
-            use opentelemetry_otlp::WithExportConfig as _;
-            use opentelemetry_sdk::{
-                trace::{RandomIdGenerator, Sampler},
-                Resource,
-            };
-
-            use tonic::metadata::MetadataMap;
-
+            use opentelemetry::trace::TracerProvider as _;
             let mut metadata = MetadataMap::with_capacity(3);
             metadata.insert("x-host", "localhost".parse().unwrap());
 
-            let tracer = opentelemetry_otlp::new_pipeline()
-                .tracing()
-                .with_exporter(
-                    opentelemetry_otlp::new_exporter()
-                        .tonic()
-                        .with_endpoint("http://localhost:4317")
-                        .with_timeout(Duration::from_secs(3))
-                        .with_metadata(metadata),
-                )
-                .with_trace_config(
-                    opentelemetry_sdk::trace::config()
-                        .with_sampler(Sampler::AlwaysOn)
-                        .with_id_generator(RandomIdGenerator::default())
-                        .with_max_events_per_span(64)
-                        .with_max_attributes_per_span(16)
-                        .with_max_events_per_span(16)
-                        .with_resource(Resource::new(vec![KeyValue::new(
-                            "service.name",
-                            "packager",
-                        )])),
-                )
-                .install_batch(opentelemetry_sdk::runtime::Tokio)
+            let span_exporter = opentelemetry_otlp::SpanExporter::builder()
+                .with_tonic()
+                .with_endpoint("http://localhost:4317")
+                .with_timeout(Duration::from_secs(3))
+                .with_metadata(metadata)
+                .build()
                 .unwrap();
 
-            // let tracer = provider.tracer(env!("CARGO_PKG_NAME"));
+            let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+                .with_batch_exporter(span_exporter)
+                .with_sampler(Sampler::AlwaysOn)
+                .with_id_generator(RandomIdGenerator::default())
+                .with_max_events_per_span(64)
+                .with_max_attributes_per_span(16)
+                .with_max_events_per_span(16)
+                .with_resource(
+                    Resource::builder_empty()
+                        .with_attribute(KeyValue::new("service.name", "packager"))
+                        .build(),
+                )
+                .build();
+
+            let tracer = tracer_provider.tracer(env!("CARGO_PKG_NAME"));
 
             let opentelemetry_filter = {
                 Targets::new()
@@ -123,8 +118,10 @@ fn get_opentelemetry_layer<
                 .with_tracer(tracer)
                 .with_filter(opentelemetry_filter);
 
+            let tracer_provider: &'static _ = Box::leak(Box::new(tracer_provider));
+
             shutdown_functions.push(Box::new(|| {
-                global::shutdown_tracer_provider();
+                tracer_provider.shutdown().unwrap();
                 Ok(())
             }));
 
@@ -186,6 +183,7 @@ where
     for shutdown_func in shutdown_functions {
         shutdown_func().unwrap();
     }
+
     result
 }
 

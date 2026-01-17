@@ -337,27 +337,27 @@ async fn set_item_unready_htmx(
 pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route(
-            "/:id/items/:id/pick",
+            "/{id}/items/{id}/pick",
             get(set_item_pick).post(set_item_pick_htmx),
         )
         .route(
-            "/:id/items/:id/unpick",
+            "/{id}/items/{id}/unpick",
             get(set_item_unpick).post(set_item_unpick_htmx),
         )
         .route(
-            "/:id/items/:id/pack",
+            "/{id}/items/{id}/pack",
             get(set_item_pack).post(set_item_pack_htmx),
         )
         .route(
-            "/:id/items/:id/unpack",
+            "/{id}/items/{id}/unpack",
             get(set_item_unpack).post(set_item_unpack_htmx),
         )
         .route(
-            "/:id/items/:id/ready",
+            "/{id}/items/{id}/ready",
             get(set_item_ready).post(set_item_ready_htmx),
         )
         .route(
-            "/:id/items/:id/unready",
+            "/{id}/items/{id}/unready",
             get(set_item_unready).post(set_item_unready_htmx),
         )
 }
