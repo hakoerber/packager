@@ -1,4 +1,4 @@
-use crate::{db, error::Error, Context};
+use crate::{db, error::Error, Context, RequestError};
 
 use serde::Deserialize;
 use uuid::Uuid;
@@ -123,8 +123,8 @@ impl Comment {
         product_id: Uuid,
         comment_id: Uuid,
         update_comment: UpdateComment,
-    ) -> Result<Option<Self>, Error> {
-        crate::execute_returning_uuid!(
+    ) -> Result<(), Error> {
+        let result: Result<_, Error> = crate::execute_returning_optional_uuid!(
             &db::QueryClassification {
                 query_type: db::QueryType::Update,
                 component: db::Component::Inventory,
@@ -143,6 +143,17 @@ impl Comment {
             comment_id,
             ctx.user.id
         )
+        .await;
+
+        let _id = result.map(|e| {
+            e.ok_or_else(|| {
+                Error::Request(RequestError::NotFound {
+                    message: format!("comment with id {comment_id} not found"),
+                })
+            })
+        })??;
+
+        Ok(())
     }
 }
 

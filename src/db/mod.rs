@@ -370,8 +370,28 @@ macro_rules! execute_returning_uuid {
                 .await?;
 
                 Ok(result)
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+}
 
+#[macro_export]
+macro_rules! execute_returning_optional_uuid {
+    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
+        {
+            use tracing::Instrument as _;
+            use futures::TryFutureExt as _;
+            async {
+                $crate::db::sqlx_query($class, $query, &[]);
+                let result: Option<Uuid> = sqlx::query!(
+                    $query,
+                    $( $args ),*
+                )
+                .fetch_optional($pool)
+                .map_ok(|row| row.map(|row| row.id))
+                .await?;
 
+                Ok(result)
             }.instrument(tracing::info_span!("packager::sql::query", "query"))
         }
     };
