@@ -1,34 +1,10 @@
 use crate::error::Error;
 use crate::{db, Context};
 
+use super::comments::model::Comment;
+
 use rust_decimal::Decimal;
 use uuid::Uuid;
-
-pub(crate) struct DbComment {
-    pub id: Uuid,
-    pub content: String,
-    pub date: time::Date,
-}
-
-impl TryFrom<DbComment> for Comment {
-    type Error = Error;
-
-    fn try_from(row: DbComment) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: row.id,
-            content: row.content,
-            date: row.date,
-        })
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Comment {
-    #[allow(dead_code)]
-    pub id: Uuid,
-    pub content: String,
-    pub date: time::Date,
-}
 
 pub(crate) struct DbLink {
     pub id: Uuid,
@@ -228,9 +204,9 @@ impl Product {
                 pub link_ids: Vec<Uuid>,
                 pub link_names: Vec<String>,
                 pub link_urls: Vec<String>,
-                pub comment_ids: Vec<Uuid>,
-                pub comment_contents: Vec<String>,
-                pub comment_dates: Vec<time::Date>,
+                pub comment_ids: Option<Vec<Uuid>>,
+                pub comment_contents: Option<Vec<String>>,
+                pub comment_dates: Option<Vec<time::Date>>,
             }
 
             impl TryFrom<Row> for Product {
@@ -258,11 +234,15 @@ impl Product {
                             .collect(),
                         comments: row
                             .comment_ids
-                            .into_iter()
-                            .zip(row.comment_contents)
-                            .zip(row.comment_dates)
-                            .map(|((id, content), date)| Comment { id, content, date })
-                            .collect(),
+                            .map(|comments| {
+                                comments
+                                    .into_iter()
+                                    .zip(row.comment_contents.unwrap())
+                                    .zip(row.comment_dates.unwrap())
+                                    .map(|((id, content), date)| Comment { id, content, date })
+                                    .collect()
+                            })
+                            .unwrap(),
                     })
                 }
             }

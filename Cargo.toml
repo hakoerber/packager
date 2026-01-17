@@ -152,3 +152,6 @@ features = [
     "v4",
     "serde",
 ]
+
+[dependencies.bon]
+version = "3"

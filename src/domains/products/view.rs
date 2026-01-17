@@ -1,8 +1,8 @@
 use maud::{html, Markup};
 
 use crate::components::{
-    listtable::{Currency, Date, Link, Raw, Render as _, Url},
-    ListTable,
+    types::{Currency, Date, Link, Name, Raw, Url},
+    InfoBox, List, Render as _,
 };
 
 use super::model;
@@ -17,7 +17,7 @@ impl Product {
         skip(product)
     )]
     pub fn build(product: &model::Product) -> Markup {
-        let info = ListTable::from_rows(vec![
+        let info = InfoBox::from_rows(vec![
             Box::new((Raw("Name".to_owned()), Raw(product.name.to_owned()))),
             Box::new((
                 Raw("Description".to_owned()),
@@ -37,7 +37,7 @@ impl Product {
             )),
         ]);
 
-        let links = ListTable::from_rows(
+        let links = InfoBox::from_rows(
             product
                 .links
                 .iter()
@@ -53,15 +53,7 @@ impl Product {
                 .collect(),
         );
 
-        let comments = ListTable::from_rows(
-            product
-                .comments
-                .iter()
-                .map(|comment| {
-                    Box::new((Date(comment.date.clone()), Raw(comment.content.clone()))) as _
-                })
-                .collect(),
-        );
+        let comments = super::comments::view::Comments::build(product);
 
         html!(
             div ."p-8" {
@@ -73,7 +65,7 @@ impl Product {
             }
 
             div ."p-8" {
-                (comments.render())
+                (comments)
             }
         )
     }

@@ -1,7 +1,7 @@
 use axum::{
     extract::{Extension, Path, State},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Router,
 };
 
@@ -35,6 +35,8 @@ pub(crate) async fn item(
 pub(crate) fn router() -> Router<AppState> {
     Router::new().nest(
         (&TopLevelPage::Products.path()).into(),
-        Router::new().route("/:id", get(item)),
+        Router::new()
+            .route("/:id", get(item))
+            .nest("/:id/comments/", super::comments::routes::router()),
     )
 }

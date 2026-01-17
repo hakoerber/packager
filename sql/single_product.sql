@@ -1,3 +1,4 @@
+-- \x on;
 WITH one AS (
     SELECT
         product.id AS id,
@@ -7,9 +8,9 @@ WITH one AS (
         product.price AS price,
         product.bought_at AS bought_at,
         product.bought_from AS bought_from,
-        array_agg(link.id) AS link_ids,
-        array_agg(link.name) AS link_names,
-        array_agg(link.url) AS link_urls
+        array_remove(array_agg(link.id), NULL) AS link_ids,
+        array_remove(array_agg(link.name), NULL) AS link_names,
+        array_remove(array_agg(link.url), NULL) AS link_urls
     FROM
         products AS product
         LEFT JOIN product_links AS link ON link.product_id = product.id
@@ -19,9 +20,9 @@ WITH one AS (
 two AS (
     SELECT
         product.id AS id,
-        array_agg(comment.id) AS comment_ids,
-        array_agg(comment.content) AS comment_contents,
-        array_agg(comment.date) AS comment_dates
+        array_remove(array_agg(comment.id), NULL) AS comment_ids,
+        array_remove(array_agg(comment.content), NULL) AS comment_contents,
+        array_remove(array_agg(comment.date), NULL) AS comment_dates
     FROM
         products AS product
         LEFT JOIN product_comments AS comment ON comment.product_id = product.id
@@ -65,3 +66,5 @@ FROM
 WHERE
     product.id = $1
     AND product.user_id = $2
+    -- product.id = '2cdd4a22-733b-48de-b845-c3523e498f99'
+    -- AND product.user_id = '0bac561e-4631-4bd0-a641-7f295e4e7b6c'
