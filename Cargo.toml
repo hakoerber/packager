@@ -241,8 +241,8 @@ version = "*"
 default-features = false
 
 [lints.clippy]
-pedantic = {priority = -1, level =  "warn"}
-nursery= {priority = -1, level =  "warn"}
+pedantic = { priority = -1, level = "warn" }
+nursery = { priority = -1, level = "warn" }
 
 missing_errors_doc = "allow"
 option_if_let_else = "allow"
