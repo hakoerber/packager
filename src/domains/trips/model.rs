@@ -548,7 +548,7 @@ pub(crate) struct Trip {
 }
 
 macro_rules! build_trip_edit {
-    ( $( ($name:ident, $( $id:ident ).* , $human:expr_2021, $wire:expr_2021, $type:path, $input:ident) ),* $(,)? ) => {
+    ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
         #[derive(Clone, Debug, Serialize, Deserialize)]
         #[allow(dead_code)]
         pub(crate) enum TripAttributeUpdate {
