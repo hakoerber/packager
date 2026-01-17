@@ -3,7 +3,7 @@ use crate::{Context, RequestError, db, error::Error};
 use serde::Deserialize;
 use uuid::Uuid;
 
-pub(crate) struct DbComment {
+pub struct DbComment {
     pub id: Uuid,
     pub content: String,
     pub date: time::Date,
@@ -22,7 +22,7 @@ impl TryFrom<DbComment> for Comment {
 }
 
 #[derive(Debug)]
-pub(crate) struct Comment {
+pub struct Comment {
     #[allow(dead_code)]
     pub id: Uuid,
     pub content: String,
@@ -158,13 +158,13 @@ impl Comment {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct NewComment {
+pub struct NewComment {
     #[serde(rename = "new-comment-content")]
     pub content: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct UpdateComment {
+pub struct UpdateComment {
     #[serde(rename = "new-content")]
     pub content: String,
 }

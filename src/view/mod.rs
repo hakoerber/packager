@@ -37,15 +37,15 @@ use sha2::{Digest, Sha256};
 use crate::Context;
 use maud::Markup;
 
-pub(crate) mod error;
-pub(crate) mod home;
-pub(crate) mod root;
+pub mod error;
+pub mod home;
+pub mod root;
 
-pub(crate) use error::ErrorPage;
-pub(crate) use root::Root;
+pub use error::ErrorPage;
+pub use root::Root;
 
 #[derive(Debug)]
-pub(crate) enum HtmxAction {
+pub enum HtmxAction {
     Get(String),
 }
 
@@ -58,7 +58,7 @@ impl fmt::Display for HtmxAction {
 }
 
 #[derive(Debug)]
-pub(crate) enum FallbackAction {
+pub enum FallbackAction {
     Get(String),
 }
 
@@ -71,7 +71,7 @@ impl fmt::Display for FallbackAction {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ComponentId(String);
+pub struct ComponentId(String);
 
 impl ComponentId {
     #[tracing::instrument]
@@ -111,13 +111,13 @@ impl fmt::Display for ComponentId {
 }
 
 #[derive(Debug)]
-pub(crate) enum HtmxTarget {
+pub enum HtmxTarget {
     Myself,
     Component(ComponentId),
 }
 
 #[derive(Debug)]
-pub(crate) struct HtmxComponent {
+pub struct HtmxComponent {
     id: ComponentId,
     action: HtmxAction,
     fallback_action: FallbackAction,
@@ -134,7 +134,7 @@ impl HtmxComponent {
 }
 
 #[derive(Debug)]
-pub(crate) enum Parent {
+pub enum Parent {
     Root,
     Component(ComponentId),
 }
@@ -142,7 +142,7 @@ pub(crate) enum Parent {
 impl From<Parent> for ComponentId {
     fn from(value: Parent) -> Self {
         match value {
-            Parent::Root => ComponentId("/".into()),
+            Parent::Root => Self("/".into()),
             Parent::Component(c) => c,
         }
     }
@@ -154,7 +154,7 @@ impl From<ComponentId> for Parent {
     }
 }
 
-pub(crate) trait Component {
+pub trait Component {
     type Args;
 
     fn init(parent: Parent, args: Self::Args) -> Self;

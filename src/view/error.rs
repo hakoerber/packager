@@ -1,6 +1,6 @@
 use maud::{html, Markup, DOCTYPE};
 
-pub(crate) struct ErrorPage;
+pub struct ErrorPage;
 
 impl ErrorPage {
     #[tracing::instrument]

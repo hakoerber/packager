@@ -110,7 +110,7 @@ impl fmt::Debug for Error {
 
 impl From<uuid::Error> for Error {
     fn from(value: uuid::Error) -> Self {
-        Error::Database(DataError::Uuid {
+        Self::Database(DataError::Uuid {
             description: value.to_string(),
         })
     }
@@ -118,7 +118,7 @@ impl From<uuid::Error> for Error {
 
 impl From<time::error::Format> for Error {
     fn from(value: time::error::Format) -> Self {
-        Error::Database(DataError::TimeParse {
+        Self::Database(DataError::TimeParse {
             description: value.to_string(),
         })
     }
@@ -127,22 +127,22 @@ impl From<time::error::Format> for Error {
 impl From<sqlx::Error> for Error {
     fn from(value: sqlx::Error) -> Self {
         match value {
-            sqlx::Error::RowNotFound => Error::Query(QueryError::NotFound {
+            sqlx::Error::RowNotFound => Self::Query(QueryError::NotFound {
                 description: value.to_string(),
             }),
             sqlx::Error::Database(ref error) => {
                 let error = error.downcast_ref::<sqlx::postgres::PgDatabaseError>();
                 if error.is_unique_violation() {
-                    Error::Query(QueryError::Duplicate {
+                    Self::Query(QueryError::Duplicate {
                         description: "item with unique constraint already exists".to_string(),
                     })
                 } else {
-                    Error::Database(DataError::Sql {
+                    Self::Database(DataError::Sql {
                         description: format!("got unknown error: {error}"),
                     })
                 }
             }
-            _ => Error::Database(DataError::Sql {
+            _ => Self::Database(DataError::Sql {
                 description: format!("got unknown error: {value}"),
             }),
         }
@@ -151,7 +151,7 @@ impl From<sqlx::Error> for Error {
 
 impl From<time::error::Parse> for Error {
     fn from(value: time::error::Parse) -> Self {
-        Error::Database(DataError::TimeParse {
+        Self::Database(DataError::TimeParse {
             description: value.to_string(),
         })
     }

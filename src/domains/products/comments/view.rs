@@ -6,7 +6,7 @@ use crate::components::{
     Render as _, Text, TextListWithDate,
 };
 
-pub(crate) struct Comments;
+pub struct Comments;
 
 impl Comments {
     #[tracing::instrument(
@@ -55,7 +55,7 @@ impl Comments {
     }
 }
 
-pub(crate) struct EditComment;
+pub struct EditComment;
 
 impl EditComment {
     #[tracing::instrument(
@@ -69,8 +69,7 @@ impl EditComment {
             .initial_content(comment.content.clone())
             .save(|comment_id| {
                 Url(format!(
-                    "/products/{product_id}/comments/{comment_id}/edit/save",
-                    product_id = product_id
+                    "/products/{product_id}/comments/{comment_id}/edit/save"
                 ))
             })
             .cancel(|_comment_id| Url(format!("/products/{product_id}")))

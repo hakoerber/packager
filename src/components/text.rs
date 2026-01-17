@@ -5,7 +5,7 @@ use uuid::Uuid;
 use super::{types::Url, Render};
 
 #[derive(Builder)]
-pub(crate) struct Text<SaveFn: Fn(Uuid) -> Url, CancelFn: Fn(Uuid) -> Url> {
+pub struct Text<SaveFn: Fn(Uuid) -> Url, CancelFn: Fn(Uuid) -> Url> {
     id: Uuid,
     initial_content: String,
     save: SaveFn,

@@ -1,5 +1,5 @@
-pub(crate) mod list;
-pub(crate) use list::List;
+pub mod list;
+pub use list::List;
 
 use axum::{
     body::Body,
@@ -33,7 +33,7 @@ use async_trait::async_trait;
 use super::model::Trip;
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum State {
+pub enum State {
     Todo,
     Done,
 }
@@ -58,7 +58,7 @@ impl From<State> for bool {
 }
 
 #[derive(Debug)]
-pub(crate) struct Todo {
+pub struct Todo {
     pub id: Id,
     pub description: String,
     pub state: State,
@@ -74,7 +74,7 @@ impl TryFrom<TodoRow> for Todo {
     type Error = Error;
 
     fn try_from(row: TodoRow) -> Result<Self, Self::Error> {
-        Ok(Todo {
+        Ok(Self {
             id: Id::new(row.id),
             description: row.description,
             state: row.done.into(),
@@ -83,7 +83,7 @@ impl TryFrom<TodoRow> for Todo {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct Container {
+pub struct Container {
     pub trip_id: Uuid,
 }
 
@@ -100,7 +100,7 @@ impl crud::Container for Container {
 }
 
 #[derive(Debug)]
-pub(crate) struct Reference {
+pub struct Reference {
     pub id: Id,
     pub container: Container,
 }
@@ -115,7 +115,7 @@ impl From<(Uuid, Uuid)> for Reference {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) struct Id(Uuid);
+pub struct Id(Uuid);
 
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -147,7 +147,7 @@ impl crud::Read for Todo {
         pool: &db::Pool,
         container: Container,
     ) -> Result<Vec<Self>, Error> {
-        let todos: Vec<Todo> = crate::query_all!(
+        let todos: Vec<Self> = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
                 component: db::Component::Todo,
@@ -210,7 +210,7 @@ impl crud::Read for Todo {
     }
 }
 
-pub(crate) struct TodoNew {
+pub struct TodoNew {
     pub description: String,
 }
 
@@ -258,7 +258,7 @@ impl crud::Create for Todo {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct StateUpdate {
+pub struct StateUpdate {
     new_state: State,
 }
 
@@ -277,7 +277,7 @@ impl From<State> for StateUpdate {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct DescriptionUpdate(String);
+pub struct DescriptionUpdate(String);
 
 impl From<String> for DescriptionUpdate {
     fn from(new_description: String) -> Self {
@@ -286,7 +286,7 @@ impl From<String> for DescriptionUpdate {
 }
 
 #[derive(Debug)]
-pub(crate) enum UpdateElement {
+pub enum UpdateElement {
     State(StateUpdate),
     Description(DescriptionUpdate),
 }
@@ -403,13 +403,13 @@ impl crud::Delete for Todo {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum UiState {
+pub enum UiState {
     Default,
     Edit,
 }
 
 #[derive(Debug)]
-pub(crate) struct BuildInput {
+pub struct BuildInput {
     pub trip_id: Uuid,
     pub state: UiState,
 }
@@ -615,7 +615,7 @@ impl view::View for Todo {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct TripTodoNew {
+pub struct TripTodoNew {
     #[serde(rename = "new-todo-description")]
     description: String,
 }
@@ -734,7 +734,7 @@ impl route::Router for Todo {
 
 #[tracing::instrument]
 #[allow(dead_code)]
-pub(crate) async fn trip_todo_done(
+pub async fn trip_todo_done(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
@@ -757,7 +757,7 @@ pub(crate) async fn trip_todo_done(
 
 #[tracing::instrument]
 #[allow(dead_code)]
-pub(crate) async fn trip_todo_undone_htmx(
+pub async fn trip_todo_undone_htmx(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
@@ -797,7 +797,7 @@ pub(crate) async fn trip_todo_undone_htmx(
 
 #[tracing::instrument]
 #[allow(dead_code)]
-pub(crate) async fn trip_todo_undone(
+pub async fn trip_todo_undone(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
@@ -820,13 +820,13 @@ pub(crate) async fn trip_todo_undone(
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct TripTodoDescription {
+pub struct TripTodoDescription {
     #[serde(rename = "todo-description")]
     description: String,
 }
 
 #[tracing::instrument]
-pub(crate) async fn edit_todo(
+pub async fn edit_todo(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,
@@ -857,7 +857,7 @@ pub(crate) async fn edit_todo(
 }
 
 #[tracing::instrument]
-pub(crate) async fn edit_todo_save(
+pub async fn edit_todo_save(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,
@@ -896,7 +896,7 @@ pub(crate) async fn edit_todo_save(
 }
 
 #[tracing::instrument]
-pub(crate) async fn edit_todo_cancel(
+pub async fn edit_todo_cancel(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,

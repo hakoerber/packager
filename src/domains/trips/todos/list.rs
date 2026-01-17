@@ -6,17 +6,17 @@ use crate::domains::trips::model::Trip;
 use crate::domains::view;
 
 #[derive(Debug)]
-pub(crate) struct List<'a> {
+pub struct List<'a> {
     pub trip: &'a Trip,
     pub todos: &'a Vec<Todo>,
 }
 
 #[derive(Debug)]
-pub(crate) struct BuildInput {
+pub struct BuildInput {
     pub edit_todo: Option<Uuid>,
 }
 
-impl<'a> view::View for List<'a> {
+impl view::View for List<'_> {
     type Input = BuildInput;
 
     #[tracing::instrument]
@@ -44,7 +44,7 @@ impl<'a> view::View for List<'a> {
     }
 }
 
-pub(crate) struct NewTodo;
+pub struct NewTodo;
 
 impl NewTodo {
     #[tracing::instrument]

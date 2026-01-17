@@ -5,10 +5,10 @@ use uuid::Uuid;
 
 use serde_variant::to_variant_name;
 
-pub(crate) struct TripManager;
+pub struct TripManager;
 
-pub(crate) mod packagelist;
-pub(crate) mod types;
+pub mod packagelist;
+pub mod types;
 
 use super::model;
 
@@ -43,7 +43,7 @@ fn trip_state_icon(state: &model::TripState) -> &'static str {
     }
 }
 
-pub(crate) struct TripTable;
+pub struct TripTable;
 
 impl TripTable {
     #[tracing::instrument]
@@ -87,7 +87,7 @@ impl TripTable {
     }
 }
 
-pub(crate) struct TripTableRow;
+pub struct TripTableRow;
 
 impl TripTableRow {
     #[tracing::instrument(skip(value))]
@@ -107,7 +107,7 @@ impl TripTableRow {
     }
 }
 
-pub(crate) struct NewTrip;
+pub struct NewTrip;
 
 impl NewTrip {
     #[tracing::instrument(skip(trips))]
@@ -234,7 +234,7 @@ impl NewTrip {
     }
 }
 
-pub(crate) struct Trip;
+pub struct Trip;
 
 impl Trip {
     #[tracing::instrument]
@@ -364,7 +364,7 @@ impl Trip {
     }
 }
 
-pub(crate) trait Input {
+pub trait Input {
     fn input(&self, id: &str, form: &str) -> Markup;
 }
 
@@ -390,7 +390,7 @@ impl Input for Option<&i32> {
                 id=(id)
                 name="new-value"
                 form=(form)
-                value=(self.map(|s| s.to_string()).unwrap_or_else(String::new))
+                value=(self.map(std::string::ToString::to_string).unwrap_or_else(String::new))
             {}
         )
     }
@@ -404,7 +404,7 @@ impl Input for Option<&model::TripDate> {
     }
 }
 
-pub(crate) struct TripInfoRow<T>(std::marker::PhantomData<T>)
+pub struct TripInfoRow<T>(std::marker::PhantomData<T>)
 where
     T: std::fmt::Debug + std::fmt::Display;
 
@@ -419,7 +419,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct AttributeValue<'a, T>(pub Option<&'a T>)
+pub struct AttributeValue<'a, T>(pub Option<&'a T>)
 where
     T: std::fmt::Debug + std::fmt::Display,
     Option<&'a T>: Input;
@@ -586,7 +586,7 @@ where
     }
 }
 
-pub(crate) struct TripInfoTotalWeightRow;
+pub struct TripInfoTotalWeightRow;
 
 impl TripInfoTotalWeightRow {
     #[tracing::instrument]
@@ -604,7 +604,7 @@ impl TripInfoTotalWeightRow {
     }
 }
 
-pub(crate) struct TripInfoStateRow;
+pub struct TripInfoStateRow;
 
 impl TripInfoStateRow {
     #[tracing::instrument]
@@ -709,7 +709,7 @@ impl TripInfoStateRow {
     }
 }
 
-pub(crate) struct TripInfo;
+pub struct TripInfo;
 
 impl TripInfo {
     #[tracing::instrument]
@@ -850,7 +850,7 @@ impl TripInfo {
     }
 }
 
-pub(crate) struct TripComment;
+pub struct TripComment;
 
 impl TripComment {
     #[tracing::instrument]
@@ -905,7 +905,7 @@ impl TripComment {
     }
 }
 
-pub(crate) struct TripItems;
+pub struct TripItems;
 
 impl TripItems {
     #[tracing::instrument]
@@ -930,7 +930,7 @@ impl TripItems {
     }
 }
 
-pub(crate) struct TripCategoryListRow;
+pub struct TripCategoryListRow;
 
 impl TripCategoryListRow {
     #[tracing::instrument]
@@ -1039,7 +1039,7 @@ impl TripCategoryListRow {
     }
 }
 
-pub(crate) struct TripCategoryList;
+pub struct TripCategoryList;
 
 impl TripCategoryList {
     #[tracing::instrument]
@@ -1093,7 +1093,7 @@ impl TripCategoryList {
     }
 }
 
-pub(crate) struct TripItemList;
+pub struct TripItemList;
 
 impl TripItemList {
     #[tracing::instrument]
@@ -1133,7 +1133,7 @@ impl TripItemList {
     }
 }
 
-pub(crate) struct TripItemListRow;
+pub struct TripItemListRow;
 
 impl TripItemListRow {
     #[tracing::instrument]

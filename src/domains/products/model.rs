@@ -6,7 +6,7 @@ use super::comments::model::Comment;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-pub(crate) struct DbLink {
+pub struct DbLink {
     pub id: Uuid,
     pub name: String,
     pub url: String,
@@ -25,7 +25,7 @@ impl TryFrom<DbLink> for Link {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Link {
+pub struct Link {
     #[allow(dead_code)]
     pub id: Uuid,
     pub name: String,
@@ -33,7 +33,7 @@ pub(crate) struct Link {
 }
 
 #[derive(Debug)]
-pub(crate) struct Product {
+pub struct Product {
     #[allow(dead_code)]
     pub id: Uuid,
     pub name: String,
@@ -50,7 +50,7 @@ impl Product {
     #[tracing::instrument]
     pub async fn find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         if cfg!(false) {
-            pub(crate) struct Row {
+            pub struct Row {
                 pub id: Uuid,
                 pub name: String,
                 pub description: Option<String>,
@@ -143,28 +143,24 @@ impl Product {
 
             let mut product = match results.pop() {
                 None => return Ok(None),
-                Some(product) => Product {
+                Some(product) => Self {
                     id: product.id,
                     name: product.name,
                     description: product.description,
-                    links: product.link.map(|link| vec![link]).unwrap_or_else(Vec::new),
+                    links: product.link.map_or_else(Vec::new, |link| vec![link]),
                     price: product.price,
                     purchase_date: product.purchase_date,
                     purchase_from: product.purchase_from,
                     comments: product
-                        .comment
-                        .map(|comment| vec![comment])
-                        .unwrap_or_else(Vec::new),
+                        .comment.map_or_else(Vec::new, |comment| vec![comment]),
                 },
             };
 
             let mut seen_link_ids = product
                 .links
-                .first()
-                .map(|link| vec![link.id])
-                .unwrap_or_else(Vec::new);
+                .first().map_or_else(Vec::new, |link| vec![link.id]);
 
-            for result in results.iter_mut() {
+            for result in &mut results {
                 if let Some(link) = result.link.take() {
                     if !seen_link_ids.contains(&link.id) {
                         seen_link_ids.push(link.id);
@@ -175,11 +171,9 @@ impl Product {
 
             let mut seen_comment_ids = product
                 .comments
-                .first()
-                .map(|comment| vec![comment.id])
-                .unwrap_or_else(Vec::new);
+                .first().map_or_else(Vec::new, |comment| vec![comment.id]);
 
-            for result in results.iter_mut() {
+            for result in &mut results {
                 if let Some(comment) = result.comment.take() {
                     if !seen_comment_ids.contains(&comment.id) {
                         seen_comment_ids.push(comment.id);
@@ -191,7 +185,7 @@ impl Product {
             Ok(Some(product))
         } else {
             #[derive(Debug)]
-            pub(crate) struct Row {
+            pub struct Row {
                 pub id: Uuid,
                 pub name: String,
                 pub description: Option<String>,
@@ -210,7 +204,7 @@ impl Product {
                 type Error = Error;
 
                 fn try_from(row: Row) -> Result<Self, Self::Error> {
-                    Ok(Product {
+                    Ok(Self {
                         id: row.id,
                         name: row.name,
                         description: row.description,

@@ -4,7 +4,7 @@ use crate::{db, Context};
 use uuid::Uuid;
 
 #[derive(Debug)]
-pub(crate) struct Product {
+pub struct Product {
     #[allow(dead_code)]
     pub id: Uuid,
     pub name: String,
@@ -12,7 +12,7 @@ pub(crate) struct Product {
     pub description: Option<String>,
 }
 
-pub(crate) struct Inventory {
+pub struct Inventory {
     pub categories: Vec<Category>,
 }
 
@@ -45,13 +45,13 @@ impl Inventory {
 }
 
 #[derive(Debug)]
-pub(crate) struct Category {
+pub struct Category {
     pub id: Uuid,
     pub name: String,
     pub items: Option<Vec<Item>>,
 }
 
-pub(crate) struct DbCategoryRow {
+pub struct DbCategoryRow {
     pub id: Uuid,
     pub name: String,
 }
@@ -60,7 +60,7 @@ impl TryFrom<DbCategoryRow> for Category {
     type Error = Error;
 
     fn try_from(row: DbCategoryRow) -> Result<Self, Self::Error> {
-        Ok(Category {
+        Ok(Self {
             id: row.id,
             name: row.name,
             items: None,
@@ -74,7 +74,7 @@ impl Category {
         ctx: &Context,
         pool: &db::Pool,
         id: Uuid,
-    ) -> Result<Option<Category>, Error> {
+    ) -> Result<Option<Self>, Error> {
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -161,7 +161,7 @@ impl Category {
 }
 
 #[derive(Debug)]
-pub(crate) struct InventoryItemTrip {
+pub struct InventoryItemTrip {
     pub name: String,
     // pub date: crate::domains::trips::TripDate,
     pub state: crate::domains::trips::TripState,
@@ -287,7 +287,7 @@ struct DbInventoryItemRow {
 }
 
 #[derive(Debug)]
-pub(crate) struct InventoryItem {
+pub struct InventoryItem {
     #[allow(dead_code)]
     pub id: Uuid,
     pub name: String,
@@ -317,7 +317,7 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
 
         let item = rows.first;
 
-        Ok(InventoryItem {
+        Ok(Self {
             id: item.id,
             name: item.name,
             description: item.description,
@@ -523,7 +523,7 @@ impl InventoryItem {
 }
 
 #[derive(Debug)]
-pub(crate) struct Item {
+pub struct Item {
     pub id: Uuid,
     pub name: String,
     #[allow(dead_code)]
@@ -532,7 +532,7 @@ pub(crate) struct Item {
     pub category_id: Uuid,
 }
 
-pub(crate) struct DbInventoryItemsRow {
+pub struct DbInventoryItemsRow {
     pub id: Uuid,
     pub name: String,
     pub weight: i32,
@@ -544,7 +544,7 @@ impl TryFrom<DbInventoryItemsRow> for Item {
     type Error = Error;
 
     fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
-        Ok(Item {
+        Ok(Self {
             id: row.id,
             name: row.name,
             description: row.description, // TODO

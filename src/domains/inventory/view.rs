@@ -12,7 +12,7 @@ use crate::{
 use super::model;
 use uuid::Uuid;
 
-pub(crate) struct Inventory;
+pub struct Inventory;
 
 impl Inventory {
     #[tracing::instrument(
@@ -47,7 +47,7 @@ impl Inventory {
     }
 }
 
-pub(crate) struct InventoryCategoryList;
+pub struct InventoryCategoryList;
 
 impl InventoryCategoryList {
     #[tracing::instrument(
@@ -71,7 +71,7 @@ impl InventoryCategoryList {
             active: bool,
             biggest_category_weight: i32,
         }
-        impl<'a> list::Row for Row<'a> {
+        impl list::Row for Row<'_> {
             fn is_active(&self) -> bool {
                 self.active
             }
@@ -127,7 +127,7 @@ impl InventoryCategoryList {
     }
 }
 
-pub(crate) struct InventoryItemList;
+pub struct InventoryItemList;
 
 impl InventoryItemList {
     #[tracing::instrument(
@@ -145,7 +145,7 @@ impl InventoryItemList {
             edit_item_id: Option<Uuid>,
         }
 
-        impl<'a> list::Row for Row<'a> {
+        impl list::Row for Row<'_> {
             fn cells(&self) -> Vec<list::Cell<'_>> {
                 vec![
                     list::Cell {
@@ -227,7 +227,7 @@ impl InventoryItemList {
     }
 }
 
-pub(crate) struct InventoryNewItemFormName;
+pub struct InventoryNewItemFormName;
 
 impl InventoryNewItemFormName {
     #[tracing::instrument(
@@ -278,7 +278,7 @@ impl InventoryNewItemFormName {
     }
 }
 
-pub(crate) struct InventoryNewItemFormWeight;
+pub struct InventoryNewItemFormWeight;
 
 impl InventoryNewItemFormWeight {
     #[tracing::instrument(
@@ -325,7 +325,7 @@ impl InventoryNewItemFormWeight {
     }
 }
 
-pub(crate) struct InventoryNewItemFormCategory;
+pub struct InventoryNewItemFormCategory;
 
 impl InventoryNewItemFormCategory {
     #[tracing::instrument(
@@ -371,7 +371,7 @@ impl InventoryNewItemFormCategory {
     }
 }
 
-pub(crate) struct InventoryNewItemForm;
+pub struct InventoryNewItemForm;
 
 impl InventoryNewItemForm {
     #[tracing::instrument(
@@ -423,7 +423,7 @@ impl InventoryNewItemForm {
     }
 }
 
-pub(crate) struct InventoryNewCategoryForm;
+pub struct InventoryNewCategoryForm;
 
 impl InventoryNewCategoryForm {
     #[tracing::instrument(
@@ -482,7 +482,7 @@ impl InventoryNewCategoryForm {
     }
 }
 
-pub(crate) struct InventoryItem;
+pub struct InventoryItem;
 
 impl InventoryItem {
     #[tracing::instrument(

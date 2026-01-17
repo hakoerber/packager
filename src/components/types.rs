@@ -10,13 +10,13 @@ enum InnerString {
 impl InnerString {
     fn to_inner_owned(&self) -> String {
         match self {
-            InnerString::Owned(s) => s.clone(),
-            InnerString::Static(s) => (*s).to_owned(),
+            Self::Owned(s) => s.clone(),
+            Self::Static(s) => (*s).to_owned(),
         }
     }
 }
 
-pub(crate) struct NameString(InnerString);
+pub struct NameString(InnerString);
 
 impl From<&'static str> for NameString {
     fn from(value: &'static str) -> Self {
@@ -25,7 +25,7 @@ impl From<&'static str> for NameString {
 }
 
 impl NameString {
-    pub fn capitalize(&self) -> NameString {
+    pub fn capitalize(&self) -> Self {
         let value = self.0.to_inner_owned();
         let mut chars = value.chars();
         let first_char = chars.next().expect("string cannot be empty");
@@ -41,12 +41,12 @@ impl Render for NameString {
     }
 }
 
-pub(crate) struct Name {
+pub struct Name {
     pub(crate) singular: NameString,
     pub(crate) plural: NameString,
 }
 
-pub(crate) struct Url(pub String);
+pub struct Url(pub String);
 
 impl Render for Url {
     fn render(&self) -> Markup {
@@ -54,7 +54,7 @@ impl Render for Url {
     }
 }
 
-pub(crate) struct Date(pub time::Date);
+pub struct Date(pub time::Date);
 
 impl Render for Date {
     fn render(&self) -> Markup {
@@ -63,17 +63,17 @@ impl Render for Date {
 }
 
 #[derive(Clone)]
-pub(crate) struct Currency(pub crate::models::Currency);
+pub struct Currency(pub crate::models::Currency);
 
 impl Render for Currency {
     fn render(&self) -> Markup {
         PreEscaped(match self.0 {
-            crate::models::Currency::Eur(amount) => format!("{}€", amount),
+            crate::models::Currency::Eur(amount) => format!("{amount}€"),
         })
     }
 }
 
-pub(crate) struct Link {
+pub struct Link {
     pub name: Option<String>,
     pub url: Url,
 }
@@ -92,15 +92,15 @@ impl Render for Link {
     }
 }
 
-pub(crate) struct Empty;
+pub struct Empty;
 
 impl Render for Empty {
     fn render(&self) -> Markup {
-        PreEscaped("".to_owned())
+        PreEscaped(String::new())
     }
 }
 
-pub(crate) struct Raw(pub String);
+pub struct Raw(pub String);
 
 impl Render for Raw {
     fn render(&self) -> Markup {

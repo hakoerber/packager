@@ -2,7 +2,7 @@ use maud::{html, Markup};
 
 use super::Render;
 
-pub(crate) trait InfoRow: Render {}
+pub trait InfoRow: Render {}
 
 macro_rules! impl_for_all_tuples {
     ($name: ident) => {
@@ -40,7 +40,7 @@ macro_rules! impl_info_row_for_tuple {
 
 impl_for_all_tuples!(impl_info_row_for_tuple);
 
-pub(crate) struct InfoBox {
+pub struct InfoBox {
     rows: Vec<Box<dyn InfoRow>>,
 }
 

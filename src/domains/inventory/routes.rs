@@ -20,13 +20,13 @@ use super::{model, view};
 
 #[derive(Deserialize, Default, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct InventoryQuery {
+pub struct InventoryQuery {
     edit_item: Option<Uuid>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NewItem {
+pub struct NewItem {
     #[serde(rename = "new-item-name")]
     name: String,
     #[serde(rename = "new-item-weight")]
@@ -39,14 +39,14 @@ pub(crate) struct NewItem {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NewItemName {
+pub struct NewItemName {
     #[serde(rename = "new-item-name")]
     name: String,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct EditItem {
+pub struct EditItem {
     #[serde(rename = "edit-item-name")]
     name: String,
     #[serde(rename = "edit-item-weight")]
@@ -55,13 +55,13 @@ pub(crate) struct EditItem {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NewCategory {
+pub struct NewCategory {
     #[serde(rename = "new-category-name")]
     name: String,
 }
 
 #[tracing::instrument]
-pub(crate) async fn active(
+pub async fn active(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -99,7 +99,7 @@ pub(crate) async fn active(
 }
 
 #[tracing::instrument]
-pub(crate) async fn inactive(
+pub async fn inactive(
     Extension(current_user): Extension<models::user::User>,
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
@@ -134,7 +134,7 @@ pub(crate) async fn inactive(
 }
 
 #[tracing::instrument]
-pub(crate) async fn item_validate_name(
+pub async fn item_validate_name(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_item): Form<NewItemName>,
@@ -150,7 +150,7 @@ pub(crate) async fn item_validate_name(
 }
 
 #[tracing::instrument]
-pub(crate) async fn create_item(
+pub async fn create_item(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -201,7 +201,7 @@ pub(crate) async fn create_item(
 }
 
 #[tracing::instrument]
-pub(crate) async fn item_delete(
+pub async fn item_delete(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -220,7 +220,7 @@ pub(crate) async fn item_delete(
 }
 
 #[tracing::instrument]
-pub(crate) async fn item_edit(
+pub async fn item_edit(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -246,7 +246,7 @@ pub(crate) async fn item_edit(
 }
 
 #[tracing::instrument]
-pub(crate) async fn item_cancel(
+pub async fn item_cancel(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -265,7 +265,7 @@ pub(crate) async fn item_cancel(
 }
 
 #[tracing::instrument]
-pub(crate) async fn create_category(
+pub async fn create_category(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_category): Form<NewCategory>,
@@ -283,7 +283,7 @@ pub(crate) async fn create_category(
 }
 
 #[tracing::instrument]
-pub(crate) async fn item(
+pub async fn item(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -303,7 +303,7 @@ pub(crate) async fn item(
 }
 
 #[tracing::instrument]
-pub(crate) async fn select_category(
+pub async fn select_category(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(category_id): Path<Uuid>,
@@ -339,7 +339,7 @@ pub(crate) async fn select_category(
     ))
 }
 
-pub(crate) fn router() -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new().nest(
         (&TopLevelPage::Inventory.path()).into(),
         Router::new()

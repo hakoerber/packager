@@ -1,18 +1,18 @@
-pub(crate) mod infobox;
-pub(crate) mod listtable;
-pub(crate) mod text;
-pub(crate) mod types;
+pub mod infobox;
+pub mod listtable;
+pub mod text;
+pub mod types;
 
-pub(crate) use infobox::InfoBox;
-pub(crate) use listtable::TextListWithDate;
-pub(crate) use text::Text;
+pub use infobox::InfoBox;
+pub use listtable::TextListWithDate;
+pub use text::Text;
 
 use maud::Markup;
 
 #[allow(dead_code)]
-pub(crate) trait Component: Render {}
+pub trait Component: Render {}
 
-pub(crate) trait Render {
+pub trait Render {
     fn render(&self) -> Markup;
 }
 
@@ -21,8 +21,6 @@ where
     T: Render,
 {
     fn render(&self) -> Markup {
-        self.as_ref()
-            .map(|s| s.render())
-            .unwrap_or_else(|| types::Empty.render())
+        self.as_ref().map_or_else(|| types::Empty.render(), Render::render)
     }
 }

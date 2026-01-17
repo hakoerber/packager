@@ -7,7 +7,7 @@ use crate::components::{
 
 use super::model;
 
-pub(crate) struct Product;
+pub struct Product;
 
 impl Product {
     #[tracing::instrument(
@@ -18,7 +18,7 @@ impl Product {
     )]
     pub fn build(product: &model::Product) -> Markup {
         let info = InfoBox::from_rows(vec![
-            Box::new((Raw("Name".to_owned()), Raw(product.name.to_owned()))),
+            Box::new((Raw("Name".to_owned()), Raw(product.name.clone()))),
             Box::new((
                 Raw("Description".to_owned()),
                 product.description.as_ref().map(|p| Raw(p.to_owned())),

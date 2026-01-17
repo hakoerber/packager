@@ -1,12 +1,12 @@
 use axum::http::header::{HeaderMap, HeaderName, HeaderValue};
 
-pub(crate) enum Event {
+pub enum Event {
     TripItemEdited,
 }
 
 impl From<Event> for HeaderValue {
     fn from(val: Event) -> Self {
-        HeaderValue::from_static(val.to_str())
+        Self::from_static(val.to_str())
     }
 }
 
@@ -19,7 +19,7 @@ impl Event {
     }
 }
 
-pub(crate) enum ResponseHeaders {
+pub enum ResponseHeaders {
     Trigger,
     PushUrl,
 }
@@ -27,26 +27,26 @@ pub(crate) enum ResponseHeaders {
 impl From<ResponseHeaders> for HeaderName {
     fn from(val: ResponseHeaders) -> Self {
         match val {
-            ResponseHeaders::Trigger => HeaderName::from_static("hx-trigger"),
-            ResponseHeaders::PushUrl => HeaderName::from_static("hx-push-url"),
+            ResponseHeaders::Trigger => Self::from_static("hx-trigger"),
+            ResponseHeaders::PushUrl => Self::from_static("hx-push-url"),
         }
     }
 }
 
-pub(crate) enum RequestHeaders {
+pub enum RequestHeaders {
     HtmxRequest,
 }
 
 impl From<RequestHeaders> for HeaderName {
     fn from(val: RequestHeaders) -> Self {
         match val {
-            RequestHeaders::HtmxRequest => HeaderName::from_static("hx-request"),
+            RequestHeaders::HtmxRequest => Self::from_static("hx-request"),
         }
     }
 }
 
 #[tracing::instrument]
-pub(crate) fn is_htmx(headers: &HeaderMap) -> bool {
+pub fn is_htmx(headers: &HeaderMap) -> bool {
     headers
         .get::<HeaderName>(RequestHeaders::HtmxRequest.into())
         .is_some_and(|value| value == "true")

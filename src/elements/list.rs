@@ -4,29 +4,29 @@ use crate::components::{types::Url, Render as _};
 
 use super::HxConfig;
 
-pub(crate) struct Link<'a> {
+pub struct Link<'a> {
     pub text: &'a str,
     pub href: String,
     pub hx_config: Option<HxConfig>,
 }
 
-pub(crate) struct NumberWithBar {
+pub struct NumberWithBar {
     pub value: i32,
     pub max_value: i32,
 }
 
-pub(crate) enum CellType<'a> {
+pub enum CellType<'a> {
     #[allow(dead_code)]
     Text(&'a str),
     Link(Link<'a>),
     NumberWithBar(NumberWithBar),
 }
 
-pub(crate) struct Cell<'a> {
+pub struct Cell<'a> {
     pub cell_type: CellType<'a>,
 }
 
-impl<'a> Cell<'a> {
+impl Cell<'_> {
     fn render(self, _is_edit: bool) -> Markup {
         match self.cell_type {
             CellType::Text(text) => html!(
@@ -98,7 +98,7 @@ impl<'a> Cell<'a> {
     }
 }
 
-pub(crate) struct Button {
+pub struct Button {
     pub icon: super::Icon,
     pub action: Action,
     #[allow(dead_code)]
@@ -153,12 +153,12 @@ impl Button {
     }
 }
 
-pub(crate) enum Action {
+pub enum Action {
     Href(Url),
     Submit(&'static str),
 }
 
-pub(crate) struct EditingConfig {
+pub struct EditingConfig {
     pub edit_action: Action,
     pub edit_hx_config: Option<HxConfig>,
     pub delete_action: Action,
@@ -169,7 +169,7 @@ pub(crate) struct EditingConfig {
     pub cancel_hx_config: Option<HxConfig>,
 }
 
-pub(crate) trait Row {
+pub trait Row {
     fn is_active(&self) -> bool {
         false
     }
@@ -181,21 +181,21 @@ pub(crate) trait Row {
     fn cells(&self) -> Vec<Cell<'_>>;
 }
 
-pub(crate) struct Header<'c> {
+pub struct Header<'c> {
     pub cells: Vec<Option<HeaderCell<'c>>>,
 }
 
-pub(crate) struct HeaderCell<'a> {
+pub struct HeaderCell<'a> {
     pub title: &'a str,
 }
 
-impl<'c> HeaderCell<'c> {
+impl HeaderCell<'_> {
     fn title(&self) -> &str {
         self.title
     }
 }
 
-pub(crate) struct List<'hc, R>
+pub struct List<'hc, R>
 where
     R: Row,
 {
@@ -205,7 +205,7 @@ where
     pub editing_config: Option<Box<dyn Fn(R) -> EditingConfig>>,
 }
 
-impl<'hc, R> List<'hc, R>
+impl<R> List<'_, R>
 where
     R: Row,
 {

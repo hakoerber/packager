@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{AppState, Context, Error, RequestError, TopLevelPage, models};
 
 #[tracing::instrument]
-pub(crate) async fn comment_create(
+pub async fn comment_create(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(product_id): Path<Uuid>,
@@ -30,7 +30,7 @@ pub(crate) async fn comment_create(
 }
 
 #[tracing::instrument]
-pub(crate) async fn comment_delete(
+pub async fn comment_delete(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((product_id, comment_id)): Path<(Uuid, Uuid)>,
@@ -50,7 +50,7 @@ pub(crate) async fn comment_delete(
 }
 
 #[tracing::instrument]
-pub(crate) async fn comment_edit(
+pub async fn comment_edit(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((product_id, comment_id)): Path<(Uuid, Uuid)>,
@@ -72,7 +72,7 @@ pub(crate) async fn comment_edit(
 }
 
 #[tracing::instrument]
-pub(crate) async fn comment_edit_save(
+pub async fn comment_edit_save(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((product_id, comment_id)): Path<(Uuid, Uuid)>,
@@ -92,7 +92,7 @@ pub(crate) async fn comment_edit_save(
     Ok(Redirect::to(&format!("/products/{product_id}")))
 }
 
-pub(crate) fn router() -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/new", post(comment_create))
         .route("/{id}/delete", get(comment_delete))

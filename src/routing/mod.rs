@@ -40,7 +40,7 @@ where
 {
     struct NoneVisitor;
 
-    impl<'vi> de::Visitor<'vi> for NoneVisitor {
+    impl de::Visitor<'_> for NoneVisitor {
         type Value = Option<Uuid>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

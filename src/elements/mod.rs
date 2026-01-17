@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-pub(crate) mod list;
+pub mod list;
 
-pub(crate) enum HxSwap {
+pub enum HxSwap {
     OuterHtml,
 }
 
-pub(crate) enum Icon {
+pub enum Icon {
     Edit,
     Delete,
     Save,
@@ -17,30 +17,30 @@ impl Icon {
     #[must_use]
     pub fn mdi_class(&self) -> &'static str {
         match self {
-            Icon::Edit => "mdi-pencil",
-            Icon::Delete => "mdi-delete",
-            Icon::Save => "mdi-content-save",
-            Icon::Cancel => "mdi-cancel",
+            Self::Edit => "mdi-pencil",
+            Self::Delete => "mdi-delete",
+            Self::Save => "mdi-content-save",
+            Self::Cancel => "mdi-cancel",
         }
     }
 
     #[must_use]
     pub fn background(&self) -> &'static str {
         match self {
-            Icon::Edit => "bg-blue-100",
-            Icon::Delete => "bg-red-100",
-            Icon::Save => "bg-green-100",
-            Icon::Cancel => "bg-red-100",
+            Self::Edit => "bg-blue-100",
+            Self::Delete => "bg-red-100",
+            Self::Save => "bg-green-100",
+            Self::Cancel => "bg-red-100",
         }
     }
 
     #[must_use]
     pub fn background_hover(&self) -> &'static str {
         match self {
-            Icon::Edit => "hover:bg-blue-400",
-            Icon::Delete => "hover:bg-red-400",
-            Icon::Save => "hover:bg-green-200",
-            Icon::Cancel => "hover:bg-red-200",
+            Self::Edit => "hover:bg-blue-400",
+            Self::Delete => "hover:bg-red-400",
+            Self::Save => "hover:bg-green-200",
+            Self::Cancel => "hover:bg-red-200",
         }
     }
 }
@@ -51,13 +51,13 @@ impl Display for HxSwap {
             f,
             "{}",
             match self {
-                HxSwap::OuterHtml => "outerHtml",
+                Self::OuterHtml => "outerHtml",
             }
         )
     }
 }
 
-pub(crate) struct HxConfig {
+pub struct HxConfig {
     pub hx_post: String,
     pub hx_swap: HxSwap,
     pub hx_target: &'static str,

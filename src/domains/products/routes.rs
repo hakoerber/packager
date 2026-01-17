@@ -13,7 +13,7 @@ use crate::{AppState, Context, Error, RequestError, TopLevelPage};
 use super::{model, view};
 
 #[tracing::instrument]
-pub(crate) async fn product(
+pub async fn product(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -32,7 +32,7 @@ pub(crate) async fn product(
     ))
 }
 
-pub(crate) fn router() -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new().nest(
         (&TopLevelPage::Products.path()).into(),
         Router::new()

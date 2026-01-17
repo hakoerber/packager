@@ -27,7 +27,7 @@ impl TryFrom<DbUserRow> for User {
     type Error = Error;
 
     fn try_from(row: DbUserRow) -> Result<Self, Self::Error> {
-        Ok(User {
+        Ok(Self {
             id: row.id,
             username: row.username,
             fullname: row.fullname,

@@ -58,7 +58,7 @@ impl<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> Render
 }
 
 #[derive(Builder)]
-pub(crate) struct TextListWithDate<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> {
+pub struct TextListWithDate<DelFn: Fn(Uuid) -> Url, EditFn: Fn(Uuid) -> Url> {
     ident: &'static str,
     name: Name,
     rows: Vec<TextListWithDateRow<DelFn, EditFn>>,

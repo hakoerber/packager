@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 #[derive(Debug, sqlx::Type, Serialize, Clone, Deserialize)]
 /// Both ends are **inclusive**
-pub(crate) struct TripDate {
+pub struct TripDate {
     pub start: time::Date,
     pub end: time::Date,
 }
@@ -65,10 +65,10 @@ impl TryFrom<TripDate> for sqlx::postgres::types::PgRange<time::Date> {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Deserialize, Debug, sqlx::Type)]
+#[derive(PartialEq, Eq, PartialOrd, Deserialize, Debug, sqlx::Type)]
 #[sqlx(type_name = "trip_state")]
 #[sqlx(rename_all = "lowercase")]
-pub(crate) enum TripState {
+pub enum TripState {
     Init,
     Planning,
     Planned,
@@ -78,7 +78,7 @@ pub(crate) enum TripState {
 }
 
 #[tracing::instrument]
-pub(crate) async fn trip_item_set_state(
+pub async fn trip_item_set_state(
     ctx: &Context,
     pool: &db::Pool,
     trip_id: Uuid,
@@ -93,7 +93,7 @@ pub(crate) async fn trip_item_set_state(
 impl TripState {
     #[must_use]
     pub fn new() -> Self {
-        TripState::Init
+        Self::Init
     }
 
     #[must_use]
@@ -162,7 +162,7 @@ impl std::convert::TryFrom<&str> for TripState {
 }
 
 #[derive(Serialize, Debug)]
-pub(crate) enum TripItemStateKey {
+pub enum TripItemStateKey {
     Pick,
     Pack,
     Ready,
@@ -183,7 +183,7 @@ impl fmt::Display for TripItemStateKey {
 }
 
 #[derive(Debug)]
-pub(crate) struct TripCategory {
+pub struct TripCategory {
     pub category: inventory::Category,
     pub items: Option<Vec<TripItem>>,
 }
@@ -206,7 +206,7 @@ impl TripCategory {
         pool: &db::Pool,
         trip_id: Uuid,
         category_id: Uuid,
-    ) -> Result<Option<TripCategory>, Error> {
+    ) -> Result<Option<Self>, Error> {
         struct Row {
             category_id: Uuid,
             category_name: String,
@@ -318,7 +318,7 @@ impl TripCategory {
 
         let mut category = match rows.pop() {
             None => return Ok(None),
-            Some(initial) => TripCategory {
+            Some(initial) => Self {
                 category: initial.category.category,
                 items: initial.item.map(|item| vec![item]).or_else(|| Some(vec![])),
             },
@@ -333,7 +333,7 @@ impl TripCategory {
                     c.push(item);
                     c
                 });
-            };
+            }
         }
 
         Ok(Some(category))
@@ -342,7 +342,7 @@ impl TripCategory {
 
 // TODO refactor the bools into an enum
 #[derive(Debug)]
-pub(crate) struct TripItem {
+pub struct TripItem {
     pub item: inventory::Item,
     pub picked: bool,
     pub packed: bool,
@@ -350,7 +350,7 @@ pub(crate) struct TripItem {
     pub new: bool,
 }
 
-pub(crate) struct DbTripsItemsRow {
+pub struct DbTripsItemsRow {
     pub picked: bool,
     pub packed: bool,
     pub ready: bool,
@@ -366,7 +366,7 @@ impl TryFrom<DbTripsItemsRow> for TripItem {
     type Error = Error;
 
     fn try_from(row: DbTripsItemsRow) -> Result<Self, Self::Error> {
-        Ok(TripItem {
+        Ok(Self {
             picked: row.picked,
             packed: row.packed,
             ready: row.ready,
@@ -501,7 +501,7 @@ impl TripItem {
     }
 }
 
-pub(crate) struct DbTripRow {
+pub struct DbTripRow {
     pub id: Uuid,
     pub name: String,
     pub date: TripDate,
@@ -516,7 +516,7 @@ impl TryFrom<DbTripRow> for Trip {
     type Error = Error;
 
     fn try_from(row: DbTripRow) -> Result<Self, Self::Error> {
-        Ok(Trip {
+        Ok(Self {
             id: row.id,
             name: row.name,
             date: row.date,
@@ -533,7 +533,7 @@ impl TryFrom<DbTripRow> for Trip {
 }
 
 #[derive(Debug)]
-pub(crate) struct Trip {
+pub struct Trip {
     pub id: Uuid,
     pub name: String,
     pub date: TripDate,
@@ -551,14 +551,14 @@ macro_rules! build_trip_edit {
     ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
         #[derive(Clone, Debug, Serialize, Deserialize)]
         #[allow(dead_code)]
-        pub(crate) enum TripAttributeUpdate {
+        pub enum TripAttributeUpdate {
             $(
                 #[serde(rename = $wire)]
                 $name($type),
             )*
         }
 
-        #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+        #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
         pub enum TripAttribute {
             $(
                 #[serde(rename = $wire)]
@@ -580,7 +580,7 @@ macro_rules! build_trip_edit {
         $(
             paste::paste! {
                 #[tracing::instrument]
-                pub(crate) async fn [<set_attribute_ $name:lower >] (
+                pub async fn [<set_attribute_ $name:lower >] (
                     ctx: &Context,
                     pool: &db::Pool,
                     trip_id: Uuid,
@@ -612,11 +612,11 @@ macro_rules! build_trip_edit {
             }
         )*
 
-        pub(crate) mod view {
+        pub mod view {
             use maud::Markup;
 
             #[must_use]
-            pub(crate) fn info(
+            pub fn info(
                 trip: &super::Trip,
                 trip_edit_attribute: Option<&super::TripAttribute>,
             ) -> Vec<Markup> {
@@ -638,11 +638,11 @@ macro_rules! build_trip_edit {
 
         $(
             paste::paste! {
-                pub(crate) use $type as [< Type$name >];
+                pub use $type as [< Type$name >];
             }
         )*
 
-        pub(crate) mod routes {
+        pub mod routes {
             use axum::{
                 extract::{Extension, Path, State},
                 response::{Redirect},
@@ -658,7 +658,7 @@ macro_rules! build_trip_edit {
                 paste::paste! {
                     #[derive(Deserialize, Debug)]
                     #[serde(deny_unknown_fields)]
-                    pub(crate) struct [< TripEditUpdate $name >] {
+                    pub struct [< TripEditUpdate $name >] {
                         #[serde(rename = "new-value")]
                         value: super::[< Type$name >],
                     }
@@ -676,7 +676,7 @@ macro_rules! build_trip_edit {
                     }
 
                     #[tracing::instrument]
-                    pub(crate) async fn [<trip_edit_attribute_ $name:lower >] (
+                    pub async fn [<trip_edit_attribute_ $name:lower >] (
                         Extension(current_user): Extension<models::user::User>,
                         State(state): State<AppState>,
                         Path((trip_id,)): Path<(Uuid,)>,
@@ -716,7 +716,7 @@ build_trip_edit! {
 
 impl Trip {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Trip>, Error> {
+    pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Self>, Error> {
         let mut trips = crate::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -1396,7 +1396,7 @@ impl Trip {
 }
 
 #[derive(Debug)]
-pub(crate) struct TripType {
+pub struct TripType {
     pub id: Uuid,
     pub name: String,
     pub active: bool,
@@ -1412,7 +1412,7 @@ impl TryFrom<TripTypeRow> for TripType {
     type Error = Error;
 
     fn try_from(row: TripTypeRow) -> Result<Self, Self::Error> {
-        Ok(TripType {
+        Ok(Self {
             id: row.id,
             name: row.name,
             active: row.active,
@@ -1489,20 +1489,20 @@ impl TripsType {
     }
 }
 
-pub(crate) struct DbTripsTypesRow {
+pub struct DbTripsTypesRow {
     pub id: Uuid,
     pub name: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(dead_code)]
-pub(crate) enum TripTypeAttribute {
+pub enum TripTypeAttribute {
     #[serde(rename = "name")]
     Name,
 }
 
 #[derive(Debug)]
-pub(crate) struct TripsType {
+pub struct TripsType {
     pub id: Uuid,
     pub name: String,
 }
@@ -1511,7 +1511,7 @@ impl TryFrom<DbTripsTypesRow> for TripsType {
     type Error = Error;
 
     fn try_from(row: DbTripsTypesRow) -> Result<Self, Self::Error> {
-        Ok(TripsType {
+        Ok(Self {
             id: row.id,
             name: row.name,
         })

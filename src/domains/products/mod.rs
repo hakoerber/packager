@@ -1,7 +1,7 @@
 mod model;
 mod routes;
-pub(crate) mod view;
+pub mod view;
 
-pub(crate) use routes::router;
+pub use routes::router;
 
 mod comments;

@@ -334,7 +334,7 @@ async fn set_item_unready_htmx(
     Ok((headers, trip_row(&ctx, &state, trip_id, item_id).await?))
 }
 
-pub(crate) fn router() -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route(
             "/{id}/items/{id}/pick",

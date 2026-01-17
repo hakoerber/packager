@@ -23,7 +23,7 @@ use crate::models::User;
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NewTrip {
+pub struct NewTrip {
     #[serde(rename = "new-trip-name")]
     name: String,
     #[serde(rename = "new-trip-start-date")]
@@ -36,7 +36,7 @@ pub(crate) struct NewTrip {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct TripQuery {
+pub struct TripQuery {
     edit: Option<model::TripAttribute>,
     category: Option<Uuid>,
     edit_todo: Option<Uuid>,
@@ -45,33 +45,33 @@ pub(crate) struct TripQuery {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct CommentUpdate {
+pub struct CommentUpdate {
     #[serde(rename = "new-comment")]
     new_comment: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct TripTypeQuery {
+pub struct TripTypeQuery {
     edit: Option<Uuid>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NewTripType {
+pub struct NewTripType {
     #[serde(rename = "new-trip-type-name")]
     name: String,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct TripTypeUpdate {
+pub struct TripTypeUpdate {
     #[serde(rename = "new-value")]
     new_value: String,
 }
 
 #[tracing::instrument]
-pub(crate) async fn create(
+pub async fn create(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Form(new_trip): Form<NewTrip>,
@@ -99,7 +99,7 @@ pub(crate) async fn create(
 }
 
 #[tracing::instrument]
-pub(crate) async fn trips(
+pub async fn trips(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -126,7 +126,7 @@ pub(crate) async fn trips(
 }
 
 #[tracing::instrument]
-pub(crate) async fn trip(
+pub async fn trip(
     Extension(current_user): Extension<User>,
     State(mut state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -199,7 +199,7 @@ pub(crate) async fn trip(
 }
 
 #[tracing::instrument]
-pub(crate) async fn remove_type(
+pub async fn remove_type(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
@@ -217,7 +217,7 @@ pub(crate) async fn remove_type(
 }
 
 #[tracing::instrument]
-pub(crate) async fn add_type(
+pub async fn add_type(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, type_id)): Path<(Uuid, Uuid)>,
@@ -229,7 +229,7 @@ pub(crate) async fn add_type(
 }
 
 #[tracing::instrument]
-pub(crate) async fn set_comment(
+pub async fn set_comment(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
@@ -254,7 +254,7 @@ pub(crate) async fn set_comment(
 }
 
 #[tracing::instrument]
-pub(crate) async fn total_weight_htmx(
+pub async fn total_weight_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
@@ -266,7 +266,7 @@ pub(crate) async fn total_weight_htmx(
 }
 
 #[tracing::instrument]
-pub(crate) async fn set_state(
+pub async fn set_state(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -289,7 +289,7 @@ pub(crate) async fn set_state(
 }
 
 #[tracing::instrument]
-pub(crate) async fn trip_types(
+pub async fn trip_types(
     Extension(current_user): Extension<User>,
     State(mut state): State<AppState>,
     Query(trip_type_query): Query<TripTypeQuery>,
@@ -308,7 +308,7 @@ pub(crate) async fn trip_types(
 }
 
 #[tracing::instrument]
-pub(crate) async fn create_type(
+pub async fn create_type(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Form(new_trip_type): Form<NewTripType>,
@@ -326,7 +326,7 @@ pub(crate) async fn create_type(
 }
 
 #[tracing::instrument]
-pub(crate) async fn edit_type_name(
+pub async fn edit_type_name(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(trip_type_id): Path<Uuid>,
@@ -357,7 +357,7 @@ pub(crate) async fn edit_type_name(
 }
 
 #[tracing::instrument]
-pub(crate) async fn select_category(
+pub async fn select_category(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, category_id)): Path<(Uuid, Uuid)>,
@@ -391,7 +391,7 @@ pub(crate) async fn select_category(
     ))
 }
 
-pub(crate) fn router() -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new().nest(
         (&TopLevelPage::Trips.path()).into(),
         Router::new()

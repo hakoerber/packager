@@ -12,7 +12,7 @@ pub enum BoolArg {
 }
 
 impl From<BoolArg> for bool {
-    fn from(arg: BoolArg) -> bool {
+    fn from(arg: BoolArg) -> Self {
         arg.bool()
     }
 }
@@ -29,7 +29,7 @@ impl BoolArg {
 // this is required because the required_if* functions match against the
 // *raw* value, before parsing is done
 impl From<BoolArg> for clap::builder::OsStr {
-    fn from(arg: BoolArg) -> clap::builder::OsStr {
+    fn from(arg: BoolArg) -> Self {
         match arg {
             BoolArg::True => "true".into(),
             BoolArg::False => "false".into(),
@@ -105,8 +105,8 @@ pub struct UserCreate {
 }
 
 impl Args {
-    pub fn get() -> Result<Args, Error> {
-        let args = Args::parse();
+    pub fn get() -> Result<Self, Error> {
+        let args = Self::parse();
 
         #[cfg(feature = "prometheus")]
         if !args.enable_prometheus.bool()
