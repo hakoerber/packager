@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::db;
 
 #[derive(Debug, Clone)]
-pub(crate) struct User {
+pub struct User {
     pub id: Uuid,
     pub username: String,
     pub fullname: String,
@@ -17,7 +17,7 @@ pub struct NewUser<'a> {
 }
 
 #[derive(Debug)]
-pub(crate) struct DbUserRow {
+pub struct DbUserRow {
     id: Uuid,
     username: String,
     fullname: String,

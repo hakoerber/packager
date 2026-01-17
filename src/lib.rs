@@ -4,19 +4,19 @@ use std::fmt;
 
 pub mod auth;
 pub mod cli;
-pub(crate) mod components;
+pub mod components;
 pub mod db;
-pub(crate) mod domains;
-pub(crate) mod elements;
+pub mod domains;
+pub mod elements;
 pub mod error;
-pub(crate) mod htmx;
+pub mod htmx;
 pub mod models;
 pub mod routing;
 pub mod telemetry;
 
 mod view;
 
-pub(crate) use error::{AuthError, RequestError};
+pub use error::{AuthError, RequestError};
 pub use error::{CommandError, DatabaseError, Error, QueryError, StartError};
 
 #[derive(Clone, Debug)]
@@ -27,7 +27,7 @@ pub struct AppState {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Context {
+pub struct Context {
     user: models::user::User,
 }
 
@@ -78,7 +78,7 @@ impl<'a> From<&'a UriPath> for &'a str {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub(crate) enum TopLevelPage {
+pub enum TopLevelPage {
     Inventory,
     Trips,
     Products,

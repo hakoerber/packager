@@ -567,7 +567,7 @@ macro_rules! build_trip_edit {
         }
 
         impl TripAttribute {
-            pub(crate) fn id(&self) -> &'static str {
+            pub fn id(&self) -> &'static str {
                 match self {
                     $(
                         Self::$name => $wire,

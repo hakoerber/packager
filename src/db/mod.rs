@@ -2,8 +2,8 @@ use base64::Engine as _;
 use sha2::{Digest, Sha256};
 use std::fmt;
 
-pub(crate) mod error;
-pub(crate) mod postgres;
+pub mod error;
+pub mod postgres;
 
 use crate::StartError;
 
@@ -17,9 +17,9 @@ pub trait Database {
 }
 
 pub type DB = self::postgres::DB;
-pub(crate) type Pool = sqlx::Pool<sqlx::Postgres>;
+pub type Pool = sqlx::Pool<sqlx::Postgres>;
 
-pub(crate) enum QueryType {
+pub enum QueryType {
     Insert,
     Update,
     Select,
@@ -41,7 +41,7 @@ impl fmt::Display for QueryType {
     }
 }
 
-pub(crate) enum Component {
+pub enum Component {
     Inventory,
     User,
     Trips,
@@ -63,12 +63,12 @@ impl fmt::Display for Component {
     }
 }
 
-pub(crate) struct QueryClassification {
+pub struct QueryClassification {
     pub query_type: QueryType,
     pub component: Component,
 }
 
-pub(crate) fn sqlx_query(
+pub fn sqlx_query(
     classification: &QueryClassification,
     query: &str,
     labels: &[(&'static str, String)],
@@ -96,7 +96,7 @@ pub(crate) fn sqlx_query(
     metrics::counter!("packager_database_queries_total", &labels).increment(1);
 }
 
-pub(crate) fn sqlx_query_file(
+pub fn sqlx_query_file(
     classification: &QueryClassification,
     path: &str,
     labels: &[(&'static str, String)],

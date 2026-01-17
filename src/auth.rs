@@ -18,7 +18,7 @@ pub enum Config {
 }
 
 #[tracing::instrument(name = "check_auth", skip(state, request, next))]
-pub(crate) async fn authorize(
+pub async fn authorize(
     State(state): State<AppState>,
     mut request: Request,
     next: Next,

@@ -1,8 +1,8 @@
 pub mod user;
 
-pub(crate) use user::User;
+pub use user::User;
 
 #[derive(Debug, Clone)]
-pub(crate) enum Currency {
+pub enum Currency {
     Eur(rust_decimal::Decimal),
 }

@@ -45,7 +45,7 @@ pub struct InfoBox {
 }
 
 impl InfoBox {
-    pub(crate) fn from_rows(rows: Vec<Box<dyn InfoRow>>) -> Self {
+    pub fn from_rows(rows: Vec<Box<dyn InfoRow>>) -> Self {
         Self { rows }
     }
 }

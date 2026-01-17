@@ -42,8 +42,8 @@ impl Render for NameString {
 }
 
 pub struct Name {
-    pub(crate) singular: NameString,
-    pub(crate) plural: NameString,
+    pub singular: NameString,
+    pub plural: NameString,
 }
 
 pub struct Url(pub String);

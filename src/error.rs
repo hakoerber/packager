@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-pub(crate) use crate::db::error::DataError;
+pub use crate::db::error::DataError;
 pub use crate::db::error::{Error as DatabaseError, QueryError};
 
 #[derive(Debug)]
