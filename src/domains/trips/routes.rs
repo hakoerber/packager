@@ -1,9 +1,9 @@
 use axum::{
+    Form, Router,
     extract::{Extension, Path, Query, State},
     http::header::{HeaderMap, HeaderName},
     response::{IntoResponse, Redirect},
     routing::{get, post},
-    Form, Router,
 };
 
 use serde::Deserialize;
@@ -11,11 +11,11 @@ use time::Date;
 use uuid::Uuid;
 
 use crate::{
+    AppState, Context, Error, RequestError, TopLevelPage,
     domains::{crud::Delete as _, route::Router as _, trips::todos},
     htmx,
     routing::{get_referer, uuid_or_empty},
     view::Component,
-    AppState, Context, Error, RequestError, TopLevelPage,
 };
 
 use super::{model, view};
@@ -111,7 +111,7 @@ pub async fn trips(
         Ok(crate::view::root::Body::init(
             crate::view::Parent::Root,
             crate::view::root::BodyArgs {
-                body: &view::TripManager::build(trips),
+                body: &view::TripManager::build(&trips),
                 active_page: Some(&TopLevelPage::Trips),
             },
         )
@@ -119,7 +119,7 @@ pub async fn trips(
     } else {
         Ok(crate::view::Root::build(
             &ctx,
-            &view::TripManager::build(trips),
+            &view::TripManager::build(&trips),
             Some(&TopLevelPage::Trips),
         ))
     }

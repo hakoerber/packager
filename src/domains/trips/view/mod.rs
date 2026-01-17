@@ -1,6 +1,6 @@
 use crate::htmx;
 
-use maud::{html, Markup, PreEscaped};
+use maud::{Markup, PreEscaped, html};
 use uuid::Uuid;
 
 use serde_variant::to_variant_name;
@@ -16,7 +16,7 @@ use crate::domains::{self, view::View};
 
 impl TripManager {
     #[tracing::instrument]
-    pub fn build(trips: Vec<model::Trip>) -> Markup {
+    pub fn build(trips: &[model::Trip]) -> Markup {
         html!(
             div
                 ."p-8"
@@ -25,7 +25,7 @@ impl TripManager {
                 ."gap-8"
             {
                 h1 ."text-2xl" {"Trips"}
-                (TripTable::build(&trips))
+                (TripTable::build(trips))
                 (NewTrip::build(&trips))
             }
         )
@@ -47,7 +47,7 @@ pub struct TripTable;
 
 impl TripTable {
     #[tracing::instrument]
-    pub fn build(trips: &Vec<model::Trip>) -> Markup {
+    pub fn build(trips: &[model::Trip]) -> Markup {
         html!(
             table
                 ."table"
@@ -472,7 +472,7 @@ where
     #[tracing::instrument]
     pub fn build<'a>(
         name: &str,
-        value: AttributeValue<'a, T>,
+        value: &AttributeValue<'a, T>,
         attribute_key: model::TripAttribute,
         edit_attribute: Option<&model::TripAttribute>,
     ) -> Markup

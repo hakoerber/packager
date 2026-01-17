@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::{db, Context};
+use crate::{Context, db};
 
 use uuid::Uuid;
 
@@ -70,11 +70,7 @@ impl TryFrom<DbCategoryRow> for Category {
 
 impl Category {
     #[tracing::instrument]
-    pub async fn _find(
-        ctx: &Context,
-        pool: &db::Pool,
-        id: Uuid,
-    ) -> Result<Option<Self>, Error> {
+    pub async fn _find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         crate::query_one!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
@@ -261,6 +257,7 @@ impl IntoIterator for DbInventoryItemRows {
     }
 }
 
+#[expect(clippy::fallible_impl_from, reason = "panics only on buggy code")]
 impl From<Vec<DbInventoryItemRow>> for DbInventoryItemRows {
     fn from(mut value: Vec<DbInventoryItemRow>) -> Self {
         match value.pop() {

@@ -1,4 +1,4 @@
-use maud::{html, Markup, PreEscaped};
+use maud::{Markup, PreEscaped, html};
 
 use super::Render;
 
@@ -30,8 +30,8 @@ impl NameString {
         let value = self.0.to_inner_owned();
         let mut chars = value.chars();
         let first_char = chars.next().expect("string cannot be empty");
-        let uppercase = first_char.to_uppercase().collect::<Vec<char>>();
-        let new_string = uppercase.into_iter().chain(chars).collect::<String>();
+        let uppercase = first_char.to_uppercase();
+        let new_string = uppercase.chain(chars).collect::<String>();
         Self(InnerString::Owned(new_string))
     }
 }

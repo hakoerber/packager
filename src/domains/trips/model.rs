@@ -25,6 +25,7 @@ impl fmt::Display for TripDate {
     }
 }
 
+#[expect(clippy::fallible_impl_from, reason = "panics only on buggy code")]
 impl From<sqlx::postgres::types::PgRange<time::Date>> for TripDate {
     fn from(value: sqlx::postgres::types::PgRange<time::Date>) -> Self {
         Self {
@@ -33,7 +34,9 @@ impl From<sqlx::postgres::types::PgRange<time::Date>> for TripDate {
                 core::ops::Bound::Excluded(_d) => {
                     panic!("lower bound is exclusive, type contraint is wrong")
                 }
-                _ => panic!("lower bound missing, type contraint is wrong"),
+                core::ops::Bound::Unbounded => {
+                    panic!("lower bound missing, type contraint is wrong")
+                }
             },
             end: match value.end {
                 core::ops::Bound::Included(_d) => {
@@ -43,7 +46,9 @@ impl From<sqlx::postgres::types::PgRange<time::Date>> for TripDate {
                     .previous_day()
                     // this cannot even happen, as the range would be empty then
                     .expect("upper bound is Date::MIN, type contraint is wrong"),
-                _ => panic!("lower bound missing, type contraint is wrong"),
+                core::ops::Bound::Unbounded => {
+                    panic!("lower bound missing, type contraint is wrong")
+                }
             },
         }
     }
@@ -625,7 +630,7 @@ macro_rules! build_trip_edit {
                         {
                             crate::domains::trips::view::TripInfoRow::build(
                                 $human,
-                                (&trip.$( $id ).*).into(),
+                                (trip.$( $id ).*).into(),
                                 super::TripAttribute::$name,
                                 trip_edit_attribute,
                             )

@@ -10,7 +10,7 @@ use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::Span;
 use tracing_subscriber::{
     filter::{LevelFilter, Targets},
-    fmt::{format::Format, Layer},
+    fmt::{Layer, format::Format},
     layer::SubscriberExt,
     prelude::*,
     registry::Registry,
@@ -71,8 +71,8 @@ fn get_opentelemetry_layer<
             use opentelemetry::KeyValue;
             use opentelemetry_otlp::{WithExportConfig as _, WithTonicConfig};
             use opentelemetry_sdk::{
-                trace::{RandomIdGenerator, Sampler},
                 Resource,
+                trace::{RandomIdGenerator, Sampler},
             };
             use tonic::metadata::MetadataMap;
 
@@ -141,7 +141,7 @@ pub async fn init<Func, T>(
     f: Func,
 ) -> T
 where
-    Func: FnOnce(crate::cli::Args) -> Pin<Box<dyn Future<Output = T>>>,
+    Func: FnOnce(crate::cli::Args) -> Pin<Box<dyn Future<Output = T> + 'static>>,
     T: std::process::Termination,
 {
     // mut is dependent on features (it's only required when opentelemetry is set), so

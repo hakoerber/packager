@@ -4,8 +4,8 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use packager::{
-    auth, cli, db, models, routing, telemetry, AppState, ClientState, DatabaseError, Error,
-    QueryError, StartError,
+    AppState, ClientState, DatabaseError, Error, QueryError, StartError, auth, cli, db, models,
+    routing, telemetry,
 };
 use tokio::net::TcpListener;
 
