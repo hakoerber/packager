@@ -1,2 +1,0 @@
-* make weight a proper type, don't pass i32s around, same for temperature, location etc
-* proper date types

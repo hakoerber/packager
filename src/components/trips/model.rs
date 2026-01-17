@@ -679,7 +679,7 @@ macro_rules! build_trip_edit {
 
                     impl<'a> From<[< TripEditUpdate $name >]> for super::TripAttributeUpdate<'a> {
                         fn from(v: [< TripEditUpdate $name >]) -> Self {
-                            Self::$name(super::super::AttributeValue(v.value))
+                            Self::$name(super::super::AttributeValue(Some(&v.value)))
                         }
                     }
 
@@ -723,11 +723,35 @@ macro_rules! build_trip_edit {
 #[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
 pub(crate) struct Name(pub String);
 
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl maud::Render for Name {}
+
 #[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
 pub(crate) struct Location(pub String);
 
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl maud::Render for Location {}
+
 #[derive(Debug, sqlx::Type, Clone, Serialize, Deserialize)]
 pub(crate) struct Temperature(pub i32);
+
+impl fmt::Display for Temperature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl maud::Render for Temperature {}
 
 build_trip_edit! {
     (Name, name, "Name", "name", (&'static str,), (name), Name, Text),

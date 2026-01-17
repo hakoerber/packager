@@ -374,7 +374,7 @@ where
 
 impl<'a, T, I> TripInfoRow<'a, T, I>
 where
-    T: std::fmt::Debug + 'a,
+    T: std::fmt::Debug + 'a + std::fmt::Display,
     Option<&'a T>: Input<Ids = I>,
     I: std::fmt::Debug,
 {

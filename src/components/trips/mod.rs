@@ -1,5 +1,5 @@
 use maud::{html, Markup};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 mod items;
 mod model;
@@ -15,12 +15,12 @@ pub(crate) use routes::router;
 pub(crate) struct AttributeValue<'a, T, I>(pub Option<&'a T>)
 where
     T: std::fmt::Debug,
-    Option<&'a T>: Input<Ids = I>;
+    Option<&'a T>: Input<Ids = I> + DeserializeOwned;
 
 impl<'a, T, I> AttributeValue<'a, T, I>
 where
     T: std::fmt::Debug,
-    Option<&'a T>: Input<Ids = I>,
+    Option<&'a T>: Input<Ids = I> + DeserializeOwned,
 {
     fn input(&self, id: I, form: &str) -> Markup {
         <Option<&'a T> as Input>::input(&self.0, id, form)
@@ -30,7 +30,7 @@ where
 impl<'a, T, I> From<&'a Option<T>> for AttributeValue<'a, T, I>
 where
     T: std::fmt::Debug,
-    Option<&'a T>: Input<Ids = I>,
+    Option<&'a T>: Input<Ids = I> + DeserializeOwned,
 {
     fn from(value: &'a Option<T>) -> Self {
         Self(value.as_ref())
@@ -40,7 +40,7 @@ where
 impl<'a, T, I> From<&'a T> for AttributeValue<'a, T, I>
 where
     T: std::fmt::Debug,
-    Option<&'a T>: Input<Ids = I>,
+    Option<&'a T>: Input<Ids = I> + DeserializeOwned,
 {
     fn from(value: &'a T) -> Self {
         Self(Some(value))

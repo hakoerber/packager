@@ -7,7 +7,7 @@ if [[ ! -e "./pgdata" ]] ; then
     mkdir ./pgdata/run
 fi
 
-postgres -D ./pgdata -k run -h "" &o
+postgres -D ./pgdata -k run -h "" &
 
 sleep 1
 
