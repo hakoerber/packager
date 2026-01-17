@@ -26,6 +26,7 @@ impl Icon {
 
     #[must_use]
     pub fn background(&self) -> &'static str {
+        #[expect(clippy::match_same_arms, reason = "better to be explicit")]
         match self {
             Self::Edit => "bg-blue-100",
             Self::Delete => "bg-red-100",

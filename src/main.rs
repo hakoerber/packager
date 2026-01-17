@@ -1,5 +1,4 @@
 use std::net::{IpAddr, SocketAddr};
-use std::pin::Pin;
 use std::process::ExitCode;
 use std::str::FromStr;
 
@@ -58,7 +57,7 @@ async fn main() -> MainResult {
             telemetry::tracing::TokioConsoleConfig::Disabled
         },
         args,
-        |args| -> Pin<Box<dyn std::future::Future<Output = MainResult>>> {
+        |args| {
             Box::pin(async move {
                 match args.command {
                     cli::Command::Serve(serve_args) => {

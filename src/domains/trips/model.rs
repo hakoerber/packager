@@ -630,7 +630,7 @@ macro_rules! build_trip_edit {
                         {
                             crate::domains::trips::view::TripInfoRow::build(
                                 $human,
-                                (trip.$( $id ).*).into(),
+                                (&trip.$( $id ).*).into(),
                                 super::TripAttribute::$name,
                                 trip_edit_attribute,
                             )
@@ -1114,7 +1114,7 @@ impl Trip {
 
     #[tracing::instrument]
     pub async fn sync_trip_items_with_inventory(
-        &mut self,
+        &self,
         ctx: &Context,
         pool: &db::Pool,
     ) -> Result<(), Error> {

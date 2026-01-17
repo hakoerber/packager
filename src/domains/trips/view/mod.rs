@@ -470,9 +470,10 @@ where
     T: std::fmt::Debug + std::fmt::Display,
 {
     #[tracing::instrument]
+    #[expect(clippy::needless_pass_by_value, reason = "fine, as it wraps a ref")]
     pub fn build<'a>(
         name: &str,
-        value: &AttributeValue<'a, T>,
+        value: AttributeValue<'a, T>,
         attribute_key: model::TripAttribute,
         edit_attribute: Option<&model::TripAttribute>,
     ) -> Markup

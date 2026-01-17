@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use axum::{
     extract::Extension,
     http::header::{self, HeaderMap},
@@ -5,9 +7,8 @@ use axum::{
 };
 
 use crate::{
-    htmx, models,
+    Context, htmx, models,
     view::{self, Component},
-    Context,
 };
 
 #[tracing::instrument]
@@ -45,7 +46,8 @@ pub async fn icon() -> impl IntoResponse {
 pub async fn debug(headers: HeaderMap) -> impl IntoResponse {
     let mut out = String::new();
     for (key, value) in &headers {
-        out.push_str(&format!("{}: {}\n", key, value.to_str().unwrap()));
+        writeln!(out, "{}: {}", key, value.to_str().unwrap())
+            .expect("writing to string never fails");
     }
     out
 }
