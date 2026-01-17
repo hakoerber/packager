@@ -27,4 +27,4 @@ serveargs=(
     --disable-auth-and-assume-user hannes
 )
 
-cargo "${cargoargs[@]}" watch --why --clear --ignore pgdata -- cargo "${cargoargs[@]}" run "${cargobuildargs[@]}"  -- "${baseargs[@]}" "${serveargs[@]}"
+RUSTFLAGS="--cfg tokio_unstable" cargo "${cargoargs[@]}" watch --why --clear --ignore pgdata -- cargo "${cargoargs[@]}" run "${cargobuildargs[@]}"  -- "${baseargs[@]}" "${serveargs[@]}"

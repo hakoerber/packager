@@ -22,6 +22,7 @@ prometheus = [
 ]
 tokio-console = [
     "dep:console-subscriber",
+    "tokio/tracing",
 ]
 
 default = [
