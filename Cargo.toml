@@ -10,24 +10,24 @@ path = "src/main.rs"
 
 [features]
 otel = [
-  "dep:opentelemetry",
-  "dep:opentelemetry_sdk",
-  "dep:tracing-opentelemetry",
-  "dep:opentelemetry-otlp",
-  "dep:tonic",
-  "tokio/tracing",
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:tracing-opentelemetry",
+    "dep:opentelemetry-otlp",
+    "dep:tonic",
+    "tokio/tracing",
 ]
 prometheus = [
-  "dep:axum-prometheus",
+    "dep:axum-prometheus",
 ]
 tokio-console = [
-  "dep:console-subscriber",
+    "dep:console-subscriber",
 ]
 
 default = [
-  "otel",
-  "prometheus",
-  "tokio-console",
+    "otel",
+    "prometheus",
+    "tokio-console",
 ]
 
 [profile.dev]
@@ -50,18 +50,18 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-  "query",
-  "macros",
-  "form",
-  "tokio",
-  "http2",
+    "query",
+    "macros",
+    "form",
+    "tokio",
+    "http2",
 ]
 
 [dependencies.axum-prometheus]
 version = "*"
 default-features = false
 features = [
-  "prometheus",
+    "prometheus",
 ]
 optional = true
 
@@ -73,9 +73,9 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-  "std",
-  "derive",
-  "help",
+    "std",
+    "derive",
+    "help",
 ]
 
 [dependencies.console-subscriber]
@@ -95,7 +95,7 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-  "full",
+    "full",
 ]
 
 [dependencies.log]
@@ -106,7 +106,7 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-  "axum",
+    "axum",
 ]
 
 [dependencies.metrics]
@@ -122,8 +122,8 @@ optional = true
 version = "*"
 default-features = false
 features = [
-  "grpc-tonic",
-  "trace",
+    "grpc-tonic",
+    "trace",
 ]
 optional = true
 
@@ -131,8 +131,8 @@ optional = true
 version = "*"
 default-features = false
 features = [
-  "rt-tokio",
-  "trace",
+    "rt-tokio",
+    "trace",
 ]
 optional = true
 
@@ -140,7 +140,7 @@ optional = true
 version = "*"
 default-features = false
 features = [
-  "derive",
+    "derive",
 ]
 
 [dependencies.serde_variant]
@@ -155,27 +155,27 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-  "runtime-tokio-rustls",
-  "postgres",
-  "macros",
-  "time",
-  "migrate",
-  "uuid",
+    "runtime-tokio-rustls",
+    "postgres",
+    "macros",
+    "time",
+    "migrate",
+    "uuid",
 ]
 
 [dependencies.time]
 version = "*"
 default-features = false
 features = [
-  "serde",
+    "serde",
 ]
 
 [dependencies.tokio]
 version = "*"
 default-features = false
 features = [
-  "macros",
-  "rt-multi-thread",
+    "macros",
+    "rt-multi-thread",
 ]
 
 [dependencies.tonic]
@@ -187,15 +187,15 @@ optional = true
 version = "*"
 default-features = false
 features = [
-  "timeout",
+    "timeout",
 ]
 
 [dependencies.tower-http]
 version = "*"
 default-features = false
 features = [
-  "trace",
-  "request-id",
+    "trace",
+    "request-id",
 ]
 
 [dependencies.tracing]
@@ -209,8 +209,8 @@ default-features = false
 [dependencies.tracing-log]
 version = "*"
 features = [
-  "log-tracer",
-  "std",
+    "log-tracer",
+    "std",
 ]
 default-features = false
 
@@ -223,17 +223,17 @@ optional = true
 version = "*"
 default-features = false
 features = [
-  "json",
-  "env-filter",
-  "ansi",
+    "json",
+    "env-filter",
+    "ansi",
 ]
 
 [dependencies.uuid]
 version = "*"
 default-features = false
 features = [
-  "v4",
-  "serde",
+    "v4",
+    "serde",
 ]
 
 [dependencies.bon]
