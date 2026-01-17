@@ -1,0 +1,11 @@
+include = [
+    "**/Cargo.toml",
+    "Cargo.toml",
+    "taplo.toml",
+]
+
+[formatting]
+reorder_arrays = true
+indent_string = "    "
+column_width = 1
+allowed_blank_lines = 1
