@@ -1,6 +1,5 @@
 use crate::Error;
 
-#[cfg(feature = "prometheus")]
 use crate::StartError;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -43,23 +42,18 @@ pub struct Args {
     #[arg(long)]
     pub database_url: String,
 
-    #[cfg(feature = "otel")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_opentelemetry: BoolArg,
 
-    #[cfg(feature = "tokio-console")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_tokio_console: BoolArg,
 
-    #[cfg(feature = "prometheus")]
     #[arg(long, value_enum, default_value_t = BoolArg::False)]
     pub enable_prometheus: BoolArg,
 
-    #[cfg(feature = "prometheus")]
     #[arg(long, value_enum, required_if_eq("enable_prometheus", BoolArg::True))]
     pub prometheus_port: Option<u16>,
 
-    #[cfg(feature = "prometheus")]
     #[arg(long, value_enum, required_if_eq("enable_prometheus", BoolArg::True))]
     pub prometheus_bind: Option<String>,
 
@@ -108,7 +102,6 @@ impl Args {
     pub fn get() -> Result<Self, Error> {
         let args = Self::parse();
 
-        #[cfg(feature = "prometheus")]
         if !args.enable_prometheus.bool()
             && (args.prometheus_port.is_some() || args.prometheus_bind.is_some())
         {

@@ -9,12 +9,14 @@ baseargs=(
 )
 
 cargobuildargs=(
-    --all-features
 )
 
 cargoargs=(
     --color=always
 )
+
+./migrate.sh
+cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" admin user create --username hannes --fullname "Hannes Körber" || true
 
 serveargs=(
     --enable-opentelemetry true
@@ -27,4 +29,18 @@ serveargs=(
     --disable-auth-and-assume-user hannes
 )
 
-RUSTFLAGS="--cfg tokio_unstable" cargo "${cargoargs[@]}" watch --why --clear --ignore pgdata -- cargo "${cargoargs[@]}" run "${cargobuildargs[@]}"  -- "${baseargs[@]}" "${serveargs[@]}"
+env RUSTFLAGS="--cfg tokio_unstable" \
+    cargo \
+    "${cargoargs[@]}" \
+    watch \
+    --why \
+    --clear \
+    --ignore pgdata \
+    -- \
+    cargo \
+    "${cargoargs[@]}" \
+    run \
+    "${cargobuildargs[@]}" \
+    -- "${baseargs[@]}" \
+    "${serveargs[@]}" \
+    2>&1

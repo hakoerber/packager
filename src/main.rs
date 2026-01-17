@@ -44,13 +44,11 @@ async fn main() -> MainResult {
     };
 
     telemetry::tracing::init(
-        #[cfg(feature = "otel")]
         if args.enable_opentelemetry.into() {
             telemetry::tracing::OpenTelemetryConfig::Enabled
         } else {
             telemetry::tracing::OpenTelemetryConfig::Disabled
         },
-        #[cfg(feature = "tokio-console")]
         if args.enable_tokio_console.into() {
             telemetry::tracing::TokioConsoleConfig::Enabled
         } else {
@@ -89,7 +87,6 @@ async fn main() -> MainResult {
 
                         let mut join_set = tokio::task::JoinSet::new();
 
-                        #[cfg(feature = "prometheus")]
                         let app = if args.enable_prometheus.into() {
                             // we `require_if()` prometheus port & bind when `enable_prometheus` is set, so
                             // this cannot fail

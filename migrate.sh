@@ -9,7 +9,6 @@ baseargs=(
 )
 
 cargobuildargs=(
-    --all-features
 )
 
 cargoargs=(

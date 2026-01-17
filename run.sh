@@ -5,11 +5,10 @@ set -o errexit
 set -o xtrace
 
 baseargs=(
-    --database-url "postgresql://packager@postgres/packager?host=$(pwd)/pgdata/run"
+    --database-url "postgresql://postgres@postgres/packager?host=$(pwd)/pgdata/run"
 )
 
 cargobuildargs=(
-    --all-features
 )
 
 cargoargs=(
@@ -20,12 +19,23 @@ cargoargs=(
 cargo run "${cargoargs[@]}" "${cargobuildargs[@]}" -- "${baseargs[@]}" admin user create --username hannes --fullname "Hannes Körber" || true
 
 serveargs=(
-    --enable-opentelemetry false
-    --enable-tokio-console false
-    --enable-prometheus false
     serve
     --bind 127.0.0.1
     --disable-auth-and-assume-user hannes
 )
 
-cargo "${cargoargs[@]}" watch --why --clear --ignore pgdata -- cargo "${cargoargs[@]}" run "${cargobuildargs[@]}"  -- "${baseargs[@]}" "${serveargs[@]}" 2>&1
+env RUSTFLAGS="--cfg tokio_unstable" \
+    cargo \
+    "${cargoargs[@]}" \
+    watch \
+    --why \
+    --clear \
+    --ignore pgdata \
+    -- \
+    cargo \
+    "${cargoargs[@]}" \
+    run \
+    "${cargobuildargs[@]}" \
+    -- "${baseargs[@]}" \
+    "${serveargs[@]}" \
+    2>&1

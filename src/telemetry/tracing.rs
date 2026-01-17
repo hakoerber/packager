@@ -59,7 +59,6 @@ fn get_stdout_layer<
     stdout_layer.boxed()
 }
 
-#[cfg(feature = "otel")]
 fn get_opentelemetry_layer<
     T: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
 >(
@@ -135,8 +134,8 @@ fn get_opentelemetry_layer<
 type ShutdownFunction = Box<dyn FnOnce() -> Result<(), Box<dyn std::error::Error>> + Send>;
 
 pub async fn init<Func, T>(
-    #[cfg(feature = "otel")] opentelemetry_config: OpenTelemetryConfig,
-    #[cfg(feature = "tokio-console")] tokio_console_config: TokioConsoleConfig,
+    opentelemetry_config: OpenTelemetryConfig,
+    tokio_console_config: TokioConsoleConfig,
     args: crate::cli::Args,
     f: Func,
 ) -> T
@@ -144,12 +143,8 @@ where
     Func: FnOnce(crate::cli::Args) -> Pin<Box<dyn Future<Output = T> + Send>>,
     T: std::process::Termination,
 {
-    // mut is dependent on features (it's only required when opentelemetry is set), so
-    // let's just disable the lint
-    #[allow(unused_mut)]
     let mut shutdown_functions: Vec<ShutdownFunction> = vec![];
 
-    #[cfg(feature = "tokio-console")]
     let console_layer = match tokio_console_config {
         TokioConsoleConfig::Enabled => Some(console_subscriber::Builder::default().spawn()),
         TokioConsoleConfig::Disabled => None,
@@ -157,16 +152,13 @@ where
 
     let stdout_layer = get_stdout_layer();
 
-    #[cfg(feature = "otel")]
     let opentelemetry_layer =
         get_opentelemetry_layer(&opentelemetry_config, &mut shutdown_functions);
 
     let registry = Registry::default();
 
-    #[cfg(feature = "tokio-console")]
     let registry = registry.with(console_layer);
 
-    #[cfg(feature = "otel")]
     let registry = registry.with(opentelemetry_layer);
     // just an example, you can actuall pass Options here for layers that might be
     // set/unset at runtime

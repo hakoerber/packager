@@ -8,29 +8,6 @@ rust-version = "1.85"
 name = "packager"
 path = "src/main.rs"
 
-[features]
-otel = [
-    "dep:opentelemetry",
-    "dep:opentelemetry-otlp",
-    "dep:opentelemetry_sdk",
-    "dep:tonic",
-    "dep:tracing-opentelemetry",
-    "tokio/tracing",
-]
-prometheus = [
-    "dep:axum-prometheus",
-]
-tokio-console = [
-    "dep:console-subscriber",
-    "tokio/tracing",
-]
-
-default = [
-    "otel",
-    "prometheus",
-    "tokio-console",
-]
-
 [profile.dev]
 opt-level = 0
 lto = "off"
@@ -64,7 +41,6 @@ default-features = false
 features = [
     "prometheus",
 ]
-optional = true
 
 [dependencies.base64]
 version = "*"
@@ -82,7 +58,6 @@ features = [
 [dependencies.console-subscriber]
 version = "*"
 default-features = false
-optional = true
 
 [dependencies.futures]
 version = "*"
@@ -117,7 +92,6 @@ default-features = false
 [dependencies.opentelemetry]
 version = "*"
 default-features = false
-optional = true
 
 [dependencies.opentelemetry-otlp]
 version = "*"
@@ -126,7 +100,6 @@ features = [
     "grpc-tonic",
     "trace",
 ]
-optional = true
 
 [dependencies.opentelemetry_sdk]
 version = "*"
@@ -135,7 +108,6 @@ features = [
     "rt-tokio",
     "trace",
 ]
-optional = true
 
 [dependencies.serde]
 version = "*"
@@ -177,12 +149,12 @@ default-features = false
 features = [
     "macros",
     "rt-multi-thread",
+    "tracing",
 ]
 
 [dependencies.tonic]
 version = "*"
 default-features = false
-optional = true
 
 [dependencies.tower]
 version = "*"
@@ -218,7 +190,6 @@ default-features = false
 [dependencies.tracing-opentelemetry]
 version = "*"
 default-features = false
-optional = true
 
 [dependencies.tracing-subscriber]
 version = "*"
