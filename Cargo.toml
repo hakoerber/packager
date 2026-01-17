@@ -28,6 +28,7 @@ lto = "off"
 
 [dependencies.paste]
 version = "*"
+default-features = false
 
 [dependencies.rust_decimal]
 version = "*"
@@ -35,75 +36,94 @@ default-features = false
 
 [dependencies.async-trait]
 version = "*"
+default-features = false
 
 [dependencies.axum]
 version = "*"
+default-features = false
 features = ["macros"]
 
 [dependencies.axum-prometheus]
 version = "*"
+default-features = false
+features = ["prometheus"]
 optional = true
 
 [dependencies.base64]
 version = "*"
+default-features = false
 
 [dependencies.clap]
 version = "*"
-features = ["derive"]
+default-features = false
+features = ["std", "derive", "help"]
 
 [dependencies.console-subscriber]
 version = "*"
+default-features = false
 optional = true
 
 [dependencies.futures]
 version = "*"
+default-features = false
 
 [dependencies.http]
 version = "*"
+default-features = false
 
 [dependencies.hyper]
 version = "*"
+default-features = false
 features = ["full"]
 
 [dependencies.log]
 version = "*"
+default-features = false
 
 [dependencies.maud]
 version = "*"
+default-features = false
 features = [
   "axum",
 ]
 
 [dependencies.metrics]
 version = "*"
+default-features = false
 
 [dependencies.opentelemetry]
 version = "*"
+default-features = false
 optional = true
 
 [dependencies.opentelemetry-otlp]
 version = "*"
-features = ["grpc-tonic"]
+default-features = false
+features = ["grpc-tonic", "trace"]
 optional = true
 
 [dependencies.opentelemetry_sdk]
 version = "*"
-features = ["rt-tokio"]
+default-features = false
+features = ["rt-tokio", "trace"]
 optional = true
 
 [dependencies.serde]
 version = "*"
+default-features = false
 features = ["derive"]
 
 [dependencies.serde_variant]
 version = "*"
+default-features = false
 
 [dependencies.sha2]
 version = "*"
+default-features = false
 
 [dependencies.sqlx]
 version = "*"
-#path = "./vendor/sqlx"
+default-features = false
 features = [
   "runtime-tokio-rustls",
   "postgres",
@@ -115,43 +135,55 @@ features = [
 
 [dependencies.time]
 version = "*"
+default-features = false
 features = ["serde"]
 
 [dependencies.tokio]
 version = "*"
+default-features = false
 features = ["macros", "rt-multi-thread"]
 
 [dependencies.tonic]
 version = "*"
+default-features = false
 optional = true
 
 [dependencies.tower]
 version = "*"
+default-features = false
 features = ["timeout"]
 
 [dependencies.tower-http]
 version = "*"
+default-features = false
 features = ["trace", "request-id"]
 
 [dependencies.tracing]
 version = "*"
+default-features = false
 
 [dependencies.tracing-attributes]
 version = "*"
+default-features = false
 
 [dependencies.tracing-log]
 version = "*"
+features = ["log-tracer", "std"]
+default-features = false
 
 [dependencies.tracing-opentelemetry]
 version = "*"
+default-features = false
 optional = true
 
 [dependencies.tracing-subscriber]
 version = "*"
-features = ["json", "env-filter"]
+default-features = false
+features = ["json", "env-filter", "ansi"]
 
 [dependencies.uuid]
 version = "*"
+default-features = false
 features = [
     "v4",
     "serde",
@@ -159,3 +191,4 @@ features = [
 
 [dependencies.bon]
 version = "*"
+default-features = false
