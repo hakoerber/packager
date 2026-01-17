@@ -26,9 +26,12 @@ default = ["otel", "prometheus", "tokio-console"]
 opt-level = 0
 lto = "off"
 
-[dependencies]
-paste = "*"
-rust_decimal = { version = "*", default-features = false }
+[dependencies.paste]
+version = "*"
+
+[dependencies.rust_decimal]
+version = "*"
+default-features = false
 
 [dependencies.async-trait]
 version = "*"
