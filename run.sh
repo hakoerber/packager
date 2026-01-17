@@ -5,7 +5,7 @@ set -o errexit
 set -o xtrace
 
 baseargs=(
-    --database-url "postgresql://packager@postgres/packager?host=$PWD/pgdata/run"
+    --database-url "postgresql://packager@postgres/packager?host=$(pwd)/pgdata/run"
 )
 
 cargobuildargs=(

@@ -6,13 +6,6 @@ use std::time::Duration;
 
 use axum::Router;
 use http::Request;
-use opentelemetry::KeyValue;
-use opentelemetry_otlp::{WithExportConfig as _, WithTonicConfig};
-use opentelemetry_sdk::{
-    trace::{RandomIdGenerator, Sampler},
-    Resource,
-};
-use tonic::metadata::MetadataMap;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::Span;
 use tracing_subscriber::{
@@ -75,6 +68,14 @@ fn get_opentelemetry_layer<
 ) -> Option<impl tracing_subscriber::Layer<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
+            use opentelemetry::KeyValue;
+            use opentelemetry_otlp::{WithExportConfig as _, WithTonicConfig};
+            use opentelemetry_sdk::{
+                trace::{RandomIdGenerator, Sampler},
+                Resource,
+            };
+            use tonic::metadata::MetadataMap;
+
             use opentelemetry::trace::TracerProvider as _;
             let mut metadata = MetadataMap::with_capacity(3);
             metadata.insert("x-host", "localhost".parse().unwrap());
