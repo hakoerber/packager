@@ -1,3 +1,0 @@
-[submodule "rust/vendor/sqlx"]
-	path = rust/vendor/sqlx
-	url = https://github.com/hakoerber/sqlx
