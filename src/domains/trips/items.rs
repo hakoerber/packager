@@ -23,7 +23,7 @@ async fn trip_row(
     state: &AppState,
     trip_id: Uuid,
     item_id: Uuid,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse + use<>, Error> {
     let item = model::TripItem::find(ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or_else(|| {

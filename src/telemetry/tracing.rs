@@ -65,7 +65,7 @@ fn get_opentelemetry_layer<
 >(
     config: &OpenTelemetryConfig,
     shutdown_functions: &mut Vec<ShutdownFunction>,
-) -> Option<impl tracing_subscriber::Layer<T>> {
+) -> Option<impl tracing_subscriber::Layer<T> + use<T>> {
     match config {
         OpenTelemetryConfig::Enabled => {
             use opentelemetry::KeyValue;

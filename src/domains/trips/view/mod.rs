@@ -870,7 +870,7 @@ impl TripComment {
 
                 // https://stackoverflow.com/a/48460773
                 textarea
-                    #"comment"
+                    # "comment"
                     x-on:input="save_active=true"
                     ."border" ."w-full" ."h-48"
                     name="new-comment"

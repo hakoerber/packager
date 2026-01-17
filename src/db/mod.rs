@@ -150,7 +150,7 @@ pub(crate) fn sqlx_query_file(
 
 #[macro_export]
 macro_rules! query_all {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+    ( $class:expr_2021, $pool:expr_2021, $struct_row:path, $struct_into:path, $query:expr_2021, $( $args:tt )* ) => {
         {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
@@ -177,7 +177,7 @@ macro_rules! query_all {
 
 #[macro_export]
 macro_rules! query_many_to_many_single {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+    ( $class:expr_2021, $pool:expr_2021, $struct_row:path, $struct_rows:path, $struct_into:path, $query:expr_2021, $( $args:tt )* ) => {
         {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
@@ -207,7 +207,7 @@ macro_rules! query_many_to_many_single {
 
 #[macro_export]
 macro_rules! query_one {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
+    ( $class:expr_2021, $pool:expr_2021, $struct_row:path, $struct_into:path, $query:expr_2021, $( $args:tt )*) => {
 
         {
             use tracing::Instrument as _;
@@ -233,7 +233,7 @@ macro_rules! query_one {
 
 #[macro_export]
 macro_rules! query_one_file {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $path:literal, $( $args:tt )*) => {
+    ( $class:expr_2021, $pool:expr_2021, $struct_row:path, $struct_into:path, $path:literal, $( $args:tt )*) => {
 
         {
             use tracing::Instrument as _;
@@ -259,7 +259,7 @@ macro_rules! query_one_file {
 
 #[macro_export]
 macro_rules! query_exists {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:tt )*) => {
+    ( $class:expr_2021, $pool:expr_2021, $query:expr_2021, $( $args:tt )*) => {
         {
             use tracing::Instrument as _;
             async {
@@ -288,7 +288,7 @@ macro_rules! strip_plus {
 
 #[macro_export]
 macro_rules! execute_unchecked {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {{
+    ( $class:expr_2021, $pool:expr_2021, $query:expr_2021, $( $args:expr_2021 ),* $(,)? ) => {{
         use tracing::Instrument as _;
         async {
             $crate::db::sqlx_query($class, $query, &[]);
@@ -309,7 +309,7 @@ macro_rules! execute_unchecked {
 
 #[macro_export]
 macro_rules! execute {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
+    ( $class:expr_2021, $pool:expr_2021, $query:expr_2021, $( $args:expr_2021 ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             async {
@@ -330,7 +330,7 @@ macro_rules! execute {
 
 #[macro_export]
 macro_rules! execute_returning {
-    ( $class:expr, $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:expr ),* $(,)? ) => {
+    ( $class:expr_2021, $pool:expr_2021, $query:expr_2021, $t:path, $fn:expr_2021, $( $args:expr_2021 ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
@@ -355,7 +355,7 @@ macro_rules! execute_returning {
 
 #[macro_export]
 macro_rules! execute_returning_uuid {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
+    ( $class:expr_2021, $pool:expr_2021, $query:expr_2021, $( $args:expr_2021 ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
@@ -377,7 +377,7 @@ macro_rules! execute_returning_uuid {
 
 #[macro_export]
 macro_rules! execute_returning_optional_uuid {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
+    ( $class:expr_2021, $pool:expr_2021, $query:expr_2021, $( $args:expr_2021 ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
