@@ -11,10 +11,10 @@ path = "src/main.rs"
 [features]
 otel = [
     "dep:opentelemetry",
-    "dep:opentelemetry_sdk",
-    "dep:tracing-opentelemetry",
     "dep:opentelemetry-otlp",
+    "dep:opentelemetry_sdk",
     "dep:tonic",
+    "dep:tracing-opentelemetry",
     "tokio/tracing",
 ]
 prometheus = [
@@ -50,11 +50,11 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-    "query",
-    "macros",
     "form",
-    "tokio",
     "http2",
+    "macros",
+    "query",
+    "tokio",
 ]
 
 [dependencies.axum-prometheus]
@@ -73,9 +73,9 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-    "std",
     "derive",
     "help",
+    "std",
 ]
 
 [dependencies.console-subscriber]
@@ -155,11 +155,11 @@ default-features = false
 version = "*"
 default-features = false
 features = [
-    "runtime-tokio-rustls",
-    "postgres",
     "macros",
-    "time",
     "migrate",
+    "postgres",
+    "runtime-tokio-rustls",
+    "time",
     "uuid",
 ]
 
@@ -194,8 +194,8 @@ features = [
 version = "*"
 default-features = false
 features = [
-    "trace",
     "request-id",
+    "trace",
 ]
 
 [dependencies.tracing]
@@ -223,17 +223,17 @@ optional = true
 version = "*"
 default-features = false
 features = [
-    "json",
-    "env-filter",
     "ansi",
+    "env-filter",
+    "json",
 ]
 
 [dependencies.uuid]
 version = "*"
 default-features = false
 features = [
-    "v4",
     "serde",
+    "v4",
 ]
 
 [dependencies.bon]
