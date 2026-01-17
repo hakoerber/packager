@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::{db, Context};
+use crate::{Context, db};
 
 use super::comments::model::Comment;
 
@@ -147,25 +147,22 @@ impl Product {
                     id: product.id,
                     name: product.name,
                     description: product.description,
-                    links: product
-                        .link
-                        .map(|link| vec![link])
-                        .unwrap_or_else(|| vec![]),
+                    links: product.link.map(|link| vec![link]).unwrap_or_else(Vec::new),
                     price: product.price,
                     purchase_date: product.purchase_date,
                     purchase_from: product.purchase_from,
                     comments: product
                         .comment
                         .map(|comment| vec![comment])
-                        .unwrap_or_else(|| vec![]),
+                        .unwrap_or_else(Vec::new),
                 },
             };
 
             let mut seen_link_ids = product
                 .links
-                .get(0)
+                .first()
                 .map(|link| vec![link.id])
-                .unwrap_or_else(|| vec![]);
+                .unwrap_or_else(Vec::new);
 
             for result in results.iter_mut() {
                 if let Some(link) = result.link.take() {
@@ -178,9 +175,9 @@ impl Product {
 
             let mut seen_comment_ids = product
                 .comments
-                .get(0)
+                .first()
                 .map(|comment| vec![comment.id])
-                .unwrap_or_else(|| vec![]);
+                .unwrap_or_else(Vec::new);
 
             for result in results.iter_mut() {
                 if let Some(comment) = result.comment.take() {

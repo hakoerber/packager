@@ -28,8 +28,8 @@ impl Comments {
                     .iter()
                     .map(|comment| {
                         (
-                            comment.id.clone(),
-                            comment.date.clone(),
+                            comment.id,
+                            comment.date,
                             comment.content.clone(),
                             |comment_id| {
                                 Url(format!(
