@@ -1,4 +1,3 @@
--- \x on;
 WITH one AS (
     SELECT
         product.id AS id,
@@ -66,5 +65,3 @@ FROM
 WHERE
     product.id = $1
     AND product.user_id = $2
-    -- product.id = '2cdd4a22-733b-48de-b845-c3523e498f99'
-    -- AND product.user_id = '0bac561e-4631-4bd0-a641-7f295e4e7b6c'
