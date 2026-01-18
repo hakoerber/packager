@@ -10,7 +10,7 @@ pub struct DB;
 impl DB {
     fn opts(url: &str) -> Result<PgConnectOptions, StartError> {
         Ok(PgConnectOptions::from_url(&Url::parse(url).map_err(
-            |err| <(String, url::ParseError) as Into<StartError>>::into((url.to_owned(), err)),
+            |err| <_ as Into<StartError>>::into((url.to_owned(), err)),
         )?)?)
     }
 }
