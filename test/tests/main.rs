@@ -1,6 +1,6 @@
 use thirtyfour::prelude::*;
 
-use rand::{distributions::Alphanumeric, seq::IteratorRandom, Rng};
+use rand::{Rng, distr::Alphanumeric, seq::IteratorRandom};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use thirtyfour::common::capabilities::firefox::FirefoxPreferences;
@@ -44,7 +44,7 @@ impl From<std::io::Error> for TestError {
 }
 
 fn random_name() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let length = { 1..=20 }.choose(&mut rng).unwrap();
 
     let s: String = rng
@@ -56,7 +56,7 @@ fn random_name() -> String {
 }
 
 fn random_number(range: std::ops::Range<usize>) -> usize {
-    range.choose(&mut rand::thread_rng()).unwrap()
+    range.choose(&mut rand::rng()).unwrap()
 }
 
 async fn run_test<T, R>(inner: T) -> Result<(), TestError>

@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies.thirtyfour]
-version = "0.31"
+version = "*"
 
 [dependencies.tokio]
-version = "1.28.1"
+version = "*"
 features = [
     "full",
 ]
 
 [dependencies.rand]
-version = "0.8"
+version = "*"
