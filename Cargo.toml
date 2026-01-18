@@ -74,10 +74,6 @@ features = [
     "full",
 ]
 
-[dependencies.log]
-version = "*"
-default-features = false
-
 [dependencies.maud]
 version = "*"
 default-features = false
@@ -172,10 +168,6 @@ features = [
 ]
 
 [dependencies.tracing]
-version = "*"
-default-features = false
-
-[dependencies.tracing-attributes]
 version = "*"
 default-features = false
 
