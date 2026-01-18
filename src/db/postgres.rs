@@ -1,4 +1,5 @@
-use sqlx::{postgres::PgConnectOptions, PgPool};
+use sqlx::{ConnectOptions as _, PgPool, postgres::PgConnectOptions};
+use url::Url;
 
 use super::StartError;
 
@@ -8,7 +9,9 @@ pub struct DB;
 
 impl DB {
     fn opts(url: &str) -> Result<PgConnectOptions, StartError> {
-        url.parse().map_err(Into::into)
+        Ok(PgConnectOptions::from_url(&Url::parse(url).map_err(
+            |err| <(String, url::ParseError) as Into<StartError>>::into((url.to_owned(), err)),
+        )?)?)
     }
 }
 

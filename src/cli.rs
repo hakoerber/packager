@@ -105,7 +105,7 @@ impl Args {
         if !args.enable_prometheus.bool()
             && (args.prometheus_port.is_some() || args.prometheus_bind.is_some())
         {
-            return Err(Error::Start(StartError::CallError {
+            return Err(Error::Start(StartError::Call {
                 message: "do not set prometheus options when prometheus is not enabled".to_string(),
             }));
         }

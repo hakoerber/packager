@@ -119,7 +119,7 @@ async fn main() -> MainResult {
 
                             axum::serve(
                                 TcpListener::bind(&addr).await.map_err(|e| {
-                                    Error::Start(StartError::BindError {
+                                    Error::Start(StartError::Bind {
                                         addr,
                                         message: e.to_string(),
                                     })

@@ -1,7 +1,7 @@
 use std::future::Future;
 
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 
 use axum_prometheus::PrometheusMetricLayerBuilder;
 use tokio::net::TcpListener;
@@ -26,7 +26,7 @@ pub fn prometheus_server(
     let task = async move {
         axum::serve(
             TcpListener::bind(addr).await.map_err(|e| {
-                Error::Start(StartError::BindError {
+                Error::Start(StartError::Bind {
                     addr,
                     message: e.to_string(),
                 })

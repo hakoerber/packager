@@ -161,12 +161,11 @@ impl Product {
                 .first().map_or_else(Vec::new, |link| vec![link.id]);
 
             for result in &mut results {
-                if let Some(link) = result.link.take() {
-                    if !seen_link_ids.contains(&link.id) {
+                if let Some(link) = result.link.take()
+                    && !seen_link_ids.contains(&link.id) {
                         seen_link_ids.push(link.id);
                         product.links.push(link);
                     }
-                }
             }
 
             let mut seen_comment_ids = product
@@ -174,12 +173,11 @@ impl Product {
                 .first().map_or_else(Vec::new, |comment| vec![comment.id]);
 
             for result in &mut results {
-                if let Some(comment) = result.comment.take() {
-                    if !seen_comment_ids.contains(&comment.id) {
+                if let Some(comment) = result.comment.take()
+                    && !seen_comment_ids.contains(&comment.id) {
                         seen_comment_ids.push(comment.id);
                         product.comments.push(comment);
                     }
-                }
             }
 
             Ok(Some(product))

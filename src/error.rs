@@ -158,12 +158,20 @@ impl From<tokio::task::JoinError> for Error {
 }
 
 impl From<(String, std::net::AddrParseError)> for Error {
-    fn from(value: (String, std::net::AddrParseError)) -> Self {
-        let (input, error) = value;
+    fn from((input, error): (String, std::net::AddrParseError)) -> Self {
         Self::Start(StartError::AddrParse {
             input,
             message: error.to_string(),
         })
+    }
+}
+
+impl From<(String, url::ParseError)> for StartError {
+    fn from((url, error): (String, url::ParseError)) -> Self {
+        Self::UrlParse {
+            url,
+            message: error.to_string(),
+        }
     }
 }
 
@@ -230,11 +238,12 @@ impl IntoResponse for Error {
 
 #[derive(Debug)]
 pub enum StartError {
-    CallError { message: String },
-    DatabaseInitError { message: String },
-    DatabaseMigrationError { message: String },
+    Call { message: String },
+    DatabaseInit { message: String },
+    DatabaseMigration { message: String },
     AddrParse { input: String, message: String },
-    BindError { addr: SocketAddr, message: String },
+    Bind { addr: SocketAddr, message: String },
+    UrlParse { url: String, message: String },
 }
 
 impl std::error::Error for StartError {}
@@ -242,20 +251,23 @@ impl std::error::Error for StartError {}
 impl fmt::Display for StartError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::CallError { message } => {
+            Self::Call { message } => {
                 write!(f, "invalid invocation: {message}")
             }
-            Self::DatabaseInitError { message } => {
+            Self::DatabaseInit { message } => {
                 write!(f, "database initialization error: {message}")
             }
-            Self::DatabaseMigrationError { message } => {
+            Self::DatabaseMigration { message } => {
                 write!(f, "database migration error: {message}")
             }
             Self::AddrParse { message, input } => {
                 write!(f, "error parsing \"{input}\": {message}")
             }
-            Self::BindError { message, addr } => {
+            Self::Bind { message, addr } => {
                 write!(f, "error binding network interface {addr}: {message}")
+            }
+            Self::UrlParse { url, message } => {
+                write!(f, "error parsing url {url}: {message}")
             }
         }
     }
@@ -263,7 +275,7 @@ impl fmt::Display for StartError {
 
 impl From<sqlx::Error> for StartError {
     fn from(value: sqlx::Error) -> Self {
-        Self::DatabaseInitError {
+        Self::DatabaseInit {
             message: value.to_string(),
         }
     }
@@ -271,7 +283,7 @@ impl From<sqlx::Error> for StartError {
 
 impl From<sqlx::migrate::MigrateError> for StartError {
     fn from(value: sqlx::migrate::MigrateError) -> Self {
-        Self::DatabaseMigrationError {
+        Self::DatabaseMigration {
             message: value.to_string(),
         }
     }
