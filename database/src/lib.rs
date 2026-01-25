@@ -183,7 +183,7 @@ macro_rules! query_many_to_many_single {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Vec<$struct_row> = sqlx::query_as!(
                     $struct_row,
                     $query,
@@ -214,7 +214,7 @@ macro_rules! query_one {
             use tracing::Instrument as _;
 
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_as!(
                     $struct_row,
                     $query,
@@ -240,7 +240,7 @@ macro_rules! query_one_file {
             use tracing::Instrument as _;
 
             async {
-                $crate::db::sqlx_query_file($class, $path, &[]);
+                $crate::sqlx_query_file($class, $path, &[]);
                 let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_file_as!(
                     $struct_row,
                     $path,
@@ -264,7 +264,7 @@ macro_rules! query_exists {
         {
             use tracing::Instrument as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: bool = sqlx::query!(
                     $query,
                     $( $args )*
@@ -292,7 +292,7 @@ macro_rules! execute_unchecked {
     ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {{
         use tracing::Instrument as _;
         async {
-            $crate::db::sqlx_query($class, $query, &[]);
+            $crate::sqlx_query($class, $query, &[]);
             let query = sqlx::query($query);
 
             $(
@@ -314,7 +314,7 @@ macro_rules! execute {
         {
             use tracing::Instrument as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Result<sqlx::postgres::PgQueryResult, Error> = sqlx::query!(
                     $query,
                     $( $args ),*
@@ -336,7 +336,7 @@ macro_rules! execute_returning {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Result<$t, Error> = sqlx::query!(
                     $query,
                     $( $args, )*
@@ -361,7 +361,7 @@ macro_rules! execute_returning_uuid {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Uuid = sqlx::query!(
                     $query,
                     $( $args ),*
@@ -383,7 +383,7 @@ macro_rules! execute_returning_optional_uuid {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Option<Uuid> = sqlx::query!(
                     $query,
                     $( $args ),*

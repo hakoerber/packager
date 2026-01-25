@@ -107,7 +107,7 @@ pub enum Error {
     DatabaseInit(database::InitError),
     Command(CommandError),
     Exec(tokio::task::JoinError),
-    Database(crate::db::error::Error),
+    Database(crate::database::error::Error),
 }
 
 impl std::error::Error for Error {}
@@ -130,8 +130,8 @@ impl From<database::InitError> for Error {
     }
 }
 
-impl From<crate::db::error::Error> for Error {
-    fn from(value: crate::db::error::Error) -> Self {
+impl From<crate::database::error::Error> for Error {
+    fn from(value: crate::database::error::Error) -> Self {
         Self::Database(value)
     }
 }
@@ -158,12 +158,12 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
             Self::Database(ref db_error) => match db_error {
-                db::error::Error::Database(_) => (
+                database::error::Error::Database(_) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     view::ErrorPage::build(&self.to_string()),
                 ),
-                db::error::Error::Query(error) => match error {
-                    db::error::QueryError::NotFound { description } => {
+                database::error::Error::Query(error) => match error {
+                    database::error::QueryError::NotFound { description } => {
                         (StatusCode::NOT_FOUND, view::ErrorPage::build(description))
                     }
                     _ => (

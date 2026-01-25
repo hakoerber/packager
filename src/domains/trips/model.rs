@@ -85,7 +85,7 @@ pub enum TripState {
 #[tracing::instrument]
 pub async fn trip_item_set_state(
     ctx: &Context,
-    pool: &db::Pool,
+    pool: &database::Pool,
     trip_id: Uuid,
     item_id: Uuid,
     key: TripItemStateKey,
@@ -208,7 +208,7 @@ impl TripCategory {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         trip_id: Uuid,
         category_id: Uuid,
     ) -> Result<Option<Self>, Error> {
@@ -268,9 +268,9 @@ impl TripCategory {
         }
 
         let mut rows = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             Row,
@@ -391,14 +391,14 @@ impl TripItem {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         trip_id: Uuid,
         item_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             DbTripsItemsRow,
@@ -431,7 +431,7 @@ impl TripItem {
     #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         trip_id: Uuid,
         item_id: Uuid,
         key: TripItemStateKey,
@@ -440,9 +440,9 @@ impl TripItem {
         let result = match key {
             TripItemStateKey::Pick => {
                 crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
+                    &database::QueryClassification {
+                        query_type: database::QueryType::Update,
+                        component: database::Component::Trips,
                     },
                     pool,
                     "UPDATE trip_items
@@ -459,9 +459,9 @@ impl TripItem {
             }
             TripItemStateKey::Pack => {
                 crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
+                    &database::QueryClassification {
+                        query_type: database::QueryType::Update,
+                        component: database::Component::Trips,
                     },
                     pool,
                     "UPDATE trip_items
@@ -478,9 +478,9 @@ impl TripItem {
             }
             TripItemStateKey::Ready => {
                 crate::execute!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
+                    &database::QueryClassification {
+                        query_type: database::QueryType::Update,
+                        component: database::Component::Trips,
                     },
                     pool,
                     "UPDATE trip_items
@@ -498,7 +498,7 @@ impl TripItem {
         }?;
 
         (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-            crate::db::error::Error::Query(QueryError::NotFound {
+            crate::database::error::Error::Query(QueryError::NotFound {
                 description: format!("item {item_id} not found for trip {trip_id}"),
             })
             .into()
@@ -587,14 +587,14 @@ macro_rules! build_trip_edit {
                 #[tracing::instrument]
                 pub async fn [<set_attribute_ $name:lower >] (
                     ctx: &Context,
-                    pool: &db::Pool,
+                    pool: &database::Pool,
                     trip_id: Uuid,
                     value: $type,
                 ) -> Result<(), Error> {
                     let result = crate::execute_unchecked!(
-                        &db::QueryClassification {
-                            query_type: db::QueryType::Update,
-                            component: db::Component::Trips,
+                        &database::QueryClassification {
+                            query_type: database::QueryType::Update,
+                            component: database::Component::Trips,
                         },
                         pool,
                         concat!(
@@ -721,11 +721,11 @@ build_trip_edit! {
 
 impl Trip {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Self>, Error> {
+    pub async fn all(ctx: &Context, pool: &database::Pool) -> Result<Vec<Self>, Error> {
         let mut trips = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             DbTripRow,
@@ -752,13 +752,13 @@ impl Trip {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         trip_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             DbTripRow,
@@ -783,14 +783,14 @@ impl Trip {
     #[tracing::instrument]
     pub async fn trip_type_remove(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<bool, Error> {
         let results = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Delete,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Delete,
+                component: database::Component::Trips,
             },
             pool,
             "DELETE FROM trip_to_trip_types AS ttt
@@ -811,16 +811,16 @@ impl Trip {
     #[tracing::instrument]
     pub async fn trip_type_add(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         id: Uuid,
         type_id: Uuid,
     ) -> Result<(), Error> {
         // TODO user handling?
 
         crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Trips,
             },
             pool,
             "INSERT INTO
@@ -845,14 +845,14 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_state(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         id: Uuid,
         new_state: &TripState,
     ) -> Result<bool, Error> {
         let result = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Update,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Update,
+                component: database::Component::Trips,
             },
             pool,
             "UPDATE trips
@@ -870,14 +870,14 @@ impl Trip {
     #[tracing::instrument]
     pub async fn set_comment(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         id: Uuid,
         new_comment: &str,
     ) -> Result<bool, Error> {
         let result = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Update,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Update,
+                component: database::Component::Trips,
             },
             pool,
             "UPDATE trips
@@ -895,7 +895,7 @@ impl Trip {
     #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         name: &str,
         date: TripDate,
         copy_from: Option<Uuid>,
@@ -909,9 +909,9 @@ impl Trip {
         println!("date: {date:?}");
 
         crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Trips,
             },
             &mut *transaction,
             "INSERT INTO trips
@@ -928,9 +928,9 @@ impl Trip {
 
         if let Some(copy_from_trip_id) = copy_from {
             crate::execute!(
-                &db::QueryClassification {
-                    query_type: db::QueryType::Insert,
-                    component: db::Component::Trips,
+                &database::QueryClassification {
+                    query_type: database::QueryType::Insert,
+                    component: database::Component::Trips,
                 },
                 &mut *transaction,
                 r"INSERT INTO trip_items (
@@ -958,9 +958,9 @@ impl Trip {
             .await?;
         } else {
             crate::execute!(
-                &db::QueryClassification {
-                    query_type: db::QueryType::Insert,
-                    component: db::Component::Trips,
+                &database::QueryClassification {
+                    query_type: database::QueryType::Insert,
+                    component: database::Component::Trips,
                 },
                 &mut *transaction,
                 r"INSERT INTO trip_items (
@@ -995,13 +995,13 @@ impl Trip {
     #[tracing::instrument]
     pub async fn find_total_picked_weight(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         trip_id: Uuid,
     ) -> Result<i32, Error> {
         let weight = crate::execute_returning!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             "
@@ -1062,7 +1062,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_todos(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
+    pub async fn load_todos(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
         self.todos = Some(
             crate::domains::trips::todos::Todo::findall(
                 ctx,
@@ -1075,11 +1075,11 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_trip_types(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
+    pub async fn load_trip_types(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
         let types = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             TripTypeRow,
@@ -1116,7 +1116,7 @@ impl Trip {
     pub async fn sync_trip_items_with_inventory(
         &self,
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
     ) -> Result<(), Error> {
         // we need to get all items that are part of the inventory but not
         // part of the trip items
@@ -1142,9 +1142,9 @@ impl Trip {
         }
 
         let unsynced_items: Vec<Uuid> = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             Row,
@@ -1170,9 +1170,9 @@ impl Trip {
 
         for unsynced_item in &unsynced_items {
             crate::execute!(
-                &db::QueryClassification {
-                    query_type: db::QueryType::Insert,
-                    component: db::Component::Trips,
+                &database::QueryClassification {
+                    query_type: database::QueryType::Insert,
+                    component: database::Component::Trips,
                 },
                 pool,
                 "
@@ -1205,7 +1205,7 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_categories(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
+    pub async fn load_categories(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
@@ -1265,9 +1265,9 @@ impl Trip {
         }
 
         let rows = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             Row,
@@ -1426,11 +1426,11 @@ impl TryFrom<TripTypeRow> for TripType {
 
 impl TripsType {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &db::Pool) -> Result<Vec<Self>, Error> {
+    pub async fn all(ctx: &Context, pool: &database::Pool) -> Result<Vec<Self>, Error> {
         crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Trips,
             },
             pool,
             DbTripsTypesRow,
@@ -1446,12 +1446,12 @@ impl TripsType {
     }
 
     #[tracing::instrument]
-    pub async fn save(ctx: &Context, pool: &db::Pool, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &database::Pool, name: &str) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Trips,
             },
             pool,
             "INSERT INTO trip_types
@@ -1470,14 +1470,14 @@ impl TripsType {
     #[tracing::instrument]
     pub async fn set_name(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         id: Uuid,
         new_name: &str,
     ) -> Result<bool, Error> {
         let result = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Update,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Update,
+                component: database::Component::Trips,
             },
             pool,
             "UPDATE trip_types

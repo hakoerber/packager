@@ -33,14 +33,14 @@ impl Comment {
     #[tracing::instrument]
     pub async fn create(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         product_id: Uuid,
         new_comment: NewComment,
     ) -> Result<Uuid, Error> {
         crate::execute_returning_uuid!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Inventory,
             },
             pool,
             "INSERT INTO product_comments
@@ -57,14 +57,14 @@ impl Comment {
     #[tracing::instrument]
     pub async fn delete(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         product_id: Uuid,
         comment_id: Uuid,
     ) -> Result<bool, Error> {
         let results = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Delete,
-                component: db::Component::Trips,
+            &database::QueryClassification {
+                query_type: database::QueryType::Delete,
+                component: database::Component::Trips,
             },
             pool,
             "DELETE FROM product_comments AS comment
@@ -84,14 +84,14 @@ impl Comment {
     #[tracing::instrument]
     pub async fn find(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         product_id: Uuid,
         comment_id: Uuid,
     ) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Todo,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Todo,
             },
             pool,
             DbComment,
@@ -119,15 +119,15 @@ impl Comment {
     #[tracing::instrument]
     pub async fn update(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         product_id: Uuid,
         comment_id: Uuid,
         update_comment: UpdateComment,
     ) -> Result<(), Error> {
         let result: Result<_, Error> = crate::execute_returning_optional_uuid!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Update,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Update,
+                component: database::Component::Inventory,
             },
             pool,
             r"

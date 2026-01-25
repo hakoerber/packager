@@ -48,7 +48,7 @@ pub struct Product {
 
 impl Product {
     #[tracing::instrument]
-    pub async fn find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
+    pub async fn find(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         if cfg!(false) {
             pub struct Row {
                 pub id: Uuid,
@@ -107,9 +107,9 @@ impl Product {
             }
 
             let mut results = crate::query_all!(
-                &db::QueryClassification {
-                    query_type: db::QueryType::Select,
-                    component: db::Component::Inventory,
+                &database::QueryClassification {
+                    query_type: database::QueryType::Select,
+                    component: database::Component::Inventory,
                 },
                 pool,
                 Row,
@@ -242,9 +242,9 @@ impl Product {
             }
 
             let result = crate::query_one_file!(
-                &db::QueryClassification {
-                    query_type: db::QueryType::Select,
-                    component: db::Component::Inventory,
+                &database::QueryClassification {
+                    query_type: database::QueryType::Select,
+                    component: database::Component::Inventory,
                 },
                 pool,
                 Row,

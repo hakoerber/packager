@@ -20,9 +20,9 @@ impl Inventory {
     #[tracing::instrument]
     pub async fn load(ctx: &Context, pool: &database::Pool) -> Result<Self, Error> {
         let mut categories = database::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             DbCategoryRow,
@@ -70,11 +70,11 @@ impl TryFrom<DbCategoryRow> for Category {
 
 impl Category {
     #[tracing::instrument]
-    pub async fn _find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
+    pub async fn _find(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             DbCategoryRow,
@@ -93,12 +93,12 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub async fn save(ctx: &Context, pool: &db::Pool, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &database::Pool, name: &str) -> Result<Uuid, Error> {
         let id = Uuid::new_v4();
         crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Inventory,
             },
             pool,
             "INSERT INTO inventory_items_categories
@@ -127,11 +127,11 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub async fn populate_items(&mut self, ctx: &Context, pool: &db::Pool) -> Result<(), Error> {
+    pub async fn populate_items(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
         let items = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             DbInventoryItemsRow,
@@ -341,11 +341,11 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
 
 impl InventoryItem {
     #[tracing::instrument]
-    pub async fn find(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<Option<Self>, Error> {
+    pub async fn find(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<Option<Self>, Error> {
         crate::query_many_to_many_single!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             DbInventoryItemRow,
@@ -384,11 +384,11 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn name_exists(ctx: &Context, pool: &db::Pool, name: &str) -> Result<bool, Error> {
+    pub async fn name_exists(ctx: &Context, pool: &database::Pool, name: &str) -> Result<bool, Error> {
         crate::query_exists!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             "SELECT id
@@ -403,11 +403,11 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn delete(ctx: &Context, pool: &db::Pool, id: Uuid) -> Result<bool, Error> {
+    pub async fn delete(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<bool, Error> {
         let results = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Delete,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Delete,
+                component: database::Component::Inventory,
             },
             pool,
             "DELETE FROM inventory_items
@@ -425,16 +425,16 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn update(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         id: Uuid,
         name: &str,
         weight: u32,
     ) -> Result<Uuid, Error> {
         let weight = i32::try_from(weight).unwrap();
         crate::execute_returning_uuid!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Update,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Update,
+                component: database::Component::Inventory,
             },
             pool,
             "UPDATE inventory_items AS item
@@ -457,7 +457,7 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn save(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         name: &str,
         category_id: Uuid,
         weight: u32,
@@ -466,9 +466,9 @@ impl InventoryItem {
         let weight = i32::try_from(weight).unwrap();
 
         crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Inventory,
             },
             pool,
             "INSERT INTO inventory_items
@@ -490,13 +490,13 @@ impl InventoryItem {
     #[tracing::instrument]
     pub async fn get_category_max_weight(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         category_id: Uuid,
     ) -> Result<i32, Error> {
         let weight = crate::execute_returning!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             "
@@ -555,13 +555,13 @@ impl Item {
     #[tracing::instrument]
     pub async fn _get_category_total_picked_weight(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         category_id: Uuid,
     ) -> Result<i32, Error> {
         crate::execute_returning!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Inventory,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Inventory,
             },
             pool,
             "

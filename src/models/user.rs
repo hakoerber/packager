@@ -37,11 +37,11 @@ impl TryFrom<DbUserRow> for User {
 
 impl User {
     #[tracing::instrument]
-    pub async fn find_by_name(pool: &db::Pool, name: &str) -> Result<Option<Self>, Error> {
+    pub async fn find_by_name(pool: &database::Pool, name: &str) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::User,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::User,
             },
             pool,
             DbUserRow,
@@ -54,13 +54,13 @@ impl User {
 }
 
 #[tracing::instrument]
-pub async fn create(pool: &db::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
+pub async fn create(pool: &database::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
     let id = Uuid::new_v4();
 
     crate::execute!(
-        &db::QueryClassification {
-            query_type: db::QueryType::Insert,
-            component: db::Component::User,
+        &database::QueryClassification {
+            query_type: database::QueryType::Insert,
+            component: database::Component::User,
         },
         pool,
         "INSERT INTO users

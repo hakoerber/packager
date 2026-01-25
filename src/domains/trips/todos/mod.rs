@@ -144,13 +144,13 @@ impl crud::Read for Todo {
 
     async fn findall(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         container: Container,
     ) -> Result<Vec<Self>, Error> {
         let todos: Vec<Self> = crate::query_all!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Todo,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Todo,
             },
             pool,
             TodoRow,
@@ -178,13 +178,13 @@ impl crud::Read for Todo {
     #[tracing::instrument]
     async fn find(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         reference: Reference,
     ) -> Result<Option<Self>, Error> {
         crate::query_one!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Select,
-                component: db::Component::Todo,
+            &database::QueryClassification {
+                query_type: database::QueryType::Select,
+                component: database::Component::Todo,
             },
             pool,
             TodoRow,
@@ -226,16 +226,16 @@ impl crud::Create for Todo {
 
     async fn create(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         container: Self::Container,
         info: Self::Info,
     ) -> Result<Self::Id, Error> {
         let id = Self::new_id();
         tracing::info!("adding new todo with id {id}");
         crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Insert,
-                component: db::Component::Todo,
+            &database::QueryClassification {
+                query_type: database::QueryType::Insert,
+                component: database::Component::Todo,
             },
             pool,
             r"
@@ -299,7 +299,7 @@ impl crud::Update for Todo {
     #[tracing::instrument]
     async fn update(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         reference: Self::Reference,
         update_element: Self::UpdateElement,
     ) -> Result<Option<Self>, Error> {
@@ -308,9 +308,9 @@ impl crud::Update for Todo {
                 let done = state == State::Done.into();
 
                 let result = crate::query_one!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Trips,
+                    &database::QueryClassification {
+                        query_type: database::QueryType::Update,
+                        component: database::Component::Trips,
                     },
                     pool,
                     TodoRow,
@@ -337,9 +337,9 @@ impl crud::Update for Todo {
             }
             UpdateElement::Description(new_description) => {
                 let result = crate::query_one!(
-                    &db::QueryClassification {
-                        query_type: db::QueryType::Update,
-                        component: db::Component::Todo,
+                    &database::QueryClassification {
+                        query_type: database::QueryType::Update,
+                        component: database::Component::Todo,
                     },
                     pool,
                     TodoRow,
@@ -381,9 +381,9 @@ impl crud::Delete for Todo {
         T: sqlx::Acquire<'c, Database = sqlx::Postgres> + Send + std::fmt::Debug,
     {
         let results = crate::execute!(
-            &db::QueryClassification {
-                query_type: db::QueryType::Delete,
-                component: db::Component::Todo,
+            &database::QueryClassification {
+                query_type: database::QueryType::Delete,
+                component: database::Component::Todo,
             },
             &mut *(db.acquire().await?),
             r"
@@ -932,7 +932,7 @@ impl crud::Toggle for StateUpdate {
 
     async fn set(
         ctx: &Context,
-        pool: &db::Pool,
+        pool: &database::Pool,
         reference: Self::Reference,
         value: bool,
     ) -> Result<(), crate::Error> {

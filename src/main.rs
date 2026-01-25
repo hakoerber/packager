@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 
 struct MainResult(Result<(), Error>);
 
-use db::Database as _;
+use database::Database as _;
 
 impl std::process::Termination for MainResult {
     fn report(self) -> std::process::ExitCode {
@@ -59,12 +59,12 @@ async fn main() -> MainResult {
             Box::pin(async move {
                 match args.command {
                     cli::Command::Serve(serve_args) => {
-                        if let Err(e) = db::DB::migrate(&args.database_url).await {
+                        if let Err(e) = database::DB::migrate(&args.database_url).await {
                             return <_ as Into<Error>>::into(e).into();
                         }
 
                         let database_pool =
-                            match db::DB::init_database_pool(&args.database_url).await {
+                            match database::DB::init_database_pool(&args.database_url).await {
                                 Ok(pool) => pool,
                                 Err(e) => return <_ as Into<Error>>::into(e).into(),
                             };
@@ -152,7 +152,7 @@ async fn main() -> MainResult {
                         cli::Admin::User(cmd) => match cmd {
                             cli::UserCommand::Create(user) => {
                                 let database_pool =
-                                    match db::DB::init_database_pool(&args.database_url).await {
+                                    match database::DB::init_database_pool(&args.database_url).await {
                                         Ok(pool) => pool,
                                         Err(e) => return <_ as Into<Error>>::into(e).into(),
                                     };
@@ -187,7 +187,7 @@ async fn main() -> MainResult {
                         },
                     },
                     cli::Command::Migrate => {
-                        if let Err(e) = db::DB::migrate(&args.database_url).await {
+                        if let Err(e) = database::DB::migrate(&args.database_url).await {
                             return <_ as Into<Error>>::into(e).into();
                         }
 
