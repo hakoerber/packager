@@ -32,8 +32,8 @@ pub type DB = self::postgres::DB;
 pub struct Pool(sqlx::Pool<sqlx::Postgres>);
 
 impl Pool {
-    pub async fn begin(&self) -> Result<Transaction<'static, sqlx::Postgres>, Error> {
-        todo!()
+    pub async fn begin(&self) -> Result<Transaction<'static, sqlx::Postgres>, sqlx::Error> {
+        self.0.begin().await
     }
 }
 
@@ -159,6 +159,7 @@ impl fmt::Display for QueryType {
 }
 
 impl QueryResult {
+    #[must_use]
     pub fn rows_affected(&self) -> u64 {
         self.rows_affected
     }
