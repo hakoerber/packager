@@ -35,3 +35,6 @@ workspace = true
 
 [dependencies.uuid]
 workspace = true
+
+[dependencies.futures]
+workspace = true

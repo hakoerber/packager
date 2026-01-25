@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     Context,
     domains::{crud::Read, inventory},
-    error::{DataError, QueryError, RunError},
+    error::{DataError, RunError},
 };
 
 use serde::{Deserialize, Serialize};
@@ -545,7 +545,7 @@ pub struct Trip {
 }
 
 macro_rules! build_trip_edit {
-    ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $type:path, $input:ident) ),* $(,)? ) => {
+    ( $( ($name:ident, $( $id:ident ).* , $human:expr, $wire:expr, $type:path, $param_type:path, $query:expr) ),* $(,)? ) => {
         #[derive(Clone, Debug, Serialize, Deserialize)]
         #[allow(dead_code)]
         pub enum TripAttributeUpdate {
@@ -583,29 +583,31 @@ macro_rules! build_trip_edit {
                     trip_id: Uuid,
                     value: $type,
                 ) -> Result<(), RunError> {
-                    let result = database::execute_unchecked!(
+                    let param: $param_type = value.try_into()?;
+
+                    let result: Result<database::QueryResult, RunError> = database::execute!(
                         &database::QueryClassification {
                             query_type: database::QueryType::Update,
                             component: database::Component::Trips,
                         },
                         pool,
                         RunError,
-                        concat!(
-                            "UPDATE trips ",
-                                "SET ", stringify!($( $id ).*), " = $1 ",
-                                "WHERE id = $2 AND user_id = $3"
-                        ),
-                        value,
+                        $query,
+                        param,
                         trip_id,
                         ctx.user.id,
                     )
-                    .await?;
+                    .await;
 
-                    (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-                        RunError::Database(QueryError::NotFound {
+                    let result: database::QueryResult = result?;
+
+                    if result.rows_affected() != 0 {
+                        Ok(())
+                    } else {
+                        Err(RunError::Database(database::Error::Query(database::QueryError::NotFound {
                             description: format!("trip {trip_id} not found"),
-                        }.into())
-                    })
+                        })))
+                    }
                 }
             }
         )*
@@ -705,11 +707,11 @@ macro_rules! build_trip_edit {
 }
 
 build_trip_edit! {
-    (Name, name, "Name", "name", String, Text),
-    (TripDate, date, "Date", "date", TripDate, DateRange),
-    (Location, location, "Location", "location", String, Text),
-    (TempMin, temp_min, "Temp (min)", "temp_min", i32, Number),
-    (TempMax, temp_max, "Temp (max)", "temp_max", i32, Number),
+    (Name, name, "Name", "name", String, String, "UPDATE trips SET name = $1 WHERE id = $2 AND user_id = $3"),
+    (TripDate, date, "Date", "date", TripDate, sqlx::postgres::types::PgRange<time::Date>, "UPDATE trips SET date = $1 WHERE id = $2 AND user_id = $3"),
+    (Location, location, "Location", "location", String, String, "UPDATE trips SET location = $1 WHERE id = $2 AND user_id = $3"),
+    (TempMin, temp_min, "Temp (min)", "temp_min", i32, i32, "UPDATE trips SET temp_min = $1 WHERE id = $2 AND user_id = $3"),
+    (TempMax, temp_max, "Temp (max)", "temp_max", i32, i32, "UPDATE trips SET temp_max = $1 WHERE id = $2 AND user_id = $3"),
 }
 
 impl Trip {

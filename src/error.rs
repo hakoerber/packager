@@ -1,4 +1,4 @@
-use std::{fmt, net::SocketAddr};
+use std::{convert::Infallible, fmt, net::SocketAddr};
 
 use crate::view;
 
@@ -128,6 +128,12 @@ pub enum RunError {
 }
 
 impl std::error::Error for RunError {}
+
+impl From<Infallible> for RunError {
+    fn from(_value: Infallible) -> Self {
+        unreachable!()
+    }
+}
 
 impl fmt::Display for RunError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

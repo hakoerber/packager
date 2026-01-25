@@ -85,9 +85,12 @@ features = [
 version = "*"
 default-features = false
 
-[dependencies.futures]
+[workspace.dependencies.futures]
 version = "*"
 default-features = false
+
+[dependencies.futures]
+workspace = true
 
 [dependencies.http]
 version = "*"

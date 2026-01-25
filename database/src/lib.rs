@@ -1,5 +1,6 @@
 use base64::Engine as _;
 use sha2::{Digest, Sha256};
+use sqlx::postgres::PgQueryResult;
 use std::fmt;
 
 pub mod error;
@@ -177,6 +178,36 @@ macro_rules! query_all {
     };
 }
 
+// #[tracing::instrument(skip(classification, pool, query))]
+// pub async fn query_many_to_many_single<Record, Row, Rows, Container, E>(
+//     classification: &crate::QueryClassification,
+//     pool: &crate::Pool,
+//     query: &'static str,
+// ) -> Result<Option<Container>, Error>
+// where
+//     Row: TryInto<Record> + Send + Unpin,
+//     Rows: From<Vec<Row>>,
+//     Container: TryFrom<Rows, Error = E>,
+//     Error: From<E>,
+// {
+//     use futures::TryStreamExt as _;
+
+//     sqlx_query(classification, query, &[]);
+//     let result: Vec<Row> = sqlx::query_file_as!(Row, "../sql/simple.sql")
+//         .fetch(pool)
+//         .try_collect::<Vec<Row>>()
+//         .await?;
+
+//     let rows: Rows = result.into();
+
+//     if result.is_empty() {
+//         Ok(None)
+//     } else {
+//         let out: Container = <_ as TryInto<Container>>::try_into(rows)?;
+//         Ok(Some(out))
+//     }
+// }
+
 #[macro_export]
 macro_rules! query_many_to_many_single {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )* ) => {
@@ -288,25 +319,43 @@ macro_rules! strip_plus {
     }
 }
 
-#[macro_export]
-macro_rules! execute_unchecked {
-    ( $class:expr, $pool:expr, $error_type:path, $query:expr, $( $args:expr ),* $(,)? ) => {{
-        use tracing::Instrument as _;
-        async {
-            $crate::sqlx_query($class, $query, &[]);
-            let query = sqlx::query($query);
+// #[macro_export]
+// macro_rules! execute_unchecked {
+//     ( $class:expr, $pool:expr, $error_type:path, $query:expr, $( $args:expr ),* $(,)? ) => {{
+//         use tracing::Instrument as _;
+//         async {
+//             $crate::sqlx_query($class, $query, &[]);
+//             let query = sqlx::query($query);
 
-            $(
-                let query = query.bind($args);
-            )*
+//             $(
+//                 let query = query.bind($args);
+//             )*
 
-            let result: Result<sqlx::postgres::PgQueryResult, $error_type> =
-                query.execute($pool).await.map_err(|e| e.into());
+//             let result: Result<sqlx::postgres::PgQueryResult, $error_type> =
+//                 query.execute($pool).await.map_err(|e| e.into());
 
-            result
+//             result
+//         }
+//         .instrument(tracing::info_span!("packager::sql::query", "query"))
+//     }};
+// }
+
+pub struct QueryResult {
+    rows_affected: u64,
+}
+
+impl QueryResult {
+    pub fn rows_affected(&self) -> u64 {
+        self.rows_affected
+    }
+}
+
+impl From<PgQueryResult> for QueryResult {
+    fn from(value: PgQueryResult) -> Self {
+        Self {
+            rows_affected: value.rows_affected(),
         }
-        .instrument(tracing::info_span!("packager::sql::query", "query"))
-    }};
+    }
 }
 
 #[macro_export]
@@ -316,13 +365,14 @@ macro_rules! execute {
             use tracing::Instrument as _;
             async {
                 $crate::sqlx_query($class, $query, &[]);
-                let result: Result<sqlx::postgres::PgQueryResult, $error_type> = sqlx::query!(
+                let result: Result<database::QueryResult, $error_type> = sqlx::query!(
                     $query,
                     $( $args ),*
                 )
                 .execute($pool)
                 .await
-                .map_err(|e| e.into());
+                .map_err(|e| <_ as Into<$error_type>>::into(e))
+                .map(|r| <_ as Into<database::QueryResult>>::into(r));
 
                 result
             }.instrument(tracing::info_span!("packager::sql::query", "query"))
