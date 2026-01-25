@@ -4,7 +4,6 @@ use std::fmt;
 
 pub mod auth;
 pub mod cli;
-pub mod components;
 pub mod db;
 pub mod domains;
 pub mod elements;

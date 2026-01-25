@@ -4,6 +4,17 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+
+[workspace]
+members = [
+    "framework",
+]
+resolver = "3"
+
 [[bin]]
 name = "packager"
 path = "src/main.rs"
