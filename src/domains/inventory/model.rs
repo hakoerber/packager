@@ -1,5 +1,5 @@
+use crate::Context;
 use crate::error::Error;
-use crate::{Context, db};
 
 use uuid::Uuid;
 
@@ -18,8 +18,8 @@ pub struct Inventory {
 
 impl Inventory {
     #[tracing::instrument]
-    pub async fn load(ctx: &Context, pool: &db::Pool) -> Result<Self, Error> {
-        let mut categories = crate::query_all!(
+    pub async fn load(ctx: &Context, pool: &database::Pool) -> Result<Self, Error> {
+        let mut categories = database::query_all!(
             &db::QueryClassification {
                 query_type: db::QueryType::Select,
                 component: db::Component::Inventory,

@@ -1,7 +1,7 @@
-use maud::{html, Markup};
+use maud::{Markup, html};
 
 use crate::ClientState;
-use crate::{
+use framework::{
     components::types::Url,
     elements::{
         self,

@@ -5,7 +5,7 @@ pub mod trips;
 pub mod crud {
     use async_trait::async_trait;
 
-    use crate::{db, error::Error, Context};
+    use crate::{Context, error::Error};
 
     #[async_trait]
     pub trait Create: Sized {
@@ -135,13 +135,13 @@ pub mod view {
 pub mod route {
     use async_trait::async_trait;
 
-    use crate::{models::user::User, AppState};
+    use crate::{AppState, models::user::User};
     use axum::{
+        Extension, Form,
         body::Body,
         extract::{Path, Query, State},
         http::HeaderMap,
         response::Response,
-        Extension, Form,
     };
 
     #[async_trait]

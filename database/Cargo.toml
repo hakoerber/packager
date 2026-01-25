@@ -1,0 +1,46 @@
+[package]
+name = "packager-database"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies.sqlx]
+version = "*"
+default-features = false
+features = [
+    "macros",
+    "migrate",
+    "postgres",
+    "runtime-tokio-rustls",
+    "time",
+    "uuid",
+]
+
+[dependencies.base64]
+version = "*"
+default-features = false
+
+[dependencies.sha2]
+version = "*"
+default-features = false
+
+[dependencies.url]
+version = "*"
+default-features = false
+
+[dependencies.tracing]
+version = "*"
+default-features = false
+
+[dependencies.metrics]
+version = "*"
+default-features = false
+
+[dependencies.time]
+workspace = true
+
+[dependencies.uuid]
+workspace = true

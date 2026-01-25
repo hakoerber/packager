@@ -4,9 +4,7 @@ use std::fmt;
 
 pub mod auth;
 pub mod cli;
-pub mod db;
 pub mod domains;
-pub mod elements;
 pub mod error;
 pub mod htmx;
 pub mod models;
@@ -20,7 +18,7 @@ pub use error::{CommandError, DatabaseError, Error, QueryError, StartError};
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    pub database_pool: db::Pool,
+    pub database_pool: database::Pool,
     pub client_state: ClientState,
     pub auth_config: auth::Config,
 }

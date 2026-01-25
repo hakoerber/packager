@@ -5,15 +5,16 @@ use std::fmt;
 pub mod error;
 pub mod postgres;
 
-use crate::StartError;
+pub use error::{DataError, Error, InitError, QueryError};
 
 pub trait Database {
     type Pool;
 
     fn init_database_pool(
         url: &str,
-    ) -> impl std::future::Future<Output = Result<Self::Pool, StartError>> + Send;
-    fn migrate(url: &str) -> impl std::future::Future<Output = Result<(), StartError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Self::Pool, InitError>> + Send;
+
+    fn migrate(url: &str) -> impl std::future::Future<Output = Result<(), InitError>> + Send;
 }
 
 pub type DB = self::postgres::DB;
@@ -155,7 +156,7 @@ macro_rules! query_all {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
             async {
-                $crate::db::sqlx_query($class, $query, &[]);
+                $crate::sqlx_query($class, $query, &[]);
                 let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
                     $struct_row,
                     $query,

@@ -1,14 +1,11 @@
-use std::{fmt, net::SocketAddr};
-
-use crate::{db, view};
+use crate::view;
 
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 
-pub use crate::db::error::DataError;
-pub use crate::db::error::{Error as DatabaseError, QueryError};
+pub use database::{DataError, Error as DatabaseError, QueryError};
 
 #[derive(Debug)]
 pub enum RequestError {
@@ -107,7 +104,7 @@ impl std::error::Error for AuthError {}
 #[derive(Debug)]
 pub enum Error {
     Request(RequestError),
-    Start(StartError),
+    DatabaseInit(database::InitError),
     Command(CommandError),
     Exec(tokio::task::JoinError),
     Database(crate::db::error::Error),
@@ -119,7 +116,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Request(request_error) => write!(f, "Request error: {request_error}"),
-            Self::Start(start_error) => write!(f, "{start_error}"),
+            Self::DatabaseInit(start_error) => write!(f, "{start_error}"),
             Self::Command(command_error) => write!(f, "{command_error}"),
             Self::Exec(join_error) => write!(f, "{join_error}"),
             Self::Database(db_error) => write!(f, "{db_error}"),
@@ -127,9 +124,9 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<StartError> for Error {
-    fn from(value: StartError) -> Self {
-        Self::Start(value)
+impl From<database::InitError> for Error {
+    fn from(value: database::InitError) -> Self {
+        Self::DatabaseInit(value)
     }
 }
 
@@ -154,24 +151,6 @@ impl From<hyper::Error> for Error {
 impl From<tokio::task::JoinError> for Error {
     fn from(value: tokio::task::JoinError) -> Self {
         Self::Exec(value)
-    }
-}
-
-impl From<(String, std::net::AddrParseError)> for Error {
-    fn from((input, error): (String, std::net::AddrParseError)) -> Self {
-        Self::Start(StartError::AddrParse {
-            input,
-            message: error.to_string(),
-        })
-    }
-}
-
-impl From<(String, url::ParseError)> for StartError {
-    fn from((url, error): (String, url::ParseError)) -> Self {
-        Self::UrlParse {
-            url,
-            message: error.to_string(),
-        }
     }
 }
 
@@ -219,7 +198,7 @@ impl IntoResponse for Error {
                     view::ErrorPage::build(&inner.to_string()),
                 ),
             },
-            Self::Start(start_error) => (
+            Self::DatabaseInit(start_error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 view::ErrorPage::build(&start_error.to_string()),
             ),
@@ -237,59 +216,6 @@ impl IntoResponse for Error {
 }
 
 #[derive(Debug)]
-pub enum StartError {
-    Call { message: String },
-    DatabaseInit { message: String },
-    DatabaseMigration { message: String },
-    AddrParse { input: String, message: String },
-    Bind { addr: SocketAddr, message: String },
-    UrlParse { url: String, message: String },
-}
-
-impl std::error::Error for StartError {}
-
-impl fmt::Display for StartError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Call { message } => {
-                write!(f, "invalid invocation: {message}")
-            }
-            Self::DatabaseInit { message } => {
-                write!(f, "database initialization error: {message}")
-            }
-            Self::DatabaseMigration { message } => {
-                write!(f, "database migration error: {message}")
-            }
-            Self::AddrParse { message, input } => {
-                write!(f, "error parsing \"{input}\": {message}")
-            }
-            Self::Bind { message, addr } => {
-                write!(f, "error binding network interface {addr}: {message}")
-            }
-            Self::UrlParse { url, message } => {
-                write!(f, "error parsing url {url}: {message}")
-            }
-        }
-    }
-}
-
-impl From<sqlx::Error> for StartError {
-    fn from(value: sqlx::Error) -> Self {
-        Self::DatabaseInit {
-            message: value.to_string(),
-        }
-    }
-}
-
-impl From<sqlx::migrate::MigrateError> for StartError {
-    fn from(value: sqlx::migrate::MigrateError) -> Self {
-        Self::DatabaseMigration {
-            message: value.to_string(),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum CommandError {
     UserExists { username: String },
 }
@@ -301,6 +227,23 @@ impl fmt::Display for CommandError {
         match self {
             Self::UserExists { username } => {
                 write!(f, "user \"{username}\" already exists")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum StartError {
+    Call { message: String },
+}
+
+impl std::error::Error for StartError {}
+
+impl fmt::Display for StartError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Call { message } => {
+                write!(f, "invalid invocation: {message}")
             }
         }
     }

@@ -23,6 +23,14 @@ path = "src/main.rs"
 opt-level = 0
 lto = "off"
 
+[dependencies.framework]
+path = "./framework"
+package = "packager-framework"
+
+[dependencies.database]
+path = "./database"
+package = "packager-database"
+
 [dependencies.url]
 version = "*"
 default-features = false
@@ -31,9 +39,12 @@ default-features = false
 version = "*"
 default-features = false
 
-[dependencies.rust_decimal]
+[workspace.dependencies.rust_decimal]
 version = "*"
 default-features = false
+
+[dependencies.rust_decimal]
+workspace = true
 
 [dependencies.async-trait]
 version = "*"
@@ -89,12 +100,15 @@ features = [
     "full",
 ]
 
-[dependencies.maud]
+[workspace.dependencies.maud]
 version = "*"
 default-features = false
 features = [
     "axum",
 ]
+
+[dependencies.maud]
+workspace = true
 
 [dependencies.metrics]
 version = "*"
@@ -135,24 +149,15 @@ default-features = false
 version = "*"
 default-features = false
 
-[dependencies.sqlx]
-version = "*"
-default-features = false
-features = [
-    "macros",
-    "migrate",
-    "postgres",
-    "runtime-tokio-rustls",
-    "time",
-    "uuid",
-]
-
-[dependencies.time]
+[workspace.dependencies.time]
 version = "*"
 default-features = false
 features = [
     "serde",
 ]
+
+[dependencies.time]
+workspace = true
 
 [dependencies.tokio]
 version = "*"
@@ -207,7 +212,7 @@ features = [
     "json",
 ]
 
-[dependencies.uuid]
+[workspace.dependencies.uuid]
 version = "*"
 default-features = false
 features = [
@@ -215,11 +220,24 @@ features = [
     "v4",
 ]
 
-[dependencies.bon]
-version = "*"
-default-features = false
+[dependencies.uuid]
+workspace = true
 
 [lints.clippy]
+pedantic = { priority = -1, level = "warn" }
+nursery = { priority = -1, level = "warn" }
+
+missing_errors_doc = "allow"
+option_if_let_else = "allow"
+missing_const_for_fn = "allow"
+missing_panics_doc = "allow"
+used_underscore_binding = "allow"
+too_many_lines = "allow"
+struct_excessive_bools = "allow"
+cognitive_complexity = "allow"
+unwrap_or_default = "allow"
+
+[workspace.lints.clippy]
 pedantic = { priority = -1, level = "warn" }
 nursery = { priority = -1, level = "warn" }
 

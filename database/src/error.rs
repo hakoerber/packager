@@ -1,6 +1,55 @@
-use std::fmt;
+use std::{fmt, net::SocketAddr};
 
 use sqlx::error::DatabaseError as _;
+
+#[derive(Debug)]
+pub enum InitError {
+    DatabaseInit { message: String },
+    DatabaseMigration { message: String },
+    AddrParse { input: String, message: String },
+    Bind { addr: SocketAddr, message: String },
+    UrlParse { url: String, message: String },
+}
+
+impl std::error::Error for InitError {}
+
+impl fmt::Display for InitError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::DatabaseInit { message } => {
+                write!(f, "database initialization error: {message}")
+            }
+            Self::DatabaseMigration { message } => {
+                write!(f, "database migration error: {message}")
+            }
+            Self::AddrParse { message, input } => {
+                write!(f, "error parsing \"{input}\": {message}")
+            }
+            Self::Bind { message, addr } => {
+                write!(f, "error binding network interface {addr}: {message}")
+            }
+            Self::UrlParse { url, message } => {
+                write!(f, "error parsing url {url}: {message}")
+            }
+        }
+    }
+}
+
+impl From<sqlx::Error> for InitError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::DatabaseInit {
+            message: value.to_string(),
+        }
+    }
+}
+
+impl From<sqlx::migrate::MigrateError> for InitError {
+    fn from(value: sqlx::migrate::MigrateError) -> Self {
+        Self::DatabaseMigration {
+            message: value.to_string(),
+        }
+    }
+}
 
 pub enum DataError {
     /// Errors we can receive **from** the database that are caused by connection
@@ -154,6 +203,15 @@ impl From<time::error::Parse> for Error {
         Self::Database(DataError::TimeParse {
             description: value.to_string(),
         })
+    }
+}
+
+impl From<(String, url::ParseError)> for InitError {
+    fn from((url, error): (String, url::ParseError)) -> Self {
+        Self::UrlParse {
+            url,
+            message: error.to_string(),
+        }
     }
 }
 

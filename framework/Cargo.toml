@@ -4,3 +4,21 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[lints]
+workspace = true
+
+[dependencies.bon]
+version = "*"
+default-features = false
+
+[dependencies.maud]
+workspace = true
+
+[dependencies.uuid]
+workspace = true
+
+[dependencies.time]
+workspace = true
+
+[dependencies.rust_decimal]
+workspace = true

@@ -40,7 +40,7 @@ pub struct Product {
     #[allow(dead_code)]
     pub description: Option<String>,
     pub links: Vec<Link>,
-    pub price: Option<crate::models::Currency>,
+    pub price: Option<framework::models::Currency>,
     pub purchase_date: Option<time::Date>,
     pub purchase_from: Option<String>,
     pub comments: Vec<Comment>,
@@ -70,7 +70,7 @@ impl Product {
                 pub name: String,
                 pub description: Option<String>,
                 pub link: Option<Link>,
-                pub price: Option<crate::models::Currency>,
+                pub price: Option<framework::models::Currency>,
                 pub purchase_from: Option<String>,
                 pub purchase_date: Option<time::Date>,
                 pub comment: Option<Comment>,
@@ -91,7 +91,7 @@ impl Product {
                         }),
                         price: row.price.map(|price| {
                             let cents = price.0;
-                            crate::models::Currency::Eur(
+                            framework::models::Currency::Eur(
                                 Decimal::try_from_i128_with_scale(cents.into(), 2).unwrap(),
                             )
                         }),
@@ -152,32 +152,37 @@ impl Product {
                     purchase_date: product.purchase_date,
                     purchase_from: product.purchase_from,
                     comments: product
-                        .comment.map_or_else(Vec::new, |comment| vec![comment]),
+                        .comment
+                        .map_or_else(Vec::new, |comment| vec![comment]),
                 },
             };
 
             let mut seen_link_ids = product
                 .links
-                .first().map_or_else(Vec::new, |link| vec![link.id]);
+                .first()
+                .map_or_else(Vec::new, |link| vec![link.id]);
 
             for result in &mut results {
                 if let Some(link) = result.link.take()
-                    && !seen_link_ids.contains(&link.id) {
-                        seen_link_ids.push(link.id);
-                        product.links.push(link);
-                    }
+                    && !seen_link_ids.contains(&link.id)
+                {
+                    seen_link_ids.push(link.id);
+                    product.links.push(link);
+                }
             }
 
             let mut seen_comment_ids = product
                 .comments
-                .first().map_or_else(Vec::new, |comment| vec![comment.id]);
+                .first()
+                .map_or_else(Vec::new, |comment| vec![comment.id]);
 
             for result in &mut results {
                 if let Some(comment) = result.comment.take()
-                    && !seen_comment_ids.contains(&comment.id) {
-                        seen_comment_ids.push(comment.id);
-                        product.comments.push(comment);
-                    }
+                    && !seen_comment_ids.contains(&comment.id)
+                {
+                    seen_comment_ids.push(comment.id);
+                    product.comments.push(comment);
+                }
             }
 
             Ok(Some(product))
@@ -208,7 +213,7 @@ impl Product {
                         description: row.description,
                         price: row.price.map(|price| {
                             let cents = price.0;
-                            crate::models::Currency::Eur(
+                            framework::models::Currency::Eur(
                                 Decimal::try_from_i128_with_scale(cents.into(), 2).unwrap(),
                             )
                         }),

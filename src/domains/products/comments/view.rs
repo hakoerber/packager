@@ -1,9 +1,9 @@
-use maud::{html, Markup};
+use maud::{Markup, html};
 use uuid::Uuid;
 
-use crate::components::{
-    types::{Name, Url},
+use framework::components::{
     Render as _, Text, TextListWithDate,
+    types::{Name, Url},
 };
 
 pub struct Comments;
