@@ -75,7 +75,7 @@ impl Category {
         pool: &database::Pool,
         id: Uuid,
     ) -> Result<Option<Self>, RunError> {
-        Ok(database::query_one!(
+        database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
@@ -94,7 +94,7 @@ impl Category {
             id,
             ctx.user.id,
         )
-        .await?)
+        .await
     }
 
     #[tracing::instrument]

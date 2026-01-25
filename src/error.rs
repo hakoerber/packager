@@ -201,7 +201,7 @@ impl IntoResponse for RunError {
                     view::ErrorPage::build(&inner.to_string()),
                 ),
             },
-            RunError::Data(data_error) => (
+            Self::Data(data_error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 view::ErrorPage::build(&data_error.to_string()),
             ),

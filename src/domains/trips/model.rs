@@ -494,7 +494,6 @@ impl TripItem {
             RunError::Data(DataError::NotFound {
                 description: format!("item {item_id} not found for trip {trip_id}"),
             })
-            .into()
         })
     }
 }

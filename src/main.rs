@@ -29,8 +29,8 @@ impl From<CommandError> for MainError {
 impl fmt::Display for MainError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            MainError::Start(start_error) => write!(f, "{start_error}"),
-            MainError::Command(command_error) => write!(f, "{command_error}"),
+            Self::Start(start_error) => write!(f, "{start_error}"),
+            Self::Command(command_error) => write!(f, "{command_error}"),
         }
     }
 }
