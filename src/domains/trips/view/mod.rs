@@ -26,7 +26,7 @@ impl TripManager {
             {
                 h1 ."text-2xl" {"Trips"}
                 (TripTable::build(trips))
-                (NewTrip::build(&trips))
+                (NewTrip::build(trips))
             }
         )
     }

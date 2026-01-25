@@ -87,7 +87,7 @@ impl Render for Link {
             ."hover:underline"
             href=(self.url.0)
             {
-                (self.name.clone().unwrap_or(self.url.0.clone()))
+                (self.name.clone().unwrap_or_else(|| self.url.0.clone()))
             }
         )
     }
