@@ -167,12 +167,12 @@ impl IntoResponse for RunError {
     fn into_response(self) -> Response {
         match self {
             Self::Database(ref db_error) => match db_error {
-                database::error::Error::Database(_) => (
+                database::Error::Database(_) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     view::ErrorPage::build(&self.to_string()),
                 ),
-                database::error::Error::Query(error) => match error {
-                    database::error::QueryError::NotFound { description } => {
+                database::Error::Query(error) => match error {
+                    database::QueryError::NotFound { description } => {
                         (StatusCode::NOT_FOUND, view::ErrorPage::build(description))
                     }
                     _ => (
