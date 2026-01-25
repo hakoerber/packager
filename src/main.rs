@@ -1,14 +1,41 @@
+use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::process::ExitCode;
 use std::str::FromStr;
 
 use packager::{
-    AppState, ClientState, DatabaseError, Error, QueryError, StartError, auth, cli, db, models,
+    AppState, ClientState, CommandError, DatabaseError, QueryError, StartError, auth, cli, models,
     routing, telemetry,
 };
 use tokio::net::TcpListener;
 
-struct MainResult(Result<(), Error>);
+enum MainError {
+    Start(StartError),
+    Command(CommandError),
+}
+
+impl From<StartError> for MainError {
+    fn from(value: StartError) -> Self {
+        Self::Start(value)
+    }
+}
+
+impl From<CommandError> for MainError {
+    fn from(value: CommandError) -> Self {
+        Self::Command(value)
+    }
+}
+
+impl fmt::Display for MainError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MainError::Start(start_error) => write!(f, "{start_error}"),
+            MainError::Command(command_error) => write!(f, "{command_error}"),
+        }
+    }
+}
+
+struct MainResult(Result<(), MainError>);
 
 use database::Database as _;
 
@@ -24,14 +51,14 @@ impl std::process::Termination for MainResult {
     }
 }
 
-impl From<Error> for MainResult {
-    fn from(error: Error) -> Self {
-        Self(Err(error))
+impl From<StartError> for MainResult {
+    fn from(error: StartError) -> Self {
+        Self(Err(error.into()))
     }
 }
 
-impl From<tokio::task::JoinError> for MainResult {
-    fn from(error: tokio::task::JoinError) -> Self {
+impl From<CommandError> for MainResult {
+    fn from(error: CommandError) -> Self {
         Self(Err(error.into()))
     }
 }
@@ -59,14 +86,15 @@ async fn main() -> MainResult {
             Box::pin(async move {
                 match args.command {
                     cli::Command::Serve(serve_args) => {
-                        if let Err(e) = database::DB::migrate(&args.database_url).await {
-                            return <_ as Into<Error>>::into(e).into();
+                        if let Err(err) = database::DB::migrate(&args.database_url).await {
+                            let command_error: CommandError = err.into();
+                            return command_error.into();
                         }
 
                         let database_pool =
                             match database::DB::init_database_pool(&args.database_url).await {
                                 Ok(pool) => pool,
-                                Err(e) => return <_ as Into<Error>>::into(e).into(),
+                                Err(err) => return <_ as Into<StartError>>::into(err).into(),
                             };
 
                         let state = AppState {
@@ -97,7 +125,7 @@ async fn main() -> MainResult {
                             let ip = IpAddr::from_str(&bind);
 
                             let addr = match ip {
-                                Err(e) => return <_ as Into<Error>>::into((bind, e)).into(),
+                                Err(e) => return <_ as Into<StartError>>::into((bind, e)).into(),
                                 Ok(ip) => SocketAddr::from((ip, port)),
                             };
 
@@ -118,12 +146,12 @@ async fn main() -> MainResult {
                             tracing::debug!("listening on {}", addr);
 
                             axum::serve(
-                                TcpListener::bind(&addr).await.map_err(|e| {
-                                    Error::Start(StartError::Bind {
+                                TcpListener::bind(&addr)
+                                    .await
+                                    .map_err(|e| StartError::Bind {
                                         addr,
                                         message: e.to_string(),
-                                    })
-                                })?,
+                                    })?,
                                 app,
                             )
                             .await
@@ -141,7 +169,7 @@ async fn main() -> MainResult {
                             .expect("join_set is empty, this is a bug");
 
                         // EXPECT: We never expect a JoinError, as all threads run infinitely
-                        let result: Result<(), Error> = result.expect("thread panicked");
+                        let result: Result<(), StartError> = result.expect("thread panicked");
 
                         // If we get an Ok(()), something weird happened
                         let result = result.expect_err("thread ran to completion");
@@ -151,11 +179,14 @@ async fn main() -> MainResult {
                     cli::Command::Admin(admin_command) => match admin_command {
                         cli::Admin::User(cmd) => match cmd {
                             cli::UserCommand::Create(user) => {
-                                let database_pool =
-                                    match database::DB::init_database_pool(&args.database_url).await {
-                                        Ok(pool) => pool,
-                                        Err(e) => return <_ as Into<Error>>::into(e).into(),
-                                    };
+                                let database_pool = match database::DB::init_database_pool(
+                                    &args.database_url,
+                                )
+                                .await
+                                {
+                                    Ok(pool) => pool,
+                                    Err(e) => return <_ as Into<StartError>>::into(e).into(),
+                                };
 
                                 let id = match models::user::create(
                                     &database_pool,
@@ -165,13 +196,13 @@ async fn main() -> MainResult {
                                     },
                                 )
                                 .await
-                                .map_err(|error| match error {
-                                    Error::Database(DatabaseError::Query(
-                                        QueryError::Duplicate { description: _ },
-                                    )) => Error::Command(packager::CommandError::UserExists {
+                                .map_err(|error: DatabaseError| match error {
+                                    DatabaseError::Query(QueryError::Duplicate {
+                                        description: _,
+                                    }) => CommandError::UserExists {
                                         username: user.username.clone(),
-                                    }),
-                                    _ => error,
+                                    },
+                                    err => CommandError::Database(err),
                                 }) {
                                     Ok(id) => id,
                                     Err(e) => {
@@ -188,7 +219,7 @@ async fn main() -> MainResult {
                     },
                     cli::Command::Migrate => {
                         if let Err(e) = database::DB::migrate(&args.database_url).await {
-                            return <_ as Into<Error>>::into(e).into();
+                            return <_ as Into<StartError>>::into(e).into();
                         }
 
                         println!("Migrations successfully applied");

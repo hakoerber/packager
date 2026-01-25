@@ -1,7 +1,6 @@
-use crate::Error;
 use uuid::Uuid;
 
-use crate::db;
+use crate::{DatabaseError, RunError};
 
 #[derive(Debug, Clone)]
 pub struct User {
@@ -24,7 +23,7 @@ pub struct DbUserRow {
 }
 
 impl TryFrom<DbUserRow> for User {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbUserRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -37,8 +36,8 @@ impl TryFrom<DbUserRow> for User {
 
 impl User {
     #[tracing::instrument]
-    pub async fn find_by_name(pool: &database::Pool, name: &str) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+    pub async fn find_by_name(pool: &database::Pool, name: &str) -> Result<Option<Self>, RunError> {
+        database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::User,
@@ -46,6 +45,7 @@ impl User {
             pool,
             DbUserRow,
             Self,
+            RunError,
             "SELECT id,username,fullname FROM users WHERE username = $1",
             name
         )
@@ -54,15 +54,16 @@ impl User {
 }
 
 #[tracing::instrument]
-pub async fn create(pool: &database::Pool, user: NewUser<'_>) -> Result<Uuid, Error> {
+pub async fn create(pool: &database::Pool, user: NewUser<'_>) -> Result<Uuid, DatabaseError> {
     let id = Uuid::new_v4();
 
-    crate::execute!(
+    database::execute!(
         &database::QueryClassification {
             query_type: database::QueryType::Insert,
             component: database::Component::User,
         },
         pool,
+        DatabaseError,
         "INSERT INTO users
             (id, username, fullname)
         VALUES

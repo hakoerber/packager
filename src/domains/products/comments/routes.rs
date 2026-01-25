@@ -6,7 +6,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::{AppState, Context, Error, RequestError, TopLevelPage, models};
+use crate::{AppState, Context, RunError, RequestError, TopLevelPage, models};
 
 #[tracing::instrument]
 pub async fn comment_create(
@@ -14,11 +14,11 @@ pub async fn comment_create(
     State(state): State<AppState>,
     Path(product_id): Path<Uuid>,
     Form(new_comment): Form<super::model::NewComment>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
 
     if new_comment.content.is_empty() {
-        return Err(Error::Request(RequestError::EmptyFormElement {
+        return Err(RunError::Request(RequestError::EmptyFormElement {
             name: "content".to_string(),
         }));
     }
@@ -34,7 +34,7 @@ pub async fn comment_delete(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((product_id, comment_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
 
     let deleted =
@@ -43,7 +43,7 @@ pub async fn comment_delete(
     if deleted {
         Ok(Redirect::to(&format!("/products/{product_id}")))
     } else {
-        Err(Error::Request(RequestError::NotFound {
+        Err(RunError::Request(RequestError::NotFound {
             message: format!("comment with id {comment_id} not found"),
         }))
     }
@@ -54,12 +54,12 @@ pub async fn comment_edit(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path((product_id, comment_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     let comment = super::model::Comment::find(&ctx, &state.database_pool, product_id, comment_id)
         .await?
         .ok_or_else(|| {
-            crate::Error::Request(RequestError::NotFound {
+            crate::RunError::Request(RequestError::NotFound {
                 message: format!("comment with id {comment_id} not found"),
             })
         })?;
@@ -77,7 +77,7 @@ pub async fn comment_edit_save(
     State(state): State<AppState>,
     Path((product_id, comment_id)): Path<(Uuid, Uuid)>,
     Form(update_comment): Form<super::model::UpdateComment>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
 
     super::model::Comment::update(

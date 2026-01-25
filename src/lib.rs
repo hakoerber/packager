@@ -14,7 +14,7 @@ pub mod telemetry;
 mod view;
 
 pub use error::{AuthError, RequestError};
-pub use error::{CommandError, DatabaseError, Error, QueryError, StartError};
+pub use error::{CommandError, DatabaseError, QueryError, RunError, StartError};
 
 #[derive(Clone, Debug)]
 pub struct AppState {

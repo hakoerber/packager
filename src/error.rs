@@ -1,3 +1,5 @@
+use std::{fmt, net::SocketAddr};
+
 use crate::view;
 
 use axum::{
@@ -5,7 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-pub use database::{DataError, Error as DatabaseError, QueryError};
+pub use database::{Error as DatabaseError, QueryError};
 
 #[derive(Debug)]
 pub enum RequestError {
@@ -31,6 +33,23 @@ impl fmt::Display for RequestError {
             }
             Self::Transport { inner } => {
                 write!(f, "HTTP error: {inner}")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum DataError {
+    NotFound { description: String },
+}
+
+impl std::error::Error for DataError {}
+
+impl fmt::Display for DataError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::NotFound { description } => {
+                write!(f, "{description}")
             }
         }
     }
@@ -93,7 +112,7 @@ impl fmt::Display for AuthError {
     }
 }
 
-impl From<AuthError> for Error {
+impl From<AuthError> for RunError {
     fn from(e: AuthError) -> Self {
         Self::Request(RequestError::Auth { inner: e })
     }
@@ -102,59 +121,43 @@ impl From<AuthError> for Error {
 impl std::error::Error for AuthError {}
 
 #[derive(Debug)]
-pub enum Error {
+pub enum RunError {
     Request(RequestError),
-    DatabaseInit(database::InitError),
-    Command(CommandError),
-    Exec(tokio::task::JoinError),
-    Database(crate::database::error::Error),
+    Database(database::Error),
+    Data(DataError),
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for RunError {}
 
-impl fmt::Display for Error {
+impl fmt::Display for RunError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Request(request_error) => write!(f, "Request error: {request_error}"),
-            Self::DatabaseInit(start_error) => write!(f, "{start_error}"),
-            Self::Command(command_error) => write!(f, "{command_error}"),
-            Self::Exec(join_error) => write!(f, "{join_error}"),
             Self::Database(db_error) => write!(f, "{db_error}"),
+            Self::Data(data_error) => write!(f, "{data_error}"),
         }
     }
 }
 
-impl From<database::InitError> for Error {
-    fn from(value: database::InitError) -> Self {
-        Self::DatabaseInit(value)
-    }
-}
-
-impl From<crate::database::error::Error> for Error {
-    fn from(value: crate::database::error::Error) -> Self {
+impl From<database::Error> for RunError {
+    fn from(value: database::Error) -> Self {
         Self::Database(value)
     }
 }
 
-impl From<sqlx::Error> for Error {
+impl From<sqlx::Error> for RunError {
     fn from(value: sqlx::Error) -> Self {
         Self::Database(value.into())
     }
 }
 
-impl From<hyper::Error> for Error {
+impl From<hyper::Error> for RunError {
     fn from(value: hyper::Error) -> Self {
         Self::Request(RequestError::Transport { inner: value })
     }
 }
 
-impl From<tokio::task::JoinError> for Error {
-    fn from(value: tokio::task::JoinError) -> Self {
-        Self::Exec(value)
-    }
-}
-
-impl IntoResponse for Error {
+impl IntoResponse for RunError {
     fn into_response(self) -> Response {
         match self {
             Self::Database(ref db_error) => match db_error {
@@ -198,17 +201,9 @@ impl IntoResponse for Error {
                     view::ErrorPage::build(&inner.to_string()),
                 ),
             },
-            Self::DatabaseInit(start_error) => (
+            RunError::Data(data_error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                view::ErrorPage::build(&start_error.to_string()),
-            ),
-            Self::Command(command_error) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                view::ErrorPage::build(&command_error.to_string()),
-            ),
-            Self::Exec(join_error) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                view::ErrorPage::build(&join_error.to_string()),
+                view::ErrorPage::build(&data_error.to_string()),
             ),
         }
         .into_response()
@@ -216,7 +211,59 @@ impl IntoResponse for Error {
 }
 
 #[derive(Debug)]
+pub enum StartError {
+    Bind { addr: SocketAddr, message: String },
+    Call { message: String },
+    Exec(tokio::task::JoinError),
+    DatabaseInit(database::InitError),
+    AddrParse { input: String, message: String },
+}
+
+impl std::error::Error for StartError {}
+
+impl fmt::Display for StartError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Bind { message, addr } => {
+                write!(f, "error binding network interface {addr}: {message}")
+            }
+            Self::Call { message } => {
+                write!(f, "invalid invocation: {message}")
+            }
+            Self::Exec(join_error) => write!(f, "{join_error}"),
+            Self::DatabaseInit(start_error) => write!(f, "{start_error}"),
+            Self::AddrParse { message, input } => {
+                write!(f, "error parsing \"{input}\": {message}")
+            }
+        }
+    }
+}
+
+impl From<tokio::task::JoinError> for StartError {
+    fn from(value: tokio::task::JoinError) -> Self {
+        Self::Exec(value)
+    }
+}
+
+impl From<database::InitError> for StartError {
+    fn from(value: database::InitError) -> Self {
+        Self::DatabaseInit(value)
+    }
+}
+
+impl From<(String, std::net::AddrParseError)> for StartError {
+    fn from((input, error): (String, std::net::AddrParseError)) -> Self {
+        Self::AddrParse {
+            input,
+            message: error.to_string(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum CommandError {
+    Start(StartError),
+    Database(database::Error),
     UserExists { username: String },
 }
 
@@ -225,6 +272,10 @@ impl std::error::Error for CommandError {}
 impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::Start(start_error) => {
+                write!(f, "{start_error}")
+            }
+            Self::Database(db_error) => write!(f, "{db_error}"),
             Self::UserExists { username } => {
                 write!(f, "user \"{username}\" already exists")
             }
@@ -232,19 +283,29 @@ impl fmt::Display for CommandError {
     }
 }
 
-#[derive(Debug)]
-pub enum StartError {
-    Call { message: String },
+impl From<tokio::task::JoinError> for CommandError {
+    fn from(value: tokio::task::JoinError) -> Self {
+        Self::Start(value.into())
+    }
 }
 
-impl std::error::Error for StartError {}
+impl From<database::InitError> for CommandError {
+    fn from(value: database::InitError) -> Self {
+        Self::Start(value.into())
+    }
+}
 
-impl fmt::Display for StartError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Call { message } => {
-                write!(f, "invalid invocation: {message}")
-            }
-        }
+impl From<(String, std::net::AddrParseError)> for CommandError {
+    fn from((input, error): (String, std::net::AddrParseError)) -> Self {
+        Self::Start(StartError::AddrParse {
+            input,
+            message: error.to_string(),
+        })
+    }
+}
+
+impl From<StartError> for CommandError {
+    fn from(value: StartError) -> Self {
+        Self::Start(value)
     }
 }

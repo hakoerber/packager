@@ -12,7 +12,7 @@ use uuid::Uuid;
 use std::{fmt, time::Duration};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 
-use crate::{AppState, Error, RequestError};
+use crate::{AppState, RunError, RequestError};
 
 use super::auth;
 
@@ -22,13 +22,13 @@ mod routes;
 use routes::{debug, icon, root};
 
 #[tracing::instrument]
-pub fn get_referer(headers: &HeaderMap) -> Result<&str, Error> {
+pub fn get_referer(headers: &HeaderMap) -> Result<&str, RunError> {
     headers
         .get("referer")
-        .ok_or(Error::Request(RequestError::RefererNotFound))?
+        .ok_or(RunError::Request(RequestError::RefererNotFound))?
         .to_str()
         .map_err(|error| {
-            Error::Request(RequestError::RefererInvalid {
+            RunError::Request(RequestError::RefererInvalid {
                 message: error.to_string(),
             })
         })
@@ -69,7 +69,7 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/notfound",
             get(|| async {
-                Error::Request(RequestError::NotFound {
+                RunError::Request(RequestError::NotFound {
                     message: "hi".to_string(),
                 })
             }),
@@ -104,7 +104,7 @@ pub fn router(state: AppState) -> Router {
         )
         // .propagate_x_request_id()
         .fallback(|| async {
-            Error::Request(RequestError::NotFound {
+            RunError::Request(RequestError::NotFound {
                 message: "no route found".to_string(),
             })
         })

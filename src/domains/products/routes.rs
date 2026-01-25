@@ -8,7 +8,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::models;
-use crate::{AppState, Context, Error, RequestError, TopLevelPage};
+use crate::{AppState, Context, RunError, RequestError, TopLevelPage};
 
 use super::{model, view};
 
@@ -17,11 +17,11 @@ pub async fn product(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     let product = model::Product::find(&ctx, &state.database_pool, id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("product with id {id} not found"),
         }))?;
 

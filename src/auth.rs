@@ -9,7 +9,7 @@ use tracing::Instrument;
 use crate::models::user::User;
 
 use super::models;
-use super::{AppState, AuthError, Error};
+use super::{AppState, AuthError, RunError};
 
 #[derive(Clone, Debug)]
 pub enum Config {
@@ -22,7 +22,7 @@ pub async fn authorize(
     State(state): State<AppState>,
     mut request: Request,
     next: Next,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     // We must not access `request` inside the async block above, otherwise there will be
     // errors like the following:
     //
@@ -34,7 +34,7 @@ pub async fn authorize(
     let username_header = request.headers().get("x-auth-username");
 
     let user = async {
-        let auth: Result<Result<User, AuthError>, Error> = match state.auth_config {
+        let auth: Result<Result<User, AuthError>, RunError> = match state.auth_config {
             Config::Disabled { assume_user } => {
                 let user =
                     match models::user::User::find_by_name(&state.database_pool, &assume_user)
@@ -102,5 +102,5 @@ pub async fn authorize(
     .await??;
 
     request.extensions_mut().insert(user);
-    Ok::<http::Response<axum::body::Body>, Error>(next.run(request).await)
+    Ok::<http::Response<axum::body::Body>, RunError>(next.run(request).await)
 }

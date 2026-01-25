@@ -223,6 +223,21 @@ features = [
 [dependencies.uuid]
 workspace = true
 
+[workspace.dependencies.sqlx]
+version = "*"
+default-features = false
+features = [
+    "macros",
+    "migrate",
+    "postgres",
+    "runtime-tokio-rustls",
+    "time",
+    "uuid",
+]
+
+[dependencies.sqlx]
+workspace = true
+
 [lints.clippy]
 pedantic = { priority = -1, level = "warn" }
 nursery = { priority = -1, level = "warn" }

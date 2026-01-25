@@ -4,6 +4,7 @@ use std::fmt;
 
 pub mod error;
 pub mod postgres;
+pub mod types;
 
 pub use error::{DataError, Error, InitError, QueryError};
 
@@ -151,23 +152,23 @@ pub fn sqlx_query_file(
 
 #[macro_export]
 macro_rules! query_all {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )* ) => {
         {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
             async {
                 $crate::sqlx_query($class, $query, &[]);
-                let result: Result<Vec<$struct_into>, Error> = sqlx::query_as!(
+                let result: Result<Vec<$struct_into>, $error_type> = sqlx::query_as!(
                     $struct_row,
                     $query,
                     $( $args )*
                 )
                 .fetch($pool)
                 .map_ok(|row: $struct_row| row.try_into())
-                .try_collect::<Vec<Result<$struct_into, Error>>>()
+                .try_collect::<Vec<Result<$struct_into, $error_type>>>()
                 .await?
                 .into_iter()
-                .collect::<Result<Vec<$struct_into>, Error>>();
+                .collect::<Result<Vec<$struct_into>, $error_type>>();
 
                 result
 
@@ -178,7 +179,7 @@ macro_rules! query_all {
 
 #[macro_export]
 macro_rules! query_many_to_many_single {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $query:expr, $( $args:tt )* ) => {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )* ) => {
         {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
@@ -197,8 +198,8 @@ macro_rules! query_many_to_many_single {
                     Ok(None)
                 } else {
                     let out: $struct_rows = result.into();
-                    let out: $struct_into = out.try_into()?;
-                    Ok::<_, $crate::error::Error>(Some(out))
+                    let out: $struct_into = <_ as TryInto<$struct_into>>::try_into(out)?;
+                    Ok::<_, $error_type>(Some(out))
                 }
 
             }.instrument(tracing::info_span!("packager::sql::query", "query"))
@@ -208,21 +209,21 @@ macro_rules! query_many_to_many_single {
 
 #[macro_export]
 macro_rules! query_one {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $query:expr, $( $args:tt )*) => {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )*) => {
 
         {
             use tracing::Instrument as _;
 
             async {
                 $crate::sqlx_query($class, $query, &[]);
-                let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_as!(
+                let result: Result<Option<$struct_into>, $error_type> = sqlx::query_as!(
                     $struct_row,
                     $query,
                     $( $args )*
                 )
                 .fetch_optional($pool)
                 .await?
-                .map(|row: $struct_row| row.try_into())
+                .map(|row: $struct_row| <_ as TryInto<$struct_into>>::try_into(row))
                 .transpose();
 
                 result
@@ -234,21 +235,21 @@ macro_rules! query_one {
 
 #[macro_export]
 macro_rules! query_one_file {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $path:literal, $( $args:tt )*) => {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $path:literal, $( $args:tt )*) => {
 
         {
             use tracing::Instrument as _;
 
             async {
                 $crate::sqlx_query_file($class, $path, &[]);
-                let result: Result<Option<$struct_into>, $crate::error::Error> = sqlx::query_file_as!(
+                let result: Result<Option<$struct_into>, $error_type> = sqlx::query_file_as!(
                     $struct_row,
                     $path,
                     $( $args )*
                 )
                 .fetch_optional($pool)
                 .await?
-                .map(|row: $struct_row| row.try_into())
+                .map(|row: $struct_row| <_ as TryInto<$struct_into>>::try_into(row))
                 .transpose();
 
                 result
@@ -289,7 +290,7 @@ macro_rules! strip_plus {
 
 #[macro_export]
 macro_rules! execute_unchecked {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {{
+    ( $class:expr, $pool:expr, $error_type:path, $query:expr, $( $args:expr ),* $(,)? ) => {{
         use tracing::Instrument as _;
         async {
             $crate::sqlx_query($class, $query, &[]);
@@ -299,7 +300,7 @@ macro_rules! execute_unchecked {
                 let query = query.bind($args);
             )*
 
-            let result: Result<sqlx::postgres::PgQueryResult, Error> =
+            let result: Result<sqlx::postgres::PgQueryResult, $error_type> =
                 query.execute($pool).await.map_err(|e| e.into());
 
             result
@@ -310,12 +311,12 @@ macro_rules! execute_unchecked {
 
 #[macro_export]
 macro_rules! execute {
-    ( $class:expr, $pool:expr, $query:expr, $( $args:expr ),* $(,)? ) => {
+    ( $class:expr, $pool:expr, $error_type:path, $query:expr, $( $args:expr ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             async {
                 $crate::sqlx_query($class, $query, &[]);
-                let result: Result<sqlx::postgres::PgQueryResult, Error> = sqlx::query!(
+                let result: Result<sqlx::postgres::PgQueryResult, $error_type> = sqlx::query!(
                     $query,
                     $( $args ),*
                 )
@@ -331,13 +332,13 @@ macro_rules! execute {
 
 #[macro_export]
 macro_rules! execute_returning {
-    ( $class:expr, $pool:expr, $query:expr, $t:path, $fn:expr, $( $args:expr ),* $(,)? ) => {
+    ( $class:expr, $pool:expr, $error_type:path, $query:expr, $t:path, $fn:expr, $( $args:expr ),* $(,)? ) => {
         {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
                 $crate::sqlx_query($class, $query, &[]);
-                let result: Result<$t, Error> = sqlx::query!(
+                let result: Result<$t, $error_type> = sqlx::query!(
                     $query,
                     $( $args, )*
                 )

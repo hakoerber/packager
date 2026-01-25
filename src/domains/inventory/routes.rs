@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::htmx;
 use crate::models;
-use crate::{AppState, Context, Error, RequestError, TopLevelPage};
+use crate::{AppState, Context, RunError, RequestError, TopLevelPage};
 
 use super::{model, view};
 
@@ -66,7 +66,7 @@ pub async fn active(
     State(mut state): State<AppState>,
     Path(id): Path<Uuid>,
     Query(inventory_query): Query<InventoryQuery>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = Some(id);
@@ -81,7 +81,7 @@ pub async fn active(
                 .categories
                 .iter()
                 .find(|category| category.id == id)
-                .ok_or(Error::Request(RequestError::NotFound {
+                .ok_or(RunError::Request(RequestError::NotFound {
                     message: format!("a category with id {id} does not exist"),
                 }))
         })
@@ -104,7 +104,7 @@ pub async fn inactive(
     State(mut state): State<AppState>,
     Query(inventory_query): Query<InventoryQuery>,
     headers: HeaderMap,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     state.client_state.edit_item = inventory_query.edit_item;
     state.client_state.active_category_id = None;
@@ -138,7 +138,7 @@ pub async fn item_validate_name(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_item): Form<NewItemName>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     let exists =
         model::InventoryItem::name_exists(&ctx, &state.database_pool, &new_item.name).await?;
@@ -155,10 +155,10 @@ pub async fn create_item(
     State(state): State<AppState>,
     headers: HeaderMap,
     Form(new_item): Form<NewItem>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     if new_item.name.is_empty() {
-        return Err(Error::Request(RequestError::EmptyFormElement {
+        return Err(RunError::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
         }));
     }
@@ -206,14 +206,14 @@ pub async fn item_delete(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
     let deleted = model::InventoryItem::delete(&ctx, &state.database_pool, id).await?;
 
     if deleted {
         Ok(Redirect::to(get_referer(&headers)?))
     } else {
-        Err(Error::Request(RequestError::NotFound {
+        Err(RunError::Request(RequestError::NotFound {
             message: format!("item with id {id} not found"),
         }))
     }
@@ -225,10 +225,10 @@ pub async fn item_edit(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Form(edit_item): Form<EditItem>,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
     if edit_item.name.is_empty() {
-        return Err(Error::Request(RequestError::EmptyFormElement {
+        return Err(RunError::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
         }));
     }
@@ -250,11 +250,11 @@ pub async fn item_cancel(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
     let id = model::InventoryItem::find(&ctx, &state.database_pool, id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("item with id {id} not found"),
         }))?;
 
@@ -269,10 +269,10 @@ pub async fn create_category(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Form(new_category): Form<NewCategory>,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
     if new_category.name.is_empty() {
-        return Err(Error::Request(RequestError::EmptyFormElement {
+        return Err(RunError::Request(RequestError::EmptyFormElement {
             name: "name".to_string(),
         }));
     }
@@ -287,11 +287,11 @@ pub async fn item(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     let item = model::InventoryItem::find(&ctx, &state.database_pool, id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("inventory item with id {id} not found"),
         }))?;
 
@@ -307,7 +307,7 @@ pub async fn select_category(
     Extension(current_user): Extension<models::user::User>,
     State(state): State<AppState>,
     Path(category_id): Path<Uuid>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     let inventory = model::Inventory::load(&ctx, &state.database_pool).await?;
 
@@ -316,7 +316,7 @@ pub async fn select_category(
             .categories
             .iter()
             .find(|category| category.id == category_id)
-            .ok_or(Error::Request(RequestError::NotFound {
+            .ok_or(RunError::Request(RequestError::NotFound {
                 message: format!("a category with id {category_id} not found"),
             }))?,
     );

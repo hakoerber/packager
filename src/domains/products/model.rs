@@ -1,5 +1,4 @@
-use crate::error::Error;
-use crate::{Context, db};
+use crate::{Context, RunError};
 
 use super::comments::model::Comment;
 
@@ -13,7 +12,7 @@ pub struct DbLink {
 }
 
 impl TryFrom<DbLink> for Link {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbLink) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -48,13 +47,17 @@ pub struct Product {
 
 impl Product {
     #[tracing::instrument]
-    pub async fn find(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<Option<Self>, Error> {
+    pub async fn find(
+        ctx: &Context,
+        pool: &database::Pool,
+        id: Uuid,
+    ) -> Result<Option<Self>, RunError> {
         if cfg!(false) {
             pub struct Row {
                 pub id: Uuid,
                 pub name: String,
                 pub description: Option<String>,
-                pub price: Option<sqlx::postgres::types::PgMoney>,
+                pub price: Option<database::types::Money>,
                 pub purchase_from: Option<String>,
                 pub purchase_date: Option<time::Date>,
                 pub link_id: Option<Uuid>,
@@ -77,7 +80,7 @@ impl Product {
             }
 
             impl TryFrom<Row> for RowParsed {
-                type Error = Error;
+                type Error = RunError;
 
                 fn try_from(row: Row) -> Result<Self, Self::Error> {
                     Ok(Self {
@@ -106,7 +109,7 @@ impl Product {
                 }
             }
 
-            let mut results = crate::query_all!(
+            let mut results = database::query_all!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Select,
                     component: database::Component::Inventory,
@@ -114,6 +117,7 @@ impl Product {
                 pool,
                 Row,
                 RowParsed,
+                RunError,
                 r#"
                 SELECT
                     product.id AS id,
@@ -192,7 +196,7 @@ impl Product {
                 pub id: Uuid,
                 pub name: String,
                 pub description: Option<String>,
-                pub price: Option<sqlx::postgres::types::PgMoney>,
+                pub price: Option<database::types::Money>,
                 pub purchase_from: Option<String>,
                 pub purchase_date: Option<time::Date>,
                 pub link_ids: Vec<Uuid>,
@@ -204,7 +208,7 @@ impl Product {
             }
 
             impl TryFrom<Row> for Product {
-                type Error = Error;
+                type Error = RunError;
 
                 fn try_from(row: Row) -> Result<Self, Self::Error> {
                     Ok(Self {
@@ -241,7 +245,7 @@ impl Product {
                 }
             }
 
-            let result = crate::query_one_file!(
+            let result = database::query_one_file!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Select,
                     component: database::Component::Inventory,
@@ -249,6 +253,7 @@ impl Product {
                 pool,
                 Row,
                 Product,
+                RunError,
                 "./sql/single_product.sql",
                 id,
                 ctx.user.id,

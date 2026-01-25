@@ -2,30 +2,29 @@ pub mod list;
 pub use list::List;
 
 use axum::{
+    Extension,
     body::Body,
     extract::{Form, Path, State as StateExtractor},
     http::HeaderMap,
     response::{IntoResponse, Redirect, Response},
     routing::post,
-    Extension,
 };
-use maud::{html, Markup};
+use maud::{Markup, html};
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    db,
+    AppState, Context, RequestError,
     domains::{
         self,
         crud::{self, Read, Update},
         route::{self, Toggle},
         view::{self, View},
     },
-    error::Error,
+    error::RunError,
     htmx,
     models::User,
     routing::get_referer,
-    AppState, Context, RequestError,
 };
 
 use async_trait::async_trait;
@@ -40,11 +39,7 @@ pub enum State {
 
 impl From<bool> for State {
     fn from(done: bool) -> Self {
-        if done {
-            Self::Done
-        } else {
-            Self::Todo
-        }
+        if done { Self::Done } else { Self::Todo }
     }
 }
 
@@ -71,7 +66,7 @@ struct TodoRow {
 }
 
 impl TryFrom<TodoRow> for Todo {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: TodoRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -146,8 +141,8 @@ impl crud::Read for Todo {
         ctx: &Context,
         pool: &database::Pool,
         container: Container,
-    ) -> Result<Vec<Self>, Error> {
-        let todos: Vec<Self> = crate::query_all!(
+    ) -> Result<Vec<Self>, RunError> {
+        let todos: Vec<Self> = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Todo,
@@ -155,6 +150,7 @@ impl crud::Read for Todo {
             pool,
             TodoRow,
             Todo,
+            RunError,
             r"
                 SELECT
                     todo.id AS id,
@@ -180,8 +176,8 @@ impl crud::Read for Todo {
         ctx: &Context,
         pool: &database::Pool,
         reference: Reference,
-    ) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+    ) -> Result<Option<Self>, RunError> {
+        database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Todo,
@@ -189,6 +185,7 @@ impl crud::Read for Todo {
             pool,
             TodoRow,
             Self,
+            RunError,
             r"
                 SELECT
                     todo.id AS id,
@@ -229,15 +226,16 @@ impl crud::Create for Todo {
         pool: &database::Pool,
         container: Self::Container,
         info: Self::Info,
-    ) -> Result<Self::Id, Error> {
+    ) -> Result<Self::Id, RunError> {
         let id = Self::new_id();
         tracing::info!("adding new todo with id {id}");
-        crate::execute!(
+        database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Todo,
             },
             pool,
+            RunError,
             r"
                 INSERT INTO trip_todos
                     (id, description, done, trip_id)
@@ -302,12 +300,12 @@ impl crud::Update for Todo {
         pool: &database::Pool,
         reference: Self::Reference,
         update_element: Self::UpdateElement,
-    ) -> Result<Option<Self>, Error> {
+    ) -> Result<Option<Self>, RunError> {
         match update_element {
             UpdateElement::State(state) => {
                 let done = state == State::Done.into();
 
-                let result = crate::query_one!(
+                let result = database::query_one!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
                         component: database::Component::Trips,
@@ -315,6 +313,7 @@ impl crud::Update for Todo {
                     pool,
                     TodoRow,
                     Todo,
+                    RunError,
                     r"
                         UPDATE trip_todos
                             SET done = $1
@@ -336,7 +335,7 @@ impl crud::Update for Todo {
                 Ok(result)
             }
             UpdateElement::Description(new_description) => {
-                let result = crate::query_one!(
+                let result = database::query_one!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
                         component: database::Component::Todo,
@@ -344,6 +343,7 @@ impl crud::Update for Todo {
                     pool,
                     TodoRow,
                     Todo,
+                    RunError,
                     r"
                         UPDATE trip_todos
                         SET description = $1
@@ -376,16 +376,17 @@ impl crud::Delete for Todo {
     type Reference = Reference;
 
     #[tracing::instrument]
-    async fn delete<'c, T>(ctx: &Context, db: T, reference: &Reference) -> Result<bool, Error>
+    async fn delete<'c, T>(ctx: &Context, db: T, reference: &Reference) -> Result<bool, RunError>
     where
         T: sqlx::Acquire<'c, Database = sqlx::Postgres> + Send + std::fmt::Debug,
     {
-        let results = crate::execute!(
+        let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
                 component: database::Component::Todo,
             },
             &mut *(db.acquire().await?),
+            RunError,
             r"
                 DELETE FROM trip_todos
                 WHERE
@@ -634,7 +635,7 @@ impl route::Create for Todo {
         headers: HeaderMap,
         Path((trip_id,)): Path<Self::UrlParams>,
         Form(form): Form<Self::Form>,
-    ) -> Result<Response<Body>, crate::Error> {
+    ) -> Result<Response<Body>, crate::RunError> {
         let ctx = Context::build(current_user);
         // method output is not required as we reload the whole trip todos anyway
         let _todo_item = <Self as crud::Create>::create(
@@ -650,7 +651,7 @@ impl route::Create for Todo {
         if htmx::is_htmx(&headers) {
             let trip = Trip::find(&ctx, &state.database_pool, trip_id).await?;
             match trip {
-                None => Err(crate::Error::Request(RequestError::NotFound {
+                None => Err(crate::RunError::Request(RequestError::NotFound {
                     message: format!("trip with id {trip_id} not found"),
                 })),
                 Some(mut trip) => {
@@ -681,7 +682,7 @@ impl route::Delete for Todo {
         StateExtractor(state): StateExtractor<AppState>,
         _headers: HeaderMap,
         Path((trip_id, todo_id)): Path<Self::UrlParams>,
-    ) -> Result<Response<Body>, crate::Error> {
+    ) -> Result<Response<Body>, crate::RunError> {
         let ctx = Context::build(current_user);
         let deleted = <Self as crud::Delete>::delete(
             &ctx,
@@ -694,14 +695,14 @@ impl route::Delete for Todo {
         .await?;
 
         if !deleted {
-            return Err(crate::Error::Request(RequestError::NotFound {
+            return Err(crate::RunError::Request(RequestError::NotFound {
                 message: format!("todo with id {todo_id} not found"),
             }));
         }
 
         let trip = super::model::Trip::find(&ctx, &state.database_pool, trip_id).await?;
         match trip {
-            None => Err(crate::Error::Request(RequestError::NotFound {
+            None => Err(crate::RunError::Request(RequestError::NotFound {
                 message: format!("trip with id {trip_id} not found"),
             })),
             Some(mut trip) => {
@@ -739,7 +740,7 @@ pub async fn trip_todo_done(
     StateExtractor(state): StateExtractor<AppState>,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<impl IntoResponse, crate::Error> {
+) -> Result<impl IntoResponse, crate::RunError> {
     let ctx = Context::build(current_user);
     Todo::update(
         &ctx,
@@ -761,7 +762,7 @@ pub async fn trip_todo_undone_htmx(
     Extension(current_user): Extension<User>,
     StateExtractor(state): StateExtractor<AppState>,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, crate::Error> {
+) -> Result<impl IntoResponse, crate::RunError> {
     let ctx = Context::build(current_user);
     Todo::update(
         &ctx,
@@ -784,7 +785,7 @@ pub async fn trip_todo_undone_htmx(
     )
     .await?
     .ok_or_else(|| {
-        crate::Error::Request(RequestError::NotFound {
+        crate::RunError::Request(RequestError::NotFound {
             message: format!("todo with id {todo_id} not found"),
         })
     })?;
@@ -802,7 +803,7 @@ pub async fn trip_todo_undone(
     StateExtractor(state): StateExtractor<AppState>,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<impl IntoResponse, crate::Error> {
+) -> Result<impl IntoResponse, crate::RunError> {
     let ctx = Context::build(current_user);
     Todo::update(
         &ctx,
@@ -831,7 +832,7 @@ pub async fn edit_todo(
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, crate::Error> {
+) -> Result<impl IntoResponse, crate::RunError> {
     let ctx = Context::build(current_user);
     let todo_item = Todo::find(
         &ctx,
@@ -844,7 +845,7 @@ pub async fn edit_todo(
     .await?;
 
     match todo_item {
-        None => Err(crate::Error::Request(RequestError::NotFound {
+        None => Err(crate::RunError::Request(RequestError::NotFound {
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => Ok(todo_item
@@ -863,7 +864,7 @@ pub async fn edit_todo_save(
     headers: HeaderMap,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
     Form(form): Form<TripTodoDescription>,
-) -> Result<impl IntoResponse, crate::Error> {
+) -> Result<impl IntoResponse, crate::RunError> {
     let ctx = Context::build(current_user);
     let todo_item = Todo::update(
         &ctx,
@@ -877,7 +878,7 @@ pub async fn edit_todo_save(
     .await?;
 
     match todo_item {
-        None => Err(crate::Error::Request(RequestError::NotFound {
+        None => Err(crate::RunError::Request(RequestError::NotFound {
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => {
@@ -901,7 +902,7 @@ pub async fn edit_todo_cancel(
     StateExtractor(state): StateExtractor<AppState>,
     headers: HeaderMap,
     Path((trip_id, todo_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, crate::Error> {
+) -> Result<impl IntoResponse, crate::RunError> {
     let ctx = Context::build(current_user);
     let todo_item = Todo::find(
         &ctx,
@@ -914,7 +915,7 @@ pub async fn edit_todo_cancel(
     .await?;
 
     match todo_item {
-        None => Err(crate::Error::Request(RequestError::NotFound {
+        None => Err(crate::RunError::Request(RequestError::NotFound {
             message: format!("todo with id {todo_id} not found"),
         })),
         Some(todo_item) => Ok(todo_item
@@ -935,7 +936,7 @@ impl crud::Toggle for StateUpdate {
         pool: &database::Pool,
         reference: Self::Reference,
         value: bool,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::RunError> {
         Todo::update(ctx, pool, reference, UpdateElement::State(value.into())).await?;
         Ok(())
     }
@@ -954,7 +955,7 @@ impl route::ToggleFallback for StateUpdate {
         headers: HeaderMap,
         (trip_id, todo_id): (Uuid, Uuid),
         value: bool,
-    ) -> Result<Response<Body>, crate::Error> {
+    ) -> Result<Response<Body>, crate::RunError> {
         let ctx = Context::build(current_user);
         <Self as crud::Toggle>::set(
             &ctx,
@@ -989,7 +990,7 @@ impl route::ToggleHtmx for StateUpdate {
         state: AppState,
         params: Self::UrlParams,
         value: bool,
-    ) -> Result<(crate::Context, AppState, Self::UrlParams), crate::Error> {
+    ) -> Result<(crate::Context, AppState, Self::UrlParams), crate::RunError> {
         let ctx = Context::build(current_user);
         <Self as crud::Toggle>::set(&ctx, &state.database_pool, params.into(), value).await?;
 
@@ -1000,7 +1001,7 @@ impl route::ToggleHtmx for StateUpdate {
         ctx: &Context,
         state: AppState,
         (trip_id, todo_id): Self::UrlParams,
-    ) -> Result<Response<Body>, crate::Error> {
+    ) -> Result<Response<Body>, crate::RunError> {
         let todo_item = Todo::find(
             ctx,
             &state.database_pool,
@@ -1011,7 +1012,7 @@ impl route::ToggleHtmx for StateUpdate {
         )
         .await?
         .ok_or_else(|| {
-            crate::Error::Request(RequestError::NotFound {
+            crate::RunError::Request(RequestError::NotFound {
                 message: format!("todo with id {todo_id} not found"),
             })
         })?;

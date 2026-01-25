@@ -1,5 +1,3 @@
-use crate::Error;
-
 use crate::StartError;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -99,15 +97,15 @@ pub struct UserCreate {
 }
 
 impl Args {
-    pub fn get() -> Result<Self, Error> {
+    pub fn get() -> Result<Self, StartError> {
         let args = Self::parse();
 
         if !args.enable_prometheus.bool()
             && (args.prometheus_port.is_some() || args.prometheus_bind.is_some())
         {
-            return Err(Error::Start(StartError::Call {
+            return Err(StartError::Call {
                 message: "do not set prometheus options when prometheus is not enabled".to_string(),
-            }));
+            });
         }
 
         Ok(args)

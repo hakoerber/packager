@@ -1,5 +1,4 @@
-use crate::Context;
-use crate::error::Error;
+use crate::{Context, RunError};
 
 use uuid::Uuid;
 
@@ -18,7 +17,7 @@ pub struct Inventory {
 
 impl Inventory {
     #[tracing::instrument]
-    pub async fn load(ctx: &Context, pool: &database::Pool) -> Result<Self, Error> {
+    pub async fn load(ctx: &Context, pool: &database::Pool) -> Result<Self, RunError> {
         let mut categories = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
@@ -27,6 +26,7 @@ impl Inventory {
             pool,
             DbCategoryRow,
             Category,
+            RunError,
             "SELECT
                     id,
                     name
@@ -57,7 +57,7 @@ pub struct DbCategoryRow {
 }
 
 impl TryFrom<DbCategoryRow> for Category {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbCategoryRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -70,8 +70,12 @@ impl TryFrom<DbCategoryRow> for Category {
 
 impl Category {
     #[tracing::instrument]
-    pub async fn _find(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+    pub async fn _find(
+        ctx: &Context,
+        pool: &database::Pool,
+        id: Uuid,
+    ) -> Result<Option<Self>, RunError> {
+        Ok(database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
@@ -79,6 +83,7 @@ impl Category {
             pool,
             DbCategoryRow,
             Category,
+            RunError,
             "SELECT
                 id,
                 name
@@ -89,18 +94,19 @@ impl Category {
             id,
             ctx.user.id,
         )
-        .await
+        .await?)
     }
 
     #[tracing::instrument]
-    pub async fn save(ctx: &Context, pool: &database::Pool, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &database::Pool, name: &str) -> Result<Uuid, RunError> {
         let id = Uuid::new_v4();
-        crate::execute!(
+        database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Inventory,
             },
             pool,
+            RunError,
             "INSERT INTO inventory_items_categories
                 (id, name, user_id)
             VALUES
@@ -127,8 +133,12 @@ impl Category {
     }
 
     #[tracing::instrument]
-    pub async fn populate_items(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
-        let items = crate::query_all!(
+    pub async fn populate_items(
+        &mut self,
+        ctx: &Context,
+        pool: &database::Pool,
+    ) -> Result<(), RunError> {
+        let items = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
@@ -136,6 +146,7 @@ impl Category {
             pool,
             DbInventoryItemsRow,
             Item,
+            RunError,
             "SELECT
                 id,
                 name,
@@ -296,7 +307,7 @@ pub struct InventoryItem {
 }
 
 impl TryFrom<DbInventoryItemRows> for InventoryItem {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(mut rows: DbInventoryItemRows) -> Result<Self, Self::Error> {
         let first_id = rows.first().id;
@@ -326,7 +337,7 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
             },
             product: item
                 .product_id
-                .map(|id| -> Result<Product, Error> {
+                .map(|id| -> Result<Product, RunError> {
                     Ok(Product {
                         id,
                         name: item.product_name.unwrap(),
@@ -341,8 +352,12 @@ impl TryFrom<DbInventoryItemRows> for InventoryItem {
 
 impl InventoryItem {
     #[tracing::instrument]
-    pub async fn find(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<Option<Self>, Error> {
-        crate::query_many_to_many_single!(
+    pub async fn find(
+        ctx: &Context,
+        pool: &database::Pool,
+        id: Uuid,
+    ) -> Result<Option<Self>, RunError> {
+        database::query_many_to_many_single!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
@@ -351,6 +366,7 @@ impl InventoryItem {
             DbInventoryItemRow,
             DbInventoryItemRows,
             Self,
+            RunError,
             r#"SELECT
                     item.id AS id,
                     item.name AS name,
@@ -384,8 +400,12 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn name_exists(ctx: &Context, pool: &database::Pool, name: &str) -> Result<bool, Error> {
-        crate::query_exists!(
+    pub async fn name_exists(
+        ctx: &Context,
+        pool: &database::Pool,
+        name: &str,
+    ) -> Result<bool, RunError> {
+        database::query_exists!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
@@ -403,13 +423,14 @@ impl InventoryItem {
     }
 
     #[tracing::instrument]
-    pub async fn delete(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<bool, Error> {
-        let results = crate::execute!(
+    pub async fn delete(ctx: &Context, pool: &database::Pool, id: Uuid) -> Result<bool, RunError> {
+        let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
                 component: database::Component::Inventory,
             },
             pool,
+            RunError,
             "DELETE FROM inventory_items
             WHERE
                 id = $1
@@ -429,9 +450,9 @@ impl InventoryItem {
         id: Uuid,
         name: &str,
         weight: u32,
-    ) -> Result<Uuid, Error> {
+    ) -> Result<Uuid, RunError> {
         let weight = i32::try_from(weight).unwrap();
-        crate::execute_returning_uuid!(
+        database::execute_returning_uuid!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
                 component: database::Component::Inventory,
@@ -461,16 +482,17 @@ impl InventoryItem {
         name: &str,
         category_id: Uuid,
         weight: u32,
-    ) -> Result<Uuid, Error> {
+    ) -> Result<Uuid, RunError> {
         let id = Uuid::new_v4();
         let weight = i32::try_from(weight).unwrap();
 
-        crate::execute!(
+        database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Inventory,
             },
             pool,
+            RunError,
             "INSERT INTO inventory_items
                 (id, name, description, weight, category_id, user_id)
             VALUES
@@ -492,13 +514,14 @@ impl InventoryItem {
         ctx: &Context,
         pool: &database::Pool,
         category_id: Uuid,
-    ) -> Result<i32, Error> {
-        let weight = crate::execute_returning!(
+    ) -> Result<i32, RunError> {
+        let weight = database::execute_returning!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
             },
             pool,
+            RunError,
             "
                 SELECT COALESCE(MAX(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
@@ -538,7 +561,7 @@ pub struct DbInventoryItemsRow {
 }
 
 impl TryFrom<DbInventoryItemsRow> for Item {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -557,13 +580,14 @@ impl Item {
         ctx: &Context,
         pool: &database::Pool,
         category_id: Uuid,
-    ) -> Result<i32, Error> {
-        crate::execute_returning!(
+    ) -> Result<i32, RunError> {
+        database::execute_returning!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Inventory,
             },
             pool,
+            RunError,
             "
                 SELECT COALESCE(SUM(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category

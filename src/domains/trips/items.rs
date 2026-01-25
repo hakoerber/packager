@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     htmx,
     routing::{get_referer, html},
-    AppState, Context, Error, RequestError,
+    AppState, Context, RunError, RequestError,
 };
 
 use super::{model, view};
@@ -23,11 +23,11 @@ async fn trip_row(
     state: &AppState,
     trip_id: Uuid,
     item_id: Uuid,
-) -> Result<impl IntoResponse + use<>, Error> {
+) -> Result<impl IntoResponse + use<>, RunError> {
     let item = model::TripItem::find(ctx, &state.database_pool, trip_id, item_id)
         .await?
         .ok_or_else(|| {
-            Error::Request(RequestError::NotFound {
+            RunError::Request(RequestError::NotFound {
                 message: format!("item with id {item_id} not found for trip {trip_id}"),
             })
         })?;
@@ -47,7 +47,7 @@ async fn trip_row(
         model::TripCategory::find(ctx, &state.database_pool, trip_id, item.item.category_id)
             .await?
             .ok_or_else(|| {
-                Error::Request(RequestError::NotFound {
+                RunError::Request(RequestError::NotFound {
                     message: format!("category with id {} not found", item.item.category_id),
                 })
             })?;
@@ -64,9 +64,9 @@ async fn set_item_pick(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
-    Ok::<_, Error>(
+    Ok::<_, RunError>(
         model::trip_item_set_state(
             &ctx,
             &state.database_pool,
@@ -77,7 +77,7 @@ async fn set_item_pick(
         )
         .await?,
     )
-    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, RunError> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -85,7 +85,7 @@ async fn set_item_pick_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -110,9 +110,9 @@ async fn set_item_unpick(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
-    Ok::<_, Error>(
+    Ok::<_, RunError>(
         model::trip_item_set_state(
             &ctx,
             &state.database_pool,
@@ -123,7 +123,7 @@ async fn set_item_unpick(
         )
         .await?,
     )
-    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, RunError> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -131,7 +131,7 @@ async fn set_item_unpick_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -156,9 +156,9 @@ async fn set_item_pack(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
-    Ok::<_, Error>(
+    Ok::<_, RunError>(
         model::trip_item_set_state(
             &ctx,
             &state.database_pool,
@@ -169,7 +169,7 @@ async fn set_item_pack(
         )
         .await?,
     )
-    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, RunError> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -177,7 +177,7 @@ async fn set_item_pack_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -202,9 +202,9 @@ async fn set_item_unpack(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
-    Ok::<_, Error>(
+    Ok::<_, RunError>(
         model::trip_item_set_state(
             &ctx,
             &state.database_pool,
@@ -215,7 +215,7 @@ async fn set_item_unpack(
         )
         .await?,
     )
-    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, RunError> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -223,7 +223,7 @@ async fn set_item_unpack_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -248,9 +248,9 @@ async fn set_item_ready(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
-    Ok::<_, Error>(
+    Ok::<_, RunError>(
         model::trip_item_set_state(
             &ctx,
             &state.database_pool,
@@ -261,7 +261,7 @@ async fn set_item_ready(
         )
         .await?,
     )
-    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, RunError> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -269,7 +269,7 @@ async fn set_item_ready_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -294,9 +294,9 @@ async fn set_item_unready(
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, RunError> {
     let ctx = Context::build(current_user);
-    Ok::<_, Error>(
+    Ok::<_, RunError>(
         model::trip_item_set_state(
             &ctx,
             &state.database_pool,
@@ -307,7 +307,7 @@ async fn set_item_unready(
         )
         .await?,
     )
-    .map(|()| -> Result<Redirect, Error> { Ok(Redirect::to(get_referer(&headers)?)) })?
+    .map(|()| -> Result<Redirect, RunError> { Ok(Redirect::to(get_referer(&headers)?)) })?
 }
 
 #[tracing::instrument]
@@ -315,7 +315,7 @@ async fn set_item_unready_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,

@@ -1442,6 +1442,7 @@ dependencies = [
  "serde",
  "serde_variant",
  "sha2",
+ "sqlx",
  "time",
  "tokio",
  "tonic",

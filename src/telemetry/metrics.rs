@@ -6,7 +6,7 @@ use axum::routing::get;
 use axum_prometheus::PrometheusMetricLayerBuilder;
 use tokio::net::TcpListener;
 
-use crate::{Error, StartError};
+use crate::StartError;
 
 /// Serves metrics on the specified `addr`.
 ///
@@ -15,7 +15,7 @@ use crate::{Error, StartError};
 pub fn prometheus_server(
     router: Router,
     addr: std::net::SocketAddr,
-) -> (Router, impl Future<Output = Result<(), Error>>) {
+) -> (Router, impl Future<Output = Result<(), StartError>>) {
     let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
         .with_prefix(env!("CARGO_PKG_NAME"))
         .with_default_metrics()
@@ -25,12 +25,12 @@ pub fn prometheus_server(
 
     let task = async move {
         axum::serve(
-            TcpListener::bind(addr).await.map_err(|e| {
-                Error::Start(StartError::Bind {
+            TcpListener::bind(addr)
+                .await
+                .map_err(|e| StartError::Bind {
                     addr,
                     message: e.to_string(),
-                })
-            })?,
+                })?,
             app,
         )
         .await

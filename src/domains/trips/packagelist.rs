@@ -7,7 +7,7 @@ use axum::{
 
 use uuid::Uuid;
 
-use crate::{AppState, Context, Error, RequestError, TopLevelPage};
+use crate::{AppState, Context, RunError, RequestError, TopLevelPage};
 
 use super::{model, view};
 use crate::models::User;
@@ -17,11 +17,11 @@ pub async fn base(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path(trip_id): Path<Uuid>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     let mut trip = model::Trip::find(&ctx, &state.database_pool, trip_id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("trip with id {trip_id} not found"),
         }))?;
 
@@ -39,7 +39,7 @@ pub async fn set_item_pack_html(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -53,7 +53,7 @@ pub async fn set_item_pack_html(
 
     let item = model::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
@@ -67,7 +67,7 @@ pub async fn set_item_unpack_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -83,7 +83,7 @@ pub async fn set_item_unpack_htmx(
     // return 404. but error handling cannot hurt ;)
     let item = model::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
@@ -97,7 +97,7 @@ pub async fn set_item_ready_htmx(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -111,7 +111,7 @@ pub async fn set_item_ready_htmx(
 
     let item = model::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 
@@ -125,7 +125,7 @@ pub async fn set_item_unready_html(
     Extension(current_user): Extension<User>,
     State(state): State<AppState>,
     Path((trip_id, item_id)): Path<(Uuid, Uuid)>,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, RunError> {
     let ctx = Context::build(current_user);
     model::trip_item_set_state(
         &ctx,
@@ -141,7 +141,7 @@ pub async fn set_item_unready_html(
     // return 404. but error handling cannot hurt ;)
     let item = model::TripItem::find(&ctx, &state.database_pool, trip_id, item_id)
         .await?
-        .ok_or(Error::Request(RequestError::NotFound {
+        .ok_or(RunError::Request(RequestError::NotFound {
             message: format!("an item with id {item_id} does not exist"),
         }))?;
 

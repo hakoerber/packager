@@ -5,7 +5,7 @@ pub mod trips;
 pub mod crud {
     use async_trait::async_trait;
 
-    use crate::{Context, error::Error};
+    use crate::{Context, error::RunError};
 
     #[async_trait]
     pub trait Create: Sized {
@@ -20,7 +20,7 @@ pub mod crud {
             pool: &database::Pool,
             container: Self::Container,
             info: Self::Info,
-        ) -> Result<Self::Id, Error>;
+        ) -> Result<Self::Id, RunError>;
     }
 
     #[async_trait]
@@ -32,13 +32,13 @@ pub mod crud {
             ctx: &Context,
             pool: &database::Pool,
             container: Self::Container,
-        ) -> Result<Vec<Self>, Error>;
+        ) -> Result<Vec<Self>, RunError>;
 
         async fn find(
             ctx: &Context,
             pool: &database::Pool,
             reference: Self::Reference,
-        ) -> Result<Option<Self>, Error>;
+        ) -> Result<Option<Self>, RunError>;
     }
 
     #[async_trait]
@@ -51,7 +51,7 @@ pub mod crud {
             pool: &database::Pool,
             reference: Self::Reference,
             update: Self::UpdateElement,
-        ) -> Result<Option<Self>, Error>;
+        ) -> Result<Option<Self>, RunError>;
     }
 
     pub trait Container {
@@ -71,7 +71,7 @@ pub mod crud {
             ctx: &Context,
             db: T,
             reference: &Self::Reference,
-        ) -> Result<bool, Error>
+        ) -> Result<bool, RunError>
         where
             // we require something that allows us to get something that implements
             // executor from an SQLx database
@@ -90,7 +90,7 @@ pub mod crud {
             pool: &'c database::Pool,
             container: Self::Container,
             ids: Vec<Self::Id>,
-        ) -> Result<bool, Error> {
+        ) -> Result<bool, RunError> {
             use sqlx::Acquire as _;
 
             let mut transaction = pool.begin().await?;
@@ -118,7 +118,7 @@ pub mod crud {
             pool: &database::Pool,
             reference: Self::Reference,
             value: bool,
-        ) -> Result<(), crate::Error>;
+        ) -> Result<(), crate::RunError>;
     }
 }
 
@@ -158,7 +158,7 @@ pub mod route {
             headers: HeaderMap,
             path: Path<Self::UrlParams>,
             form: Form<Self::Form>,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
     }
 
     #[async_trait]
@@ -175,7 +175,7 @@ pub mod route {
             headers: HeaderMap,
             query: Query<Self::QueryParams>,
             path: Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
     }
 
     #[async_trait]
@@ -191,7 +191,7 @@ pub mod route {
             state: State<AppState>,
             headers: HeaderMap,
             path: Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
 
         async fn save(
             user: Extension<User>,
@@ -199,14 +199,14 @@ pub mod route {
             headers: HeaderMap,
             path: Path<Self::UrlParams>,
             form: Form<Self::UpdateForm>,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
 
         async fn cancel(
             user: Extension<User>,
             state: State<AppState>,
             headers: HeaderMap,
             path: Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
     }
 
     #[async_trait]
@@ -222,14 +222,14 @@ pub mod route {
             headers: HeaderMap,
             params: Self::UrlParams,
             value: bool,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
 
         async fn set_true(
             Extension(user): Extension<User>,
             State(state): State<AppState>,
             headers: HeaderMap,
             Path(path): Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error> {
+        ) -> Result<Response<Body>, crate::RunError> {
             <Self as ToggleFallback>::set(user, state, headers, path, true).await
         }
 
@@ -238,7 +238,7 @@ pub mod route {
             State(state): State<AppState>,
             headers: HeaderMap,
             Path(path): Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error> {
+        ) -> Result<Response<Body>, crate::RunError> {
             <Self as ToggleFallback>::set(user, state, headers, path, false).await
         }
 
@@ -257,19 +257,19 @@ pub mod route {
             state: AppState,
             params: Self::UrlParams,
             value: bool,
-        ) -> Result<(crate::Context, AppState, Self::UrlParams), crate::Error>;
+        ) -> Result<(crate::Context, AppState, Self::UrlParams), crate::RunError>;
 
         async fn response(
             ctx: &crate::Context,
             state: AppState,
             params: Self::UrlParams,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
 
         async fn on(
             Extension(user): Extension<User>,
             State(state): State<AppState>,
             Path(path): Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error> {
+        ) -> Result<Response<Body>, crate::RunError> {
             let (ctx, state, params) = <Self as ToggleHtmx>::set(user, state, path, true).await?;
             <Self as ToggleHtmx>::response(&ctx, state, params).await
         }
@@ -278,7 +278,7 @@ pub mod route {
             Extension(user): Extension<User>,
             State(state): State<AppState>,
             Path(path): Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error> {
+        ) -> Result<Response<Body>, crate::RunError> {
             let (ctx, state, params) = <Self as ToggleHtmx>::set(user, state, path, false).await?;
             <Self as ToggleHtmx>::response(&ctx, state, params).await
         }
@@ -305,7 +305,7 @@ pub mod route {
             state: State<AppState>,
             headers: HeaderMap,
             path: Path<Self::UrlParams>,
-        ) -> Result<Response<Body>, crate::Error>;
+        ) -> Result<Response<Body>, crate::RunError>;
     }
 
     pub trait Router: Create + Delete {

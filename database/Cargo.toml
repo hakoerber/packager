@@ -8,16 +8,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies.sqlx]
-version = "*"
-default-features = false
-features = [
-    "macros",
-    "migrate",
-    "postgres",
-    "runtime-tokio-rustls",
-    "time",
-    "uuid",
-]
+workspace = true
 
 [dependencies.base64]
 version = "*"

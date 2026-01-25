@@ -1,13 +1,10 @@
 use std::fmt;
 
-use crate::domains::crud::Read;
-
 use crate::{
-    domains::inventory,
-    error::{DataError, DatabaseError, Error, QueryError},
+    Context,
+    domains::{crud::Read, inventory},
+    error::{DataError, QueryError, RunError},
 };
-
-use crate::{Context, db};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -55,18 +52,13 @@ impl From<sqlx::postgres::types::PgRange<time::Date>> for TripDate {
 }
 
 impl TryFrom<TripDate> for sqlx::postgres::types::PgRange<time::Date> {
-    type Error = Error;
+    type Error = RunError;
 
-    fn try_from(value: TripDate) -> Result<Self, Error> {
-        Ok(Self {
-            start: core::ops::Bound::Included(value.start),
-            end: core::ops::Bound::Excluded(value.end.next_day().ok_or_else(|| {
-                DatabaseError::Database(DataError::Overflow {
-                    description: "upper bound is Date::MAX, would overflow exclusive upper bound"
-                        .into(),
-                })
-            })?),
-        })
+    fn try_from(value: TripDate) -> Result<Self, RunError> {
+        Ok(database::types::try_into_date_range(
+            value.start,
+            value.end,
+        )?)
     }
 }
 
@@ -90,7 +82,7 @@ pub async fn trip_item_set_state(
     item_id: Uuid,
     key: TripItemStateKey,
     value: bool,
-) -> Result<(), Error> {
+) -> Result<(), RunError> {
     TripItem::set_state(ctx, pool, trip_id, item_id, key, value).await
 }
 
@@ -144,25 +136,21 @@ impl fmt::Display for TripState {
 }
 
 impl std::convert::TryFrom<&str> for TripState {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(match value {
-            "Init" => Self::Init,
-            "Planning" => Self::Planning,
-            "Planned" => Self::Planned,
-            "Active" => Self::Active,
-            "Review" => Self::Review,
-            "Done" => Self::Done,
-            _ => {
-                return Err(Error::Database(
-                    DataError::Enum {
-                        description: format!("{value} is not a valid value for TripState"),
-                    }
-                    .into(),
-                ));
-            }
-        })
+        Ok(database::types::try_into_enum(
+            value,
+            |value| match value {
+                "Init" => Some(Self::Init),
+                "Planning" => Some(Self::Planning),
+                "Planned" => Some(Self::Planned),
+                "Active" => Some(Self::Active),
+                "Review" => Some(Self::Review),
+                "Done" => Some(Self::Done),
+                _ => None,
+            },
+        )?)
     }
 }
 
@@ -211,7 +199,7 @@ impl TripCategory {
         pool: &database::Pool,
         trip_id: Uuid,
         category_id: Uuid,
-    ) -> Result<Option<Self>, Error> {
+    ) -> Result<Option<Self>, RunError> {
         struct Row {
             category_id: Uuid,
             category_name: String,
@@ -233,7 +221,7 @@ impl TripCategory {
         }
 
         impl TryFrom<Row> for RowParsed {
-            type Error = Error;
+            type Error = RunError;
 
             fn try_from(row: Row) -> Result<Self, Self::Error> {
                 let category = inventory::Category {
@@ -267,7 +255,7 @@ impl TripCategory {
             }
         }
 
-        let mut rows = crate::query_all!(
+        let mut rows = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -275,6 +263,7 @@ impl TripCategory {
             pool,
             Row,
             RowParsed,
+            RunError,
             r"
                 WITH category_items AS (
                      SELECT
@@ -368,7 +357,7 @@ pub struct DbTripsItemsRow {
 }
 
 impl TryFrom<DbTripsItemsRow> for TripItem {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbTripsItemsRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -394,8 +383,8 @@ impl TripItem {
         pool: &database::Pool,
         trip_id: Uuid,
         item_id: Uuid,
-    ) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+    ) -> Result<Option<Self>, RunError> {
+        database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -403,6 +392,7 @@ impl TripItem {
             pool,
             DbTripsItemsRow,
             Self,
+            RunError,
             "
                 SELECT
                     t_item.item_id AS id,
@@ -436,15 +426,16 @@ impl TripItem {
         item_id: Uuid,
         key: TripItemStateKey,
         value: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RunError> {
         let result = match key {
             TripItemStateKey::Pick => {
-                crate::execute!(
+                database::execute!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
                         component: database::Component::Trips,
                     },
                     pool,
+                    RunError,
                     "UPDATE trip_items
                         SET pick = $1
                         WHERE trip_id = $2
@@ -458,12 +449,13 @@ impl TripItem {
                 .await
             }
             TripItemStateKey::Pack => {
-                crate::execute!(
+                database::execute!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
                         component: database::Component::Trips,
                     },
                     pool,
+                    RunError,
                     "UPDATE trip_items
                         SET pack = $1
                         WHERE trip_id = $2
@@ -477,12 +469,13 @@ impl TripItem {
                 .await
             }
             TripItemStateKey::Ready => {
-                crate::execute!(
+                database::execute!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
                         component: database::Component::Trips,
                     },
                     pool,
+                    RunError,
                     "UPDATE trip_items
                         SET ready = $1
                         WHERE trip_id = $2
@@ -498,7 +491,7 @@ impl TripItem {
         }?;
 
         (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-            crate::database::error::Error::Query(QueryError::NotFound {
+            RunError::Data(DataError::NotFound {
                 description: format!("item {item_id} not found for trip {trip_id}"),
             })
             .into()
@@ -518,7 +511,7 @@ pub struct DbTripRow {
 }
 
 impl TryFrom<DbTripRow> for Trip {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbTripRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -590,13 +583,14 @@ macro_rules! build_trip_edit {
                     pool: &database::Pool,
                     trip_id: Uuid,
                     value: $type,
-                ) -> Result<(), Error> {
-                    let result = crate::execute_unchecked!(
+                ) -> Result<(), RunError> {
+                    let result = database::execute_unchecked!(
                         &database::QueryClassification {
                             query_type: database::QueryType::Update,
                             component: database::Component::Trips,
                         },
                         pool,
+                        RunError,
                         concat!(
                             "UPDATE trips ",
                                 "SET ", stringify!($( $id ).*), " = $1 ",
@@ -609,7 +603,7 @@ macro_rules! build_trip_edit {
                     .await?;
 
                     (result.rows_affected() != 0).then_some(()).ok_or_else(|| {
-                        Error::Database(QueryError::NotFound {
+                        RunError::Database(QueryError::NotFound {
                             description: format!("trip {trip_id} not found"),
                         }.into())
                     })
@@ -657,7 +651,7 @@ macro_rules! build_trip_edit {
             use serde::Deserialize;
             use uuid::Uuid;
 
-            use crate::{AppState, models, Error, Context};
+            use crate::{AppState, models, RunError, Context};
 
             $(
                 paste::paste! {
@@ -686,7 +680,7 @@ macro_rules! build_trip_edit {
                         State(state): State<AppState>,
                         Path((trip_id,)): Path<(Uuid,)>,
                         Form(trip_update): Form<[< TripEditUpdate $name >]>,
-                    ) -> Result<Redirect, Error> {
+                    ) -> Result<Redirect, RunError> {
                         let ctx = Context::build(current_user);
                         super::[<set_attribute_ $name:lower >](&ctx, &state.database_pool, trip_id, trip_update.into())
                             .await?;
@@ -721,8 +715,8 @@ build_trip_edit! {
 
 impl Trip {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &database::Pool) -> Result<Vec<Self>, Error> {
-        let mut trips = crate::query_all!(
+    pub async fn all(ctx: &Context, pool: &database::Pool) -> Result<Vec<Self>, RunError> {
+        let mut trips = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -730,6 +724,7 @@ impl Trip {
             pool,
             DbTripRow,
             Self,
+            RunError,
             r#"SELECT
                 id,
                 name,
@@ -754,8 +749,8 @@ impl Trip {
         ctx: &Context,
         pool: &database::Pool,
         trip_id: Uuid,
-    ) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+    ) -> Result<Option<Self>, RunError> {
+        database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -763,6 +758,7 @@ impl Trip {
             pool,
             DbTripRow,
             Self,
+            RunError,
             r#"SELECT
                 id,
                 name,
@@ -786,13 +782,14 @@ impl Trip {
         pool: &database::Pool,
         id: Uuid,
         type_id: Uuid,
-    ) -> Result<bool, Error> {
-        let results = crate::execute!(
+    ) -> Result<bool, RunError> {
+        let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "DELETE FROM trip_to_trip_types AS ttt
             WHERE ttt.trip_id = $1
                 AND ttt.trip_type_id = $2
@@ -814,15 +811,16 @@ impl Trip {
         pool: &database::Pool,
         id: Uuid,
         type_id: Uuid,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RunError> {
         // TODO user handling?
 
-        crate::execute!(
+        database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "INSERT INTO
                 trip_to_trip_types (trip_id, trip_type_id)
             (SELECT trips.id as trip_id, trip_types.id as trip_type_id
@@ -848,13 +846,14 @@ impl Trip {
         pool: &database::Pool,
         id: Uuid,
         new_state: &TripState,
-    ) -> Result<bool, Error> {
-        let result = crate::execute!(
+    ) -> Result<bool, RunError> {
+        let result = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "UPDATE trips
             SET state = $1
             WHERE id = $2 and user_id = $3",
@@ -873,13 +872,14 @@ impl Trip {
         pool: &database::Pool,
         id: Uuid,
         new_comment: &str,
-    ) -> Result<bool, Error> {
-        let result = crate::execute!(
+    ) -> Result<bool, RunError> {
+        let result = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "UPDATE trips
             SET comment = $1
             WHERE id = $2 AND user_id = $3",
@@ -899,7 +899,7 @@ impl Trip {
         name: &str,
         date: TripDate,
         copy_from: Option<Uuid>,
-    ) -> Result<Uuid, Error> {
+    ) -> Result<Uuid, RunError> {
         let id = Uuid::new_v4();
 
         let trip_state = TripState::new();
@@ -908,12 +908,13 @@ impl Trip {
 
         println!("date: {date:?}");
 
-        crate::execute!(
+        database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Trips,
             },
             &mut *transaction,
+            RunError,
             "INSERT INTO trips
                 (id, name, date, state, user_id)
             VALUES
@@ -927,12 +928,13 @@ impl Trip {
         .await?;
 
         if let Some(copy_from_trip_id) = copy_from {
-            crate::execute!(
+            database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
                     component: database::Component::Trips,
                 },
                 &mut *transaction,
+                RunError,
                 r"INSERT INTO trip_items (
                     item_id,
                     trip_id,
@@ -957,12 +959,13 @@ impl Trip {
             )
             .await?;
         } else {
-            crate::execute!(
+            database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
                     component: database::Component::Trips,
                 },
                 &mut *transaction,
+                RunError,
                 r"INSERT INTO trip_items (
                     item_id,
                     trip_id,
@@ -997,13 +1000,14 @@ impl Trip {
         ctx: &Context,
         pool: &database::Pool,
         trip_id: Uuid,
-    ) -> Result<i32, Error> {
-        let weight = crate::execute_returning!(
+    ) -> Result<i32, RunError> {
+        let weight = database::execute_returning!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "
                 SELECT
                     CAST(COALESCE(SUM(i_item.weight), 0) AS INTEGER) AS total_weight
@@ -1062,7 +1066,11 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_todos(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
+    pub async fn load_todos(
+        &mut self,
+        ctx: &Context,
+        pool: &database::Pool,
+    ) -> Result<(), RunError> {
         self.todos = Some(
             crate::domains::trips::todos::Todo::findall(
                 ctx,
@@ -1075,8 +1083,12 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_trip_types(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
-        let types = crate::query_all!(
+    pub async fn load_trip_types(
+        &mut self,
+        ctx: &Context,
+        pool: &database::Pool,
+    ) -> Result<(), RunError> {
+        let types = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -1084,6 +1096,7 @@ impl Trip {
             pool,
             TripTypeRow,
             TripType,
+            RunError,
             r#"
             WITH trips AS (
                 SELECT type.id as id, trip.user_id as user_id
@@ -1117,7 +1130,7 @@ impl Trip {
         &self,
         ctx: &Context,
         pool: &database::Pool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RunError> {
         // we need to get all items that are part of the inventory but not
         // part of the trip items
         //
@@ -1134,14 +1147,14 @@ impl Trip {
         }
 
         impl TryFrom<Row> for Uuid {
-            type Error = Error;
+            type Error = RunError;
 
             fn try_from(value: Row) -> Result<Self, Self::Error> {
                 Ok(value.item_id)
             }
         }
 
-        let unsynced_items: Vec<Uuid> = crate::query_all!(
+        let unsynced_items: Vec<Uuid> = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -1149,6 +1162,7 @@ impl Trip {
             pool,
             Row,
             Uuid,
+            RunError,
             "
             SELECT
                 i_item.id AS item_id
@@ -1169,12 +1183,13 @@ impl Trip {
         let mark_as_new = self.state < TripState::Active;
 
         for unsynced_item in &unsynced_items {
-            crate::execute!(
+            database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
                     component: database::Component::Trips,
                 },
                 pool,
+                RunError,
                 "
                 INSERT INTO trip_items
                     (
@@ -1205,7 +1220,11 @@ impl Trip {
     }
 
     #[tracing::instrument]
-    pub async fn load_categories(&mut self, ctx: &Context, pool: &database::Pool) -> Result<(), Error> {
+    pub async fn load_categories(
+        &mut self,
+        ctx: &Context,
+        pool: &database::Pool,
+    ) -> Result<(), RunError> {
         let mut categories: Vec<TripCategory> = vec![];
         // we can ignore the return type as we collect into `categories`
         // in the `map_ok()` closure
@@ -1230,7 +1249,7 @@ impl Trip {
         }
 
         impl TryFrom<Row> for RowParsed {
-            type Error = Error;
+            type Error = RunError;
 
             fn try_from(row: Row) -> Result<Self, Self::Error> {
                 let category = inventory::Category {
@@ -1264,7 +1283,7 @@ impl Trip {
             }
         }
 
-        let rows = crate::query_all!(
+        let rows = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -1272,6 +1291,7 @@ impl Trip {
             pool,
             Row,
             RowParsed,
+            RunError,
             r"
                 WITH trip_items AS (
                     SELECT
@@ -1413,7 +1433,7 @@ struct TripTypeRow {
 }
 
 impl TryFrom<TripTypeRow> for TripType {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: TripTypeRow) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -1426,8 +1446,8 @@ impl TryFrom<TripTypeRow> for TripType {
 
 impl TripsType {
     #[tracing::instrument]
-    pub async fn all(ctx: &Context, pool: &database::Pool) -> Result<Vec<Self>, Error> {
-        crate::query_all!(
+    pub async fn all(ctx: &Context, pool: &database::Pool) -> Result<Vec<Self>, RunError> {
+        database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Trips,
@@ -1435,6 +1455,7 @@ impl TripsType {
             pool,
             DbTripsTypesRow,
             Self,
+            RunError,
             "SELECT
                 id,
                 name
@@ -1446,14 +1467,15 @@ impl TripsType {
     }
 
     #[tracing::instrument]
-    pub async fn save(ctx: &Context, pool: &database::Pool, name: &str) -> Result<Uuid, Error> {
+    pub async fn save(ctx: &Context, pool: &database::Pool, name: &str) -> Result<Uuid, RunError> {
         let id = Uuid::new_v4();
-        crate::execute!(
+        database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "INSERT INTO trip_types
                 (id, name, user_id)
             VALUES
@@ -1473,13 +1495,14 @@ impl TripsType {
         pool: &database::Pool,
         id: Uuid,
         new_name: &str,
-    ) -> Result<bool, Error> {
-        let result = crate::execute!(
+    ) -> Result<bool, RunError> {
+        let result = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "UPDATE trip_types
             SET name = $1
             WHERE id = $2 and user_id = $3",
@@ -1512,7 +1535,7 @@ pub struct TripsType {
 }
 
 impl TryFrom<DbTripsTypesRow> for TripsType {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbTripsTypesRow) -> Result<Self, Self::Error> {
         Ok(Self {

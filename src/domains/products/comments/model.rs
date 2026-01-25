@@ -1,4 +1,4 @@
-use crate::{Context, RequestError, db, error::Error};
+use crate::{Context, RequestError, RunError};
 
 use serde::Deserialize;
 use uuid::Uuid;
@@ -10,7 +10,7 @@ pub struct DbComment {
 }
 
 impl TryFrom<DbComment> for Comment {
-    type Error = Error;
+    type Error = RunError;
 
     fn try_from(row: DbComment) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -36,8 +36,8 @@ impl Comment {
         pool: &database::Pool,
         product_id: Uuid,
         new_comment: NewComment,
-    ) -> Result<Uuid, Error> {
-        crate::execute_returning_uuid!(
+    ) -> Result<Uuid, RunError> {
+        database::execute_returning_uuid!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
                 component: database::Component::Inventory,
@@ -60,13 +60,14 @@ impl Comment {
         pool: &database::Pool,
         product_id: Uuid,
         comment_id: Uuid,
-    ) -> Result<bool, Error> {
-        let results = crate::execute!(
+    ) -> Result<bool, RunError> {
+        let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
                 component: database::Component::Trips,
             },
             pool,
+            RunError,
             "DELETE FROM product_comments AS comment
             WHERE comment.product_id = $1
                 AND comment.id = $2
@@ -87,8 +88,8 @@ impl Comment {
         pool: &database::Pool,
         product_id: Uuid,
         comment_id: Uuid,
-    ) -> Result<Option<Self>, Error> {
-        crate::query_one!(
+    ) -> Result<Option<Self>, RunError> {
+        database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
                 component: database::Component::Todo,
@@ -96,6 +97,7 @@ impl Comment {
             pool,
             DbComment,
             Self,
+            RunError,
             r"
                 SELECT
                     comment.id AS id,
@@ -123,8 +125,8 @@ impl Comment {
         product_id: Uuid,
         comment_id: Uuid,
         update_comment: UpdateComment,
-    ) -> Result<(), Error> {
-        let result: Result<_, Error> = crate::execute_returning_optional_uuid!(
+    ) -> Result<(), RunError> {
+        let result: Result<_, RunError> = database::execute_returning_optional_uuid!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
                 component: database::Component::Inventory,
@@ -147,7 +149,7 @@ impl Comment {
 
         let _id = result.map(|e| {
             e.ok_or_else(|| {
-                Error::Request(RequestError::NotFound {
+                RunError::Request(RequestError::NotFound {
                     message: format!("comment with id {comment_id} not found"),
                 })
             })
