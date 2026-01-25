@@ -3,8 +3,6 @@ use url::Url;
 
 use super::error::InitError;
 
-use tracing::Instrument as _;
-
 pub struct DB;
 
 impl DB {
@@ -16,33 +14,27 @@ impl DB {
 }
 
 impl super::Database for DB {
-    type Pool = sqlx::Pool<sqlx::Postgres>;
+    type Pool = crate::Pool;
 
     #[tracing::instrument]
     async fn init_database_pool(url: &str) -> Result<Self::Pool, InitError> {
-        async {
+        Ok(crate::Pool({
             let options = Self::opts(url)?;
 
             PgPool::connect_with(options)
                 .await
-                .map_err(Into::<InitError>::into)
-        }
-        .instrument(tracing::info_span!("packager::sql::pool"))
-        .await
+                .map_err(Into::<InitError>::into)?
+        }))
     }
 
     #[tracing::instrument]
     async fn migrate(url: &str) -> Result<(), InitError> {
-        async {
-            let pool = PgPool::connect_with(Self::opts(url)?).await?;
+        let pool = PgPool::connect_with(Self::opts(url)?).await?;
 
-            sqlx::migrate!("../migrations")
-                .run(&pool)
-                .await
-                .map_err(Into::<InitError>::into)
-        }
-        .instrument(tracing::info_span!("packager::sql::migrate"))
-        .await?;
+        sqlx::migrate!("../migrations")
+            .run(&pool)
+            .await
+            .map_err(Into::<InitError>::into)?;
 
         Ok(())
     }

@@ -575,7 +575,7 @@ impl TryFrom<DbInventoryItemsRow> for Item {
 }
 
 impl Item {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(pool))]
     pub async fn _get_category_total_picked_weight(
         ctx: &Context,
         pool: &database::Pool,

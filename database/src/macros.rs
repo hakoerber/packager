@@ -1,11 +1,93 @@
 #[macro_export]
+macro_rules! query_many_to_many_single {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )* ) => {
+        {
+            use tracing::Instrument as _;
+            use futures::TryStreamExt as _;
+            async {
+                $crate::telemetry::track_query($class, $query, &[]);
+                let result: Vec<$struct_row> = sqlx::query_as!(
+                    $struct_row,
+                    $query,
+                    $( $args )*
+                )
+                .fetch($pool)
+                .try_collect::<Vec<$struct_row>>()
+                .await?;
+
+                if result.is_empty() {
+                    Ok(None)
+                } else {
+                    let out: $struct_rows = result.into();
+                    let out: $struct_into = <_ as TryInto<$struct_into>>::try_into(out)?;
+                    Ok::<_, $error_type>(Some(out))
+                }
+
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! query_one {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )*) => {
+
+        {
+            use tracing::Instrument as _;
+
+            async {
+                $crate::telemetry::track_query($class, $query, &[]);
+                let result: Result<Option<$struct_into>, $error_type> = sqlx::query_as!(
+                    $struct_row,
+                    $query,
+                    $( $args )*
+                )
+                .fetch_optional($pool)
+                .await?
+                .map(|row: $struct_row| <_ as TryInto<$struct_into>>::try_into(row))
+                .transpose();
+
+                result
+
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! query_one_file {
+    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $path:literal, $( $args:tt )*) => {
+
+        {
+            use tracing::Instrument as _;
+
+            async {
+                $crate::telemetry::track_query_file($class, $path, &[]);
+                let result: Result<Option<$struct_into>, $error_type> = sqlx::query_file_as!(
+                    $struct_row,
+                    $path,
+                    $( $args )*
+                )
+                .fetch_optional($pool)
+                .await?
+                .map(|row: $struct_row| <_ as TryInto<$struct_into>>::try_into(row))
+                .transpose();
+
+                result
+
+            }.instrument(tracing::info_span!("packager::sql::query", "query"))
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! query_all {
     ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )* ) => {
         {
             use tracing::Instrument as _;
             use futures::TryStreamExt as _;
             async {
-                $crate::sqlx_query($class, $query, &[]);
+                $crate::telemetry::track_query($class, $query, &[]);
                 let result: Result<Vec<$struct_into>, $error_type> = sqlx::query_as!(
                     $struct_row,
                     $query,
@@ -31,7 +113,7 @@ macro_rules! query_exists {
         {
             use tracing::Instrument as _;
             async {
-                $crate::sqlx_query($class, $query, &[]);
+                $crate::telemetry::track_query($class, $query, &[]);
                 let result: bool = sqlx::query!(
                     $query,
                     $( $args )*
@@ -53,7 +135,7 @@ macro_rules! execute {
         {
             use tracing::Instrument as _;
             async {
-                $crate::sqlx_query($class, $query, &[]);
+                $crate::telemetry::track_query($class, $query, &[]);
                 let result: Result<database::QueryResult, $error_type> = sqlx::query!(
                     $query,
                     $( $args ),*
@@ -76,7 +158,7 @@ macro_rules! execute_returning {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
-                $crate::sqlx_query($class, $query, &[]);
+                $crate::telemetry::track_query($class, $query, &[]);
                 let result: Result<$t, $error_type> = sqlx::query!(
                     $query,
                     $( $args, )*
@@ -101,7 +183,7 @@ macro_rules! execute_returning_uuid {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
-                $crate::sqlx_query($class, $query, &[]);
+                $crate::telemetry::track_query($class, $query, &[]);
                 let result: Uuid = sqlx::query!(
                     $query,
                     $( $args ),*
@@ -123,7 +205,7 @@ macro_rules! execute_returning_optional_uuid {
             use tracing::Instrument as _;
             use futures::TryFutureExt as _;
             async {
-                $crate::sqlx_query($class, $query, &[]);
+                $crate::telemetry::track_query($class, $query, &[]);
                 let result: Option<Uuid> = sqlx::query!(
                     $query,
                     $( $args ),*

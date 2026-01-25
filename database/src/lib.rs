@@ -1,14 +1,20 @@
-use base64::Engine as _;
-use sha2::{Digest, Sha256};
-use sqlx::postgres::PgQueryResult;
-use std::fmt;
+use std::{fmt, pin::Pin};
+
+use futures::Stream;
+use sqlx::{
+    Acquire, Execute, Executor, Transaction,
+    pool::PoolConnection,
+    postgres::{PgQueryResult, PgRow, PgStatement},
+};
 
 pub mod error;
 mod macros;
 pub mod postgres;
+pub mod telemetry;
 pub mod types;
 
 pub use error::{DataError, Error, InitError, QueryError};
+pub use telemetry::QueryClassification;
 
 pub trait Database {
     type Pool;
@@ -21,7 +27,114 @@ pub trait Database {
 }
 
 pub type DB = self::postgres::DB;
-pub type Pool = sqlx::Pool<sqlx::Postgres>;
+
+#[derive(Clone, Debug)]
+pub struct Pool(sqlx::Pool<sqlx::Postgres>);
+
+impl Pool {
+    pub async fn begin(&self) -> Result<Transaction<'static, sqlx::Postgres>, Error> {
+        todo!()
+    }
+}
+
+impl<'c> Acquire<'c> for &Pool {
+    type Database = sqlx::Postgres;
+    type Connection = PoolConnection<sqlx::Postgres>;
+
+    fn acquire(
+        self,
+    ) -> Pin<
+        Box<
+            dyn futures::Future<
+                    Output = Result<sqlx::pool::PoolConnection<sqlx::Postgres>, sqlx::Error>,
+                > + std::marker::Send
+                + 'c,
+        >,
+    > {
+        <&sqlx::Pool<sqlx::Postgres> as Acquire<'c>>::acquire(&self.0)
+    }
+    fn begin(
+        self,
+    ) -> Pin<
+        Box<
+            dyn futures::Future<Output = Result<Transaction<'c, sqlx::Postgres>, sqlx::Error>>
+                + std::marker::Send
+                + 'c,
+        >,
+    > {
+        <&sqlx::Pool<sqlx::Postgres> as Acquire<'c>>::begin(&self.0)
+    }
+}
+
+impl<'c> Executor<'c> for &Pool {
+    type Database = sqlx::Postgres;
+
+    fn fetch_many<'e, 'q, E>(
+        self,
+        query: E,
+    ) -> Pin<
+        Box<
+            dyn Stream<Item = Result<sqlx::Either<PgQueryResult, PgRow>, sqlx::Error>>
+                + std::marker::Send
+                + 'e,
+        >,
+    >
+    where
+        'q: 'e,
+        'c: 'e,
+        E: 'q + Execute<'q, Self::Database>,
+    {
+        <&sqlx::Pool<sqlx::Postgres> as Executor<'c>>::fetch_many(&self.0, query)
+    }
+    fn fetch_optional<'e, 'q, E>(
+        self,
+        query: E,
+    ) -> Pin<
+        Box<
+            dyn futures::Future<Output = Result<Option<PgRow>, sqlx::Error>>
+                + std::marker::Send
+                + 'e,
+        >,
+    >
+    where
+        'q: 'e,
+        'c: 'e,
+        E: 'q + Execute<'q, Self::Database>,
+    {
+        <&sqlx::Pool<sqlx::Postgres> as Executor<'c>>::fetch_optional(&self.0, query)
+    }
+    fn prepare_with<'e, 'q>(
+        self,
+        sql: &'q str,
+        parameters: &'e [<Self::Database as sqlx::Database>::TypeInfo],
+    ) -> Pin<
+        Box<
+            dyn futures::Future<Output = Result<PgStatement<'q>, sqlx::Error>>
+                + std::marker::Send
+                + 'e,
+        >,
+    >
+    where
+        'q: 'e,
+        'c: 'e,
+    {
+        <&sqlx::Pool<sqlx::Postgres> as Executor<'c>>::prepare_with(&self.0, sql, parameters)
+    }
+
+    fn describe<'e, 'q: 'e>(
+        self,
+        sql: &'q str,
+    ) -> futures::future::BoxFuture<'e, Result<sqlx::Describe<Self::Database>, sqlx::Error>>
+    where
+        'c: 'e,
+    {
+        <&sqlx::Pool<sqlx::Postgres> as Executor<'c>>::describe(&self.0, sql)
+    }
+}
+
+pub struct QueryResult {
+    rows_affected: u64,
+}
 
 pub enum QueryType {
     Insert,
@@ -43,188 +156,6 @@ impl fmt::Display for QueryType {
             }
         )
     }
-}
-
-pub struct QueryClassification<Component>
-where
-    Component: ToString,
-{
-    pub query_type: QueryType,
-    pub component: Component,
-}
-
-pub fn sqlx_query<Component>(
-    classification: &QueryClassification<Component>,
-    query: &str,
-    labels: &[(&'static str, String)],
-) where
-    Component: ToString,
-{
-    let query_id = {
-        let mut hasher = Sha256::new();
-        hasher.update(query);
-        hasher.finalize()
-    };
-
-    // 9 bytes is enough to be unique
-    // If this is divisible by 3, it means that we can base64-encode it without
-    // any "=" padding
-    //
-    // cannot panic, as the output for sha256 will always be bit
-    let query_id = &query_id[..9];
-
-    let query_id = base64::engine::general_purpose::STANDARD.encode(query_id);
-    let mut labels = Vec::from(labels);
-    labels.extend_from_slice(&[
-        ("query_id", query_id),
-        ("query_type", classification.query_type.to_string()),
-        ("query_component", classification.component.to_string()),
-    ]);
-    metrics::counter!("packager_database_queries_total", &labels).increment(1);
-}
-
-pub fn sqlx_query_file<Component>(
-    classification: &QueryClassification<Component>,
-    path: &str,
-    labels: &[(&'static str, String)],
-) where
-    Component: ToString,
-{
-    let query_id = {
-        let mut hasher = Sha256::new();
-        hasher.update(path);
-        hasher.finalize()
-    };
-
-    // 9 bytes is enough to be unique
-    // If this is divisible by 3, it means that we can base64-encode it without
-    // any "=" padding
-    //
-    // cannot panic, as the output for sha256 will always be bit
-    let query_id = &query_id[..9];
-
-    let query_id = base64::engine::general_purpose::STANDARD.encode(query_id);
-    let mut labels = Vec::from(labels);
-    labels.extend_from_slice(&[
-        ("query_id", query_id),
-        ("query_type", classification.query_type.to_string()),
-        ("query_component", classification.component.to_string()),
-    ]);
-    metrics::counter!("packager_database_queries_total", &labels).increment(1);
-}
-
-#[macro_export]
-macro_rules! query_many_to_many_single {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_rows:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )* ) => {
-        {
-            use tracing::Instrument as _;
-            use futures::TryStreamExt as _;
-            async {
-                $crate::sqlx_query($class, $query, &[]);
-                let result: Vec<$struct_row> = sqlx::query_as!(
-                    $struct_row,
-                    $query,
-                    $( $args )*
-                )
-                .fetch($pool)
-                .try_collect::<Vec<$struct_row>>()
-                .await?;
-
-                if result.is_empty() {
-                    Ok(None)
-                } else {
-                    let out: $struct_rows = result.into();
-                    let out: $struct_into = <_ as TryInto<$struct_into>>::try_into(out)?;
-                    Ok::<_, $error_type>(Some(out))
-                }
-
-            }.instrument(tracing::info_span!("packager::sql::query", "query"))
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! query_one {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $query:expr, $( $args:tt )*) => {
-
-        {
-            use tracing::Instrument as _;
-
-            async {
-                $crate::sqlx_query($class, $query, &[]);
-                let result: Result<Option<$struct_into>, $error_type> = sqlx::query_as!(
-                    $struct_row,
-                    $query,
-                    $( $args )*
-                )
-                .fetch_optional($pool)
-                .await?
-                .map(|row: $struct_row| <_ as TryInto<$struct_into>>::try_into(row))
-                .transpose();
-
-                result
-
-            }.instrument(tracing::info_span!("packager::sql::query", "query"))
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! query_one_file {
-    ( $class:expr, $pool:expr, $struct_row:path, $struct_into:path, $error_type:path, $path:literal, $( $args:tt )*) => {
-
-        {
-            use tracing::Instrument as _;
-
-            async {
-                $crate::sqlx_query_file($class, $path, &[]);
-                let result: Result<Option<$struct_into>, $error_type> = sqlx::query_file_as!(
-                    $struct_row,
-                    $path,
-                    $( $args )*
-                )
-                .fetch_optional($pool)
-                .await?
-                .map(|row: $struct_row| <_ as TryInto<$struct_into>>::try_into(row))
-                .transpose();
-
-                result
-
-            }.instrument(tracing::info_span!("packager::sql::query", "query"))
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! strip_plus {
-    (+ $($rest:tt)*) => {
-        $($rest)*
-    }
-}
-
-// #[macro_export]
-// macro_rules! execute_unchecked {
-//     ( $class:expr, $pool:expr, $error_type:path, $query:expr, $( $args:expr ),* $(,)? ) => {{
-//         use tracing::Instrument as _;
-//         async {
-//             $crate::sqlx_query($class, $query, &[]);
-//             let query = sqlx::query($query);
-
-//             $(
-//                 let query = query.bind($args);
-//             )*
-
-//             let result: Result<sqlx::postgres::PgQueryResult, $error_type> =
-//                 query.execute($pool).await.map_err(|e| e.into());
-
-//             result
-//         }
-//         .instrument(tracing::info_span!("packager::sql::query", "query"))
-//     }};
-// }
-
-pub struct QueryResult {
-    rows_affected: u64,
 }
 
 impl QueryResult {
