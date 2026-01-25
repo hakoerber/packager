@@ -258,7 +258,7 @@ impl TripCategory {
         let mut rows = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             Row,
@@ -387,7 +387,7 @@ impl TripItem {
         database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             DbTripsItemsRow,
@@ -432,7 +432,7 @@ impl TripItem {
                 database::execute!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
-                        component: database::Component::Trips,
+                        component: crate::Component::Trips,
                     },
                     pool,
                     RunError,
@@ -452,7 +452,7 @@ impl TripItem {
                 database::execute!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
-                        component: database::Component::Trips,
+                        component: crate::Component::Trips,
                     },
                     pool,
                     RunError,
@@ -472,7 +472,7 @@ impl TripItem {
                 database::execute!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
-                        component: database::Component::Trips,
+                        component: crate::Component::Trips,
                     },
                     pool,
                     RunError,
@@ -588,7 +588,7 @@ macro_rules! build_trip_edit {
                     let result: Result<database::QueryResult, RunError> = database::execute!(
                         &database::QueryClassification {
                             query_type: database::QueryType::Update,
-                            component: database::Component::Trips,
+                            component: crate::Component::Trips,
                         },
                         pool,
                         RunError,
@@ -720,7 +720,7 @@ impl Trip {
         let mut trips = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             DbTripRow,
@@ -754,7 +754,7 @@ impl Trip {
         database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             DbTripRow,
@@ -787,7 +787,7 @@ impl Trip {
         let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -818,7 +818,7 @@ impl Trip {
         database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -851,7 +851,7 @@ impl Trip {
         let result = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -877,7 +877,7 @@ impl Trip {
         let result = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -912,7 +912,7 @@ impl Trip {
         database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             &mut *transaction,
             RunError,
@@ -932,7 +932,7 @@ impl Trip {
             database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
-                    component: database::Component::Trips,
+                    component: crate::Component::Trips,
                 },
                 &mut *transaction,
                 RunError,
@@ -963,7 +963,7 @@ impl Trip {
             database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
-                    component: database::Component::Trips,
+                    component: crate::Component::Trips,
                 },
                 &mut *transaction,
                 RunError,
@@ -1005,7 +1005,7 @@ impl Trip {
         let weight = database::execute_returning!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -1092,7 +1092,7 @@ impl Trip {
         let types = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             TripTypeRow,
@@ -1158,7 +1158,7 @@ impl Trip {
         let unsynced_items: Vec<Uuid> = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             Row,
@@ -1187,7 +1187,7 @@ impl Trip {
             database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
-                    component: database::Component::Trips,
+                    component: crate::Component::Trips,
                 },
                 pool,
                 RunError,
@@ -1287,7 +1287,7 @@ impl Trip {
         let rows = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             Row,
@@ -1451,7 +1451,7 @@ impl TripsType {
         database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             DbTripsTypesRow,
@@ -1473,7 +1473,7 @@ impl TripsType {
         database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -1500,7 +1500,7 @@ impl TripsType {
         let result = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,

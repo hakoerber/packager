@@ -21,7 +21,7 @@ impl Inventory {
         let mut categories = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             DbCategoryRow,
@@ -78,7 +78,7 @@ impl Category {
         database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             DbCategoryRow,
@@ -103,7 +103,7 @@ impl Category {
         database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             RunError,
@@ -141,7 +141,7 @@ impl Category {
         let items = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             DbInventoryItemsRow,
@@ -360,7 +360,7 @@ impl InventoryItem {
         database::query_many_to_many_single!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             DbInventoryItemRow,
@@ -408,7 +408,7 @@ impl InventoryItem {
         database::query_exists!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             "SELECT id
@@ -427,7 +427,7 @@ impl InventoryItem {
         let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             RunError,
@@ -455,7 +455,7 @@ impl InventoryItem {
         database::execute_returning_uuid!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             "UPDATE inventory_items AS item
@@ -489,7 +489,7 @@ impl InventoryItem {
         database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             RunError,
@@ -518,7 +518,7 @@ impl InventoryItem {
         let weight = database::execute_returning!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             RunError,
@@ -584,7 +584,7 @@ impl Item {
         database::execute_returning!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             RunError,

@@ -40,7 +40,7 @@ impl User {
         database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::User,
+                component: crate::Component::User,
             },
             pool,
             DbUserRow,
@@ -60,7 +60,7 @@ pub async fn create(pool: &database::Pool, user: NewUser<'_>) -> Result<Uuid, Da
     database::execute!(
         &database::QueryClassification {
             query_type: database::QueryType::Insert,
-            component: database::Component::User,
+            component: crate::Component::User,
         },
         pool,
         DatabaseError,

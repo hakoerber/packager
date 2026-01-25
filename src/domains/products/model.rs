@@ -112,7 +112,7 @@ impl Product {
             let mut results = database::query_all!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Select,
-                    component: database::Component::Inventory,
+                    component: crate::Component::Inventory,
                 },
                 pool,
                 Row,
@@ -248,7 +248,7 @@ impl Product {
             let result = database::query_one_file!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Select,
-                    component: database::Component::Inventory,
+                    component: crate::Component::Inventory,
                 },
                 pool,
                 Row,

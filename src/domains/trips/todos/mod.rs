@@ -145,7 +145,7 @@ impl crud::Read for Todo {
         let todos: Vec<Self> = database::query_all!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Todo,
+                component: crate::Component::Todo,
             },
             pool,
             TodoRow,
@@ -180,7 +180,7 @@ impl crud::Read for Todo {
         database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Todo,
+                component: crate::Component::Todo,
             },
             pool,
             TodoRow,
@@ -232,7 +232,7 @@ impl crud::Create for Todo {
         database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Todo,
+                component: crate::Component::Todo,
             },
             pool,
             RunError,
@@ -308,7 +308,7 @@ impl crud::Update for Todo {
                 let result = database::query_one!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
-                        component: database::Component::Trips,
+                        component: crate::Component::Trips,
                     },
                     pool,
                     TodoRow,
@@ -338,7 +338,7 @@ impl crud::Update for Todo {
                 let result = database::query_one!(
                     &database::QueryClassification {
                         query_type: database::QueryType::Update,
-                        component: database::Component::Todo,
+                        component: crate::Component::Todo,
                     },
                     pool,
                     TodoRow,
@@ -383,7 +383,7 @@ impl crud::Delete for Todo {
         let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
-                component: database::Component::Todo,
+                component: crate::Component::Todo,
             },
             &mut *(db.acquire().await?),
             RunError,

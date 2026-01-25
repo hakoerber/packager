@@ -109,3 +109,25 @@ impl TopLevelPage {
         }
     }
 }
+
+pub enum Component {
+    Inventory,
+    User,
+    Trips,
+    Todo,
+}
+
+impl fmt::Display for Component {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Inventory => "inventory",
+                Self::User => "user",
+                Self::Trips => "trips",
+                Self::Todo => "todo",
+            }
+        )
+    }
+}

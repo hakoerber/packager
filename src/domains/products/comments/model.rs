@@ -40,7 +40,7 @@ impl Comment {
         database::execute_returning_uuid!(
             &database::QueryClassification {
                 query_type: database::QueryType::Insert,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             "INSERT INTO product_comments
@@ -64,7 +64,7 @@ impl Comment {
         let results = database::execute!(
             &database::QueryClassification {
                 query_type: database::QueryType::Delete,
-                component: database::Component::Trips,
+                component: crate::Component::Trips,
             },
             pool,
             RunError,
@@ -92,7 +92,7 @@ impl Comment {
         database::query_one!(
             &database::QueryClassification {
                 query_type: database::QueryType::Select,
-                component: database::Component::Todo,
+                component: crate::Component::Todo,
             },
             pool,
             DbComment,
@@ -129,7 +129,7 @@ impl Comment {
         let result: Result<_, RunError> = database::execute_returning_optional_uuid!(
             &database::QueryClassification {
                 query_type: database::QueryType::Update,
-                component: database::Component::Inventory,
+                component: crate::Component::Inventory,
             },
             pool,
             r"
