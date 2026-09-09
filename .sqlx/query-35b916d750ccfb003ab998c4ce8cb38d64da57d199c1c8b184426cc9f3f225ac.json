@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO product_comments\n                (id, content, date, product_id)\n            VALUES\n                (uuidv4(), $1, current_date, $2)\n            RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "35b916d750ccfb003ab998c4ce8cb38d64da57d199c1c8b184426cc9f3f225ac"
+}

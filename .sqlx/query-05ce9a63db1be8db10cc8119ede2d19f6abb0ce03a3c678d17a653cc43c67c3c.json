@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO trip_items (\n                    item_id,\n                    trip_id,\n                    pick,\n                    pack,\n                    ready,\n                    new,\n                    user_id\n                ) SELECT\n                    item_id,\n                    $1 as trip_id,\n                    pick,\n                    false as pack,\n                    false as ready,\n                    false as new,\n                    user_id\n                FROM trip_items\n                WHERE trip_id = $2 AND user_id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "05ce9a63db1be8db10cc8119ede2d19f6abb0ce03a3c678d17a653cc43c67c3c"
+}

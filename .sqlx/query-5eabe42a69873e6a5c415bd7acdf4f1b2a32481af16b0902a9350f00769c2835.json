@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH trips AS (\n                SELECT type.id as id, trip.user_id as user_id\n                FROM trips as trip\n                INNER JOIN trip_to_trip_types as ttt\n                    ON ttt.trip_id = trip.id\n                INNER JOIN trip_types AS type\n                    ON type.id = ttt.trip_type_id\n                WHERE trip.id = $1 AND trip.user_id = $2\n            )\n            SELECT\n                type.id AS id,\n                type.name AS name,\n                trips.id IS NOT NULL AS \"active!\"\n            FROM trip_types AS type\n                LEFT JOIN trips\n                ON trips.id = type.id\n            WHERE type.user_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "active!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "5eabe42a69873e6a5c415bd7acdf4f1b2a32481af16b0902a9350f00769c2835"
+}

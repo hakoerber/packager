@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO trip_items\n                    (\n                        item_id,\n                        trip_id,\n                        pick,\n                        pack,\n                        ready,\n                        new,\n                        user_id\n                    )\n                    VALUES ($1, $2, $3, $4, $5, $6, $7)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3e32406736e1b04809d353fa04600018d740472e74e966104233330d937fd2f6"
+}

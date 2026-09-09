@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    CAST(COALESCE(SUM(i_item.weight), 0) AS INTEGER) AS total_weight\n                FROM trips AS trip\n                INNER JOIN trip_items AS t_item\n                    ON t_item.trip_id = trip.id\n                INNER JOIN inventory_items AS i_item\n                    ON t_item.item_id = i_item.id\n                WHERE\n                    trip.id = $1 AND trip.user_id = $2\n                AND t_item.pick = true\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total_weight",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b634ef87f1ce641b0a78ba9c0f77f337365d25920f2a786eb795bd4d51758fa5"
+}

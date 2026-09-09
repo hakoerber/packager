@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH category_items AS (\n                     SELECT\n                        trip.trip_id AS trip_id,\n                        category.id AS category_id,\n                        category.name AS category_name,\n                        item.id AS item_id,\n                        item.name AS item_name,\n                        item.description AS item_description,\n                        item.weight AS item_weight,\n                        trip.pick AS item_is_picked,\n                        trip.pack AS item_is_packed,\n                        trip.ready AS item_is_ready,\n                        trip.new AS item_is_new\n                    FROM trip_items AS trip\n                    INNER JOIN inventory_items AS item\n                        ON item.id = trip.item_id\n                    INNER JOIN inventory_items_categories AS category\n                        ON category.id = item.category_id\n                    WHERE\n                        trip.trip_id = $1\n                        AND trip.user_id = $2\n                )\n                SELECT\n                    category.id AS category_id,\n                    category.name AS category_name,\n                    items.trip_id AS trip_id,\n                    items.item_id AS item_id,\n                    items.item_name AS item_name,\n                    items.item_description AS item_description,\n                    items.item_weight AS item_weight,\n                    items.item_is_picked AS item_is_picked,\n                    items.item_is_packed AS item_is_packed,\n                    items.item_is_ready AS item_is_ready,\n                    items.item_is_new AS item_is_new\n                FROM inventory_items_categories AS category\n                    LEFT JOIN category_items AS items\n                    ON items.category_id = category.id\n                WHERE category.id = $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "category_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "category_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "trip_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "item_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "item_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "item_description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "item_weight",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "item_is_picked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "item_is_packed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "item_is_ready",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "item_is_new",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a0342a3e9ffe009b818c80adf2d71740bdbb86b4b2fd9ca0fa6f0113e7b85393"
+}

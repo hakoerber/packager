@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM trip_to_trip_types AS ttt\n            WHERE ttt.trip_id = $1\n                AND ttt.trip_type_id = $2\n            AND EXISTS(SELECT * FROM trips WHERE id = $1 AND user_id = $3)\n            AND EXISTS(SELECT * FROM trip_types WHERE id = $2 AND user_id = $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "804af84481f593491aa6c8b80c50b4f9ad19bdfeac62ea5e80e6216ff9456fa5"
+}

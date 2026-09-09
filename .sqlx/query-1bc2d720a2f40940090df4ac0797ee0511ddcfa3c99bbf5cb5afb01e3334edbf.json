@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE trip_items\n                        SET pack = $1\n                        WHERE trip_id = $2\n                        AND item_id = $3\n                        AND user_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1bc2d720a2f40940090df4ac0797ee0511ddcfa3c99bbf5cb5afb01e3334edbf"
+}

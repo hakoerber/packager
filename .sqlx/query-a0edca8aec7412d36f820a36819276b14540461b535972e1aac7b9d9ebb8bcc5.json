@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO trip_types\n                (id, name, user_id)\n            VALUES\n                ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a0edca8aec7412d36f820a36819276b14540461b535972e1aac7b9d9ebb8bcc5"
+}

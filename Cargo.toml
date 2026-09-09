@@ -4,309 +4,268 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 
-[workspace]
-resolver = "3"
-members = [
-  # "framework",
-  "leptos",
-]
-
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 
-# [workspace.dependencies.futures]
-# version = "*"
-# default-features = false
-
-# [workspace.dependencies.maud]
-# version = "*"
-# default-features = false
-# features = [
-#   "axum",
-# ]
-
-# [workspace.dependencies.rust_decimal]
-# version = "*"
-# default-features = false
-
-# [workspace.dependencies.sqlx]
-# version = "*"
-# default-features = false
-# features = [
-#   "macros",
-#   "migrate",
-#   "postgres",
-#   "runtime-tokio-rustls",
-#   "time",
-#   "uuid",
-# ]
-
-# [workspace.dependencies.time]
-# version = "*"
-# default-features = false
-# features = [
-#   "serde",
-# ]
-
-# [workspace.dependencies.uuid]
-# version = "*"
-# default-features = false
-# features = [
-#   "serde",
-#   "v4",
-# ]
-
-[workspace.lints.clippy]
-nursery = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-
-cognitive_complexity = "allow"
-missing_const_for_fn = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-option_if_let_else = "allow"
-struct_excessive_bools = "allow"
-too_many_lines = "allow"
-unwrap_or_default = "allow"
-used_underscore_binding = "allow"
+[workspace]
+members = [
+    "framework",
+    "leptos",
+]
+resolver = "3"
 
 [[bin]]
 name = "packager"
 path = "src/main.rs"
 
-# [dependencies.async-trait]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.axum]
-# version = "*"
-# default-features = false
-# features = [
-#   "form",
-#   "http2",
-#   "macros",
-#   "query",
-#   "tokio",
-# ]
-# optional = true
-
-# [dependencies.axum-prometheus]
-# version = "*"
-# default-features = false
-# features = [
-#   "prometheus",
-# ]
-# optional = true
-
-# [dependencies.base64]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.clap]
-# version = "*"
-# default-features = false
-# features = [
-#   "derive",
-#   "help",
-#   "std",
-# ]
-# optional = true
-
-# [dependencies.console-subscriber]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.database]
-# package = "packager-database"
-# path = "./database"
-
-# [dependencies.framework]
-# package = "packager-framework"
-# path = "./framework"
-# optional = true
-
-# [dependencies.futures]
-# workspace = true
-# optional = true
-
-# [dependencies.http]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.hyper]
-# version = "*"
-# default-features = false
-# features = [
-#   "full",
-# ]
-# optional = true
-
-# [dependencies.maud]
-# workspace = true
-# optional = true
-
-# [dependencies.metrics]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.opentelemetry]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.opentelemetry-otlp]
-# version = "*"
-# default-features = false
-# features = [
-#   "grpc-tonic",
-#   "trace",
-# ]
-# optional = true
-
-# [dependencies.opentelemetry_sdk]
-# version = "*"
-# default-features = false
-# features = [
-#   "rt-tokio",
-#   "trace",
-# ]
-# optional = true
-
-# [dependencies.paste]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.rust_decimal]
-# workspace = true
-# optional = true
-
-# [dependencies.serde]
-# version = "*"
-# default-features = false
-# features = [
-#   "derive",
-# ]
-# optional = true
-
-# [dependencies.serde_variant]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.sha2]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.sqlx]
-# workspace = true
-# optional = true
-
-# [dependencies.time]
-# workspace = true
-# optional = true
-
-# [dependencies.tokio]
-# version = "*"
-# default-features = false
-# features = [
-#   "macros",
-#   "rt-multi-thread",
-#   "tracing",
-# ]
-# optional = true
-
-# [dependencies.tonic]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.tower]
-# version = "*"
-# default-features = false
-# features = [
-#   "timeout",
-# ]
-# optional = true
-
-# [dependencies.tower-http]
-# version = "*"
-# default-features = false
-# features = [
-#   "request-id",
-#   "trace",
-# ]
-# optional = true
-
-# [dependencies.tracing]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.tracing-log]
-# version = "*"
-# default-features = false
-# features = [
-#   "log-tracer",
-#   "std",
-# ]
-# optional = true
-
-# [dependencies.tracing-opentelemetry]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.tracing-subscriber]
-# version = "*"
-# default-features = false
-# features = [
-#   "ansi",
-#   "env-filter",
-#   "json",
-# ]
-# optional = true
-
-# [dependencies.url]
-# version = "*"
-# default-features = false
-# optional = true
-
-# [dependencies.uuid]
-# workspace = true
-# optional = true
-
-[lints.clippy]
-nursery = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-
-cognitive_complexity = "allow"
-missing_const_for_fn = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-option_if_let_else = "allow"
-struct_excessive_bools = "allow"
-too_many_lines = "allow"
-unwrap_or_default = "allow"
-used_underscore_binding = "allow"
-
 [profile.dev]
 opt-level = 0
 lto = "off"
 
-# Defines a size-optimized profile for the WASM bundle in release mode
-[profile.wasm-release]
-inherits = "release"
-opt-level = 'z'
-lto = true
-codegen-units = 1
-panic = "abort"
+[dependencies.framework]
+path = "./framework"
+package = "packager-framework"
 
+[dependencies.database]
+path = "./database"
+package = "packager-database"
+
+[dependencies.url]
+version = "*"
+default-features = false
+
+[dependencies.paste]
+version = "*"
+default-features = false
+
+[workspace.dependencies.rust_decimal]
+version = "*"
+default-features = false
+
+[dependencies.rust_decimal]
+workspace = true
+
+[dependencies.async-trait]
+version = "*"
+default-features = false
+
+[dependencies.axum]
+version = "*"
+default-features = false
+features = [
+    "form",
+    "http2",
+    "macros",
+    "query",
+    "tokio",
+]
+
+[dependencies.axum-prometheus]
+version = "*"
+default-features = false
+features = [
+    "prometheus",
+]
+
+[dependencies.base64]
+version = "*"
+default-features = false
+
+[dependencies.clap]
+version = "*"
+default-features = false
+features = [
+    "derive",
+    "help",
+    "std",
+]
+
+[dependencies.console-subscriber]
+version = "*"
+default-features = false
+
+[workspace.dependencies.futures]
+version = "*"
+default-features = false
+
+[dependencies.futures]
+workspace = true
+
+[dependencies.http]
+version = "*"
+default-features = false
+
+[dependencies.hyper]
+version = "*"
+default-features = false
+features = [
+    "full",
+]
+
+[workspace.dependencies.maud]
+version = "*"
+default-features = false
+features = [
+    "axum",
+]
+
+[dependencies.maud]
+workspace = true
+
+[dependencies.metrics]
+version = "*"
+default-features = false
+
+[dependencies.opentelemetry]
+version = "*"
+default-features = false
+
+[dependencies.opentelemetry-otlp]
+version = "*"
+default-features = false
+features = [
+    "grpc-tonic",
+    "trace",
+]
+
+[dependencies.opentelemetry_sdk]
+version = "*"
+default-features = false
+features = [
+    "rt-tokio",
+    "trace",
+]
+
+[dependencies.serde]
+version = "*"
+default-features = false
+features = [
+    "derive",
+]
+
+[dependencies.serde_variant]
+version = "*"
+default-features = false
+
+[dependencies.sha2]
+version = "*"
+default-features = false
+
+[workspace.dependencies.time]
+version = "*"
+default-features = false
+features = [
+    "serde",
+]
+
+[dependencies.time]
+workspace = true
+
+[dependencies.tokio]
+version = "*"
+default-features = false
+features = [
+    "macros",
+    "rt-multi-thread",
+    "tracing",
+]
+
+[dependencies.tonic]
+version = "*"
+default-features = false
+
+[dependencies.tower]
+version = "*"
+default-features = false
+features = [
+    "timeout",
+]
+
+[dependencies.tower-http]
+version = "*"
+default-features = false
+features = [
+    "request-id",
+    "trace",
+]
+
+[dependencies.tracing]
+version = "*"
+default-features = false
+
+[dependencies.tracing-log]
+version = "*"
+features = [
+    "log-tracer",
+    "std",
+]
+default-features = false
+
+[dependencies.tracing-opentelemetry]
+version = "*"
+default-features = false
+
+[dependencies.tracing-subscriber]
+version = "*"
+default-features = false
+features = [
+    "ansi",
+    "env-filter",
+    "json",
+]
+
+[workspace.dependencies.uuid]
+version = "*"
+default-features = false
+features = [
+    "serde",
+    "v4",
+]
+
+[dependencies.uuid]
+workspace = true
+
+[workspace.dependencies.sqlx]
+version = "*"
+default-features = false
+features = [
+    "macros",
+    "migrate",
+    "postgres",
+    "runtime-tokio-rustls",
+    "time",
+    "uuid",
+]
+
+[dependencies.sqlx]
+workspace = true
+
+[lints.clippy]
+pedantic = { priority = -1, level = "warn" }
+nursery = { priority = -1, level = "warn" }
+
+missing_errors_doc = "allow"
+option_if_let_else = "allow"
+missing_const_for_fn = "allow"
+missing_panics_doc = "allow"
+used_underscore_binding = "allow"
+too_many_lines = "allow"
+struct_excessive_bools = "allow"
+cognitive_complexity = "allow"
+unwrap_or_default = "allow"
+
+[workspace.lints.clippy]
+pedantic = { priority = -1, level = "warn" }
+nursery = { priority = -1, level = "warn" }
+
+missing_errors_doc = "allow"
+option_if_let_else = "allow"
+missing_const_for_fn = "allow"
+missing_panics_doc = "allow"
+used_underscore_binding = "allow"
+too_many_lines = "allow"
+struct_excessive_bools = "allow"
+cognitive_complexity = "allow"
+unwrap_or_default = "allow"
