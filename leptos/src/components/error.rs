@@ -3,7 +3,6 @@ use leptos::prelude::*;
 pub struct ErrorPage;
 
 impl ErrorPage {
-    #[tracing::instrument]
     pub fn build(message: &str) -> impl IntoView {
         todo!();
         view! {}

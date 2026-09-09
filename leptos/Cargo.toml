@@ -99,6 +99,72 @@ version = "*"
 default-features = false
 optional = true
 
+[dependencies.tracing-log]
+version = "*"
+features = [
+    "log-tracer",
+    "std",
+]
+default-features = false
+optional = true
+
+[dependencies.tracing-opentelemetry]
+version = "*"
+default-features = false
+optional = true
+
+[dependencies.tracing-subscriber]
+version = "*"
+default-features = false
+features = [
+    "ansi",
+    "env-filter",
+    "json",
+]
+optional = true
+
+[dependencies.tower-http]
+version = "*"
+default-features = false
+features = [
+    "request-id",
+    "trace",
+]
+optional = true
+
+[dependencies.opentelemetry]
+version = "*"
+default-features = false
+optional = true
+
+[dependencies.opentelemetry-otlp]
+version = "*"
+default-features = false
+features = [
+    "grpc-tonic",
+    "trace",
+]
+optional = true
+
+[dependencies.opentelemetry_sdk]
+version = "*"
+default-features = false
+features = [
+    "rt-tokio",
+    "trace",
+]
+optional = true
+
+[dependencies.tonic]
+version = "*"
+default-features = false
+optional = true
+
+[dependencies.console-subscriber]
+version = "*"
+default-features = false
+optional = true
+
 [features]
 default = ["ssr"]
 hydrate = [
@@ -115,6 +181,9 @@ ssr = [
     "leptos_router/ssr",
     "dep:sqlx",
     "dep:tracing",
+    "dep:tracing-log",
+    "dep:tracing-opentelemetry",
+    "dep:tracing-subscriber",
     # "dep:serde",
     "dep:database",
     "dep:hyper",
@@ -122,6 +191,12 @@ ssr = [
     "dep:axum-prometheus",
     "dep:metrics",
     "dep:http",
+    "dep:tower-http",
+    "dep:opentelemetry",
+    "dep:opentelemetry-otlp",
+    "dep:opentelemetry_sdk",
+    "dep:tonic",
+    "dep:console-subscriber",
 ]
 
 [package.metadata.leptos]

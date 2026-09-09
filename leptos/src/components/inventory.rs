@@ -1,302 +1,13 @@
 use super::Component;
-use crate::{context::Context, error::RunError};
 
 use uuid::Uuid;
 
-#[derive(Debug)]
-pub struct Product {
-    #[allow(dead_code)]
-    pub id: Uuid,
-    pub name: String,
-    #[allow(dead_code)]
-    pub description: Option<String>,
-}
+pub mod category;
+pub mod item;
+pub mod product;
 
 pub struct Inventory {
-    pub categories: Vec<Category>,
-}
-
-impl Inventory {
-    #[tracing::instrument]
-    pub async fn load(ctx: &Context, pool: &database::Pool) -> Result<Self, RunError> {
-        let mut categories = database::query_all!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: Component::Inventory,
-            },
-            pool,
-            DbCategoryRow,
-            Category,
-            RunError,
-            "SELECT
-                    id,
-                    name
-                FROM inventory_items_categories
-                WHERE user_id = $1",
-            ctx.user.id
-        )
-        .await?;
-
-        for category in &mut categories {
-            category.populate_items(ctx, pool).await?;
-        }
-
-        Ok(Self { categories })
-    }
-}
-
-#[derive(Debug)]
-pub struct Category {
-    pub id: Uuid,
-    pub name: String,
-    pub items: Option<Vec<Item>>,
-}
-
-pub struct DbCategoryRow {
-    pub id: Uuid,
-    pub name: String,
-}
-
-impl TryFrom<DbCategoryRow> for Category {
-    type Error = RunError;
-
-    fn try_from(row: DbCategoryRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: row.id,
-            name: row.name,
-            items: None,
-        })
-    }
-}
-
-impl Category {
-    #[tracing::instrument]
-    pub async fn _find(
-        ctx: &Context,
-        pool: &database::Pool,
-        id: Uuid,
-    ) -> Result<Option<Self>, RunError> {
-        database::query_one!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: super::Component::Inventory,
-            },
-            pool,
-            DbCategoryRow,
-            Category,
-            RunError,
-            "SELECT
-                id,
-                name
-            FROM inventory_items_categories AS category
-            WHERE
-                category.id = $1
-                AND category.user_id = $2",
-            id,
-            ctx.user.id,
-        )
-        .await
-    }
-
-    #[tracing::instrument]
-    pub async fn save(
-        ctx: &Context,
-        pool: &database::Pool,
-        name: &str,
-    ) -> Result<Uuid, RunError> {
-        let id = Uuid::new_v4();
-        database::execute!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Insert,
-                component: super::Component::Inventory,
-            },
-            pool,
-            RunError,
-            "INSERT INTO inventory_items_categories
-                (id, name, user_id)
-            VALUES
-                ($1, $2, $3)",
-            id,
-            name,
-            ctx.user.id,
-        )
-        .await?;
-
-        Ok(id)
-    }
-
-    #[tracing::instrument]
-    pub fn items(&self) -> &Vec<Item> {
-        self.items
-            .as_ref()
-            .expect("you need to call populate_items()")
-    }
-
-    #[tracing::instrument]
-    pub fn total_weight(&self) -> i32 {
-        self.items().iter().map(|item| item.weight).sum()
-    }
-
-    #[tracing::instrument]
-    pub async fn populate_items(
-        &mut self,
-        ctx: &Context,
-        pool: &database::Pool,
-    ) -> Result<(), RunError> {
-        let items = database::query_all!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: super::Component::Inventory,
-            },
-            pool,
-            DbInventoryItemsRow,
-            Item,
-            RunError,
-            "SELECT
-                id,
-                name,
-                weight,
-                description,
-                category_id
-            FROM inventory_items
-            WHERE
-                category_id = $1
-                AND user_id = $2",
-            self.id,
-            ctx.user.id,
-        )
-        .await?;
-
-        self.items = Some(items);
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct InventoryItemTrip {
-    pub name: String,
-    // pub date: crate::domains::trips::TripDate,
-    pub state: super::trip::TripState,
-}
-
-#[derive(Debug)]
-struct DbInventoryItemRows {
-    first: DbInventoryItemRow,
-    rest: Vec<DbInventoryItemRow>,
-}
-
-impl DbInventoryItemRows {
-    fn first(&self) -> &DbInventoryItemRow {
-        &self.first
-    }
-}
-
-impl<'a> DbInventoryItemRows {
-    #[allow(dead_code)]
-    fn iter(&'a self) -> DbInventoryItemRowsIterRef<'a> {
-        DbInventoryItemRowsIterRef {
-            first: Some(&self.first),
-            inner_iter: self.rest.iter(),
-        }
-    }
-
-    fn iter_mut(&'a mut self) -> DbInventoryItemRowsIterRefMut<'a> {
-        DbInventoryItemRowsIterRefMut {
-            first: Some(&mut self.first),
-            inner_iter: self.rest.iter_mut(),
-        }
-    }
-}
-
-#[allow(dead_code)]
-struct DbInventoryItemRowsIterRef<'a> {
-    first: Option<&'a DbInventoryItemRow>,
-    inner_iter: std::slice::Iter<'a, DbInventoryItemRow>,
-}
-
-impl<'a> Iterator for DbInventoryItemRowsIterRef<'a> {
-    type Item = &'a DbInventoryItemRow;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(first) = self.first.take() {
-            Some(first)
-        } else {
-            self.inner_iter.next()
-        }
-    }
-}
-
-struct DbInventoryItemRowsIterRefMut<'a> {
-    first: Option<&'a mut DbInventoryItemRow>,
-    inner_iter: std::slice::IterMut<'a, DbInventoryItemRow>,
-}
-
-impl<'a> Iterator for DbInventoryItemRowsIterRefMut<'a> {
-    type Item = &'a mut DbInventoryItemRow;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(first) = self.first.take() {
-            Some(first)
-        } else {
-            self.inner_iter.next()
-        }
-    }
-}
-
-struct DbInventoryItemRowsIter {
-    first: Option<DbInventoryItemRow>,
-    inner_iter: std::vec::IntoIter<DbInventoryItemRow>,
-}
-
-impl Iterator for DbInventoryItemRowsIter {
-    type Item = DbInventoryItemRow;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(first) = self.first.take() {
-            Some(first)
-        } else {
-            self.inner_iter.next()
-        }
-    }
-}
-
-impl IntoIterator for DbInventoryItemRows {
-    type Item = DbInventoryItemRow;
-
-    type IntoIter = DbInventoryItemRowsIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter {
-            first: Some(self.first),
-            inner_iter: self.rest.into_iter(),
-        }
-    }
-}
-
-#[expect(clippy::fallible_impl_from, reason = "panics only on buggy code")]
-impl From<Vec<DbInventoryItemRow>> for DbInventoryItemRows {
-    fn from(mut value: Vec<DbInventoryItemRow>) -> Self {
-        match value.pop() {
-            Some(first) => Self { first, rest: value },
-            None => panic!("received empty vec, this is a bug"),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct DbInventoryItemRow {
-    pub id: Uuid,
-    pub name: String,
-    pub description: Option<String>,
-    pub weight: i32,
-    pub category_id: Uuid,
-    pub category_name: String,
-    pub product_id: Option<Uuid>,
-    pub product_name: Option<String>,
-    pub product_description: Option<String>,
-    pub trip_name: Option<String>,
-    // pub trip_date: Option<crate::domains::trips::TripDate>,
-    pub trip_state: Option<super::trip::TripState>,
+    pub categories: Vec<category::Category>,
 }
 
 #[derive(Debug)]
@@ -306,73 +17,228 @@ pub struct InventoryItem {
     pub name: String,
     pub description: Option<String>,
     pub weight: i32,
-    pub category: Category,
-    pub product: Option<Product>,
-    pub trips: Vec<InventoryItemTrip>,
+    pub category: category::Category,
+    pub product: Option<product::Product>,
+    pub trips: Vec<item::trip::Trip>,
 }
 
-impl TryFrom<DbInventoryItemRows> for InventoryItem {
-    type Error = RunError;
+#[cfg(feature = "ssr")]
+mod model {
+    use super::*;
+    use crate::{components::Component, context::Context, error::RunError};
+    use uuid::Uuid;
 
-    fn try_from(mut rows: DbInventoryItemRows) -> Result<Self, Self::Error> {
-        let first_id = rows.first().id;
+    impl Inventory {
+        #[tracing::instrument]
+        pub async fn load(ctx: &Context, pool: &database::Pool) -> Result<Self, RunError> {
+            let mut categories = database::query_all!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Select,
+                    component: Component::Inventory,
+                },
+                pool,
+                category::model::DbCategoryRow,
+                category::Category,
+                RunError,
+                "SELECT
+                    id,
+                    name
+                FROM inventory_items_categories
+                WHERE user_id = $1",
+                ctx.user.id
+            )
+            .await?;
 
-        let mut trips: Vec<InventoryItemTrip> = vec![];
+            for category in &mut categories {
+                category.populate_items(ctx, pool).await?;
+            }
 
-        for row in rows.iter_mut() {
-            assert_eq!(row.id, first_id);
-            if let Some(name) = row.trip_name.take() {
-                // safe because trip_id is non-NULL
-                let state = row.trip_state.take().unwrap();
-                trips.push(InventoryItemTrip { name, state });
+            Ok(Self { categories })
+        }
+    }
+
+    #[derive(Debug)]
+    struct DbInventoryItemRows {
+        first: DbInventoryItemRow,
+        rest: Vec<DbInventoryItemRow>,
+    }
+
+    impl DbInventoryItemRows {
+        fn first(&self) -> &DbInventoryItemRow {
+            &self.first
+        }
+    }
+
+    impl<'a> DbInventoryItemRows {
+        #[allow(dead_code)]
+        fn iter(&'a self) -> DbInventoryItemRowsIterRef<'a> {
+            DbInventoryItemRowsIterRef {
+                first: Some(&self.first),
+                inner_iter: self.rest.iter(),
             }
         }
 
-        let item = rows.first;
-
-        Ok(Self {
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            weight: item.weight,
-            category: Category {
-                id: item.category_id,
-                name: item.category_name,
-                items: None,
-            },
-            product: item
-                .product_id
-                .map(|id| -> Result<Product, RunError> {
-                    Ok(Product {
-                        id,
-                        name: item.product_name.unwrap(),
-                        description: item.product_description,
-                    })
-                })
-                .transpose()?,
-            trips,
-        })
+        fn iter_mut(&'a mut self) -> DbInventoryItemRowsIterRefMut<'a> {
+            DbInventoryItemRowsIterRefMut {
+                first: Some(&mut self.first),
+                inner_iter: self.rest.iter_mut(),
+            }
+        }
     }
-}
 
-impl InventoryItem {
-    #[tracing::instrument]
-    pub async fn find(
-        ctx: &Context,
-        pool: &database::Pool,
-        id: Uuid,
-    ) -> Result<Option<Self>, RunError> {
-        database::query_many_to_many_single!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: Component::Inventory,
-            },
-            pool,
-            DbInventoryItemRow,
-            DbInventoryItemRows,
-            Self,
-            RunError,
-            r#"SELECT
+    #[allow(dead_code)]
+    struct DbInventoryItemRowsIterRef<'a> {
+        first: Option<&'a DbInventoryItemRow>,
+        inner_iter: std::slice::Iter<'a, DbInventoryItemRow>,
+    }
+
+    impl<'a> Iterator for DbInventoryItemRowsIterRef<'a> {
+        type Item = &'a DbInventoryItemRow;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(first) = self.first.take() {
+                Some(first)
+            } else {
+                self.inner_iter.next()
+            }
+        }
+    }
+
+    struct DbInventoryItemRowsIterRefMut<'a> {
+        first: Option<&'a mut DbInventoryItemRow>,
+        inner_iter: std::slice::IterMut<'a, DbInventoryItemRow>,
+    }
+
+    impl<'a> Iterator for DbInventoryItemRowsIterRefMut<'a> {
+        type Item = &'a mut DbInventoryItemRow;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(first) = self.first.take() {
+                Some(first)
+            } else {
+                self.inner_iter.next()
+            }
+        }
+    }
+
+    struct DbInventoryItemRowsIter {
+        first: Option<DbInventoryItemRow>,
+        inner_iter: std::vec::IntoIter<DbInventoryItemRow>,
+    }
+
+    impl Iterator for DbInventoryItemRowsIter {
+        type Item = DbInventoryItemRow;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(first) = self.first.take() {
+                Some(first)
+            } else {
+                self.inner_iter.next()
+            }
+        }
+    }
+
+    impl IntoIterator for DbInventoryItemRows {
+        type Item = DbInventoryItemRow;
+
+        type IntoIter = DbInventoryItemRowsIter;
+
+        fn into_iter(self) -> Self::IntoIter {
+            Self::IntoIter {
+                first: Some(self.first),
+                inner_iter: self.rest.into_iter(),
+            }
+        }
+    }
+
+    #[expect(clippy::fallible_impl_from, reason = "panics only on buggy code")]
+    impl From<Vec<DbInventoryItemRow>> for DbInventoryItemRows {
+        fn from(mut value: Vec<DbInventoryItemRow>) -> Self {
+            match value.pop() {
+                Some(first) => Self { first, rest: value },
+                None => panic!("received empty vec, this is a bug"),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct DbInventoryItemRow {
+        pub id: Uuid,
+        pub name: String,
+        pub description: Option<String>,
+        pub weight: i32,
+        pub category_id: Uuid,
+        pub category_name: String,
+        pub product_id: Option<Uuid>,
+        pub product_name: Option<String>,
+        pub product_description: Option<String>,
+        pub trip_name: Option<String>,
+        // pub trip_date: Option<crate::domains::trips::TripDate>,
+        pub trip_state: Option<crate::components::trip::TripState>,
+    }
+
+    impl TryFrom<DbInventoryItemRows> for InventoryItem {
+        type Error = RunError;
+
+        fn try_from(mut rows: DbInventoryItemRows) -> Result<Self, Self::Error> {
+            let first_id = rows.first().id;
+
+            let mut trips: Vec<item::trip::Trip> = vec![];
+
+            for row in rows.iter_mut() {
+                assert_eq!(row.id, first_id);
+                if let Some(name) = row.trip_name.take() {
+                    // safe because trip_id is non-NULL
+                    let state = row.trip_state.take().unwrap();
+                    trips.push(item::trip::Trip { name, state });
+                }
+            }
+
+            let item = rows.first;
+
+            Ok(Self {
+                id: item.id,
+                name: item.name,
+                description: item.description,
+                weight: item.weight,
+                category: category::Category {
+                    id: item.category_id,
+                    name: item.category_name,
+                    items: None,
+                },
+                product: item
+                    .product_id
+                    .map(|id| -> Result<product::Product, RunError> {
+                        Ok(product::Product {
+                            id,
+                            name: item.product_name.unwrap(),
+                            description: item.product_description,
+                        })
+                    })
+                    .transpose()?,
+                trips,
+            })
+        }
+    }
+
+    impl InventoryItem {
+        #[tracing::instrument]
+        pub async fn find(
+            ctx: &Context,
+            pool: &database::Pool,
+            id: Uuid,
+        ) -> Result<Option<Self>, RunError> {
+            database::query_many_to_many_single!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Select,
+                    component: Component::Inventory,
+                },
+                pool,
+                DbInventoryItemRow,
+                DbInventoryItemRows,
+                Self,
+                RunError,
+                r#"SELECT
                     item.id AS id,
                     item.name AS name,
                     item.description AS description,
@@ -398,76 +264,76 @@ impl InventoryItem {
                 WHERE
                     item.id = $1
                     AND item.user_id = $2"#,
-            id,
-            ctx.user.id,
-        )
-        .await
-    }
+                id,
+                ctx.user.id,
+            )
+            .await
+        }
 
-    #[tracing::instrument]
-    pub async fn name_exists(
-        ctx: &Context,
-        pool: &database::Pool,
-        name: &str,
-    ) -> Result<bool, RunError> {
-        database::query_exists!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: super::Component::Inventory,
-            },
-            pool,
-            "SELECT id
+        #[tracing::instrument]
+        pub async fn name_exists(
+            ctx: &Context,
+            pool: &database::Pool,
+            name: &str,
+        ) -> Result<bool, RunError> {
+            database::query_exists!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Select,
+                    component: super::Component::Inventory,
+                },
+                pool,
+                "SELECT id
             FROM inventory_items
             WHERE
                 name = $1
                 AND user_id = $2",
-            name,
-            ctx.user.id
-        )
-        .await
-    }
+                name,
+                ctx.user.id
+            )
+            .await
+        }
 
-    #[tracing::instrument]
-    pub async fn delete(
-        ctx: &Context,
-        pool: &database::Pool,
-        id: Uuid,
-    ) -> Result<bool, RunError> {
-        let results = database::execute!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Delete,
-                component: super::Component::Inventory,
-            },
-            pool,
-            RunError,
-            "DELETE FROM inventory_items
+        #[tracing::instrument]
+        pub async fn delete(
+            ctx: &Context,
+            pool: &database::Pool,
+            id: Uuid,
+        ) -> Result<bool, RunError> {
+            let results = database::execute!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Delete,
+                    component: super::Component::Inventory,
+                },
+                pool,
+                RunError,
+                "DELETE FROM inventory_items
             WHERE
                 id = $1
                 AND user_id = $2",
-            id,
-            ctx.user.id
-        )
-        .await?;
+                id,
+                ctx.user.id
+            )
+            .await?;
 
-        Ok(results.rows_affected() != 0)
-    }
+            Ok(results.rows_affected() != 0)
+        }
 
-    #[tracing::instrument]
-    pub async fn update(
-        ctx: &Context,
-        pool: &database::Pool,
-        id: Uuid,
-        name: &str,
-        weight: u32,
-    ) -> Result<Uuid, RunError> {
-        let weight = i32::try_from(weight).unwrap();
-        database::execute_returning_uuid!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Update,
-                component: super::Component::Inventory,
-            },
-            pool,
-            "UPDATE inventory_items AS item
+        #[tracing::instrument]
+        pub async fn update(
+            ctx: &Context,
+            pool: &database::Pool,
+            id: Uuid,
+            name: &str,
+            weight: u32,
+        ) -> Result<Uuid, RunError> {
+            let weight = i32::try_from(weight).unwrap();
+            database::execute_returning_uuid!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Update,
+                    component: super::Component::Inventory,
+                },
+                pool,
+                "UPDATE inventory_items AS item
             SET
                 name = $1,
                 weight = $2
@@ -476,62 +342,62 @@ impl InventoryItem {
                 AND item.user_id = $4
             RETURNING item.category_id AS id
             ",
-            name,
-            weight,
-            id,
-            ctx.user.id
-        )
-        .await
-    }
+                name,
+                weight,
+                id,
+                ctx.user.id
+            )
+            .await
+        }
 
-    #[tracing::instrument]
-    pub async fn save(
-        ctx: &Context,
-        pool: &database::Pool,
-        name: &str,
-        category_id: Uuid,
-        weight: u32,
-    ) -> Result<Uuid, RunError> {
-        let id = Uuid::new_v4();
-        let weight = i32::try_from(weight).unwrap();
+        #[tracing::instrument]
+        pub async fn save(
+            ctx: &Context,
+            pool: &database::Pool,
+            name: &str,
+            category_id: Uuid,
+            weight: u32,
+        ) -> Result<Uuid, RunError> {
+            let id = Uuid::new_v4();
+            let weight = i32::try_from(weight).unwrap();
 
-        database::execute!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Insert,
-                component: super::Component::Inventory,
-            },
-            pool,
-            RunError,
-            "INSERT INTO inventory_items
+            database::execute!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Insert,
+                    component: super::Component::Inventory,
+                },
+                pool,
+                RunError,
+                "INSERT INTO inventory_items
                 (id, name, description, weight, category_id, user_id)
             VALUES
                 ($1, $2, $3, $4, $5, $6)",
-            id,
-            name,
-            "",
-            weight,
-            category_id,
-            ctx.user.id
-        )
-        .await?;
+                id,
+                name,
+                "",
+                weight,
+                category_id,
+                ctx.user.id
+            )
+            .await?;
 
-        Ok(id)
-    }
+            Ok(id)
+        }
 
-    #[tracing::instrument]
-    pub async fn get_category_max_weight(
-        ctx: &Context,
-        pool: &database::Pool,
-        category_id: Uuid,
-    ) -> Result<i32, RunError> {
-        let weight = database::execute_returning!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: super::Component::Inventory,
-            },
-            pool,
-            RunError,
-            "
+        #[tracing::instrument]
+        pub async fn get_category_max_weight(
+            ctx: &Context,
+            pool: &database::Pool,
+            category_id: Uuid,
+        ) -> Result<i32, RunError> {
+            let weight = database::execute_returning!(
+                &database::QueryClassification {
+                    query_type: database::QueryType::Select,
+                    component: super::Component::Inventory,
+                },
+                pool,
+                RunError,
+                "
                 SELECT COALESCE(MAX(i_item.weight), 0) as weight
                 FROM inventory_items_categories as category
                 INNER JOIN inventory_items as i_item
@@ -540,80 +406,14 @@ impl InventoryItem {
                     category_id = $1
                     AND category.user_id = $2
             ",
-            i32,
-            |row| row.weight.unwrap(),
-            category_id,
-            ctx.user.id
-        )
-        .await?;
+                i32,
+                |row| row.weight.unwrap(),
+                category_id,
+                ctx.user.id
+            )
+            .await?;
 
-        Ok(weight)
-    }
-}
-
-#[derive(Debug)]
-pub struct Item {
-    pub id: Uuid,
-    pub name: String,
-    #[allow(dead_code)]
-    pub description: Option<String>,
-    pub weight: i32,
-    pub category_id: Uuid,
-}
-
-pub struct DbInventoryItemsRow {
-    pub id: Uuid,
-    pub name: String,
-    pub weight: i32,
-    pub description: Option<String>,
-    pub category_id: Uuid,
-}
-
-impl TryFrom<DbInventoryItemsRow> for Item {
-    type Error = RunError;
-
-    fn try_from(row: DbInventoryItemsRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: row.id,
-            name: row.name,
-            description: row.description, // TODO
-            weight: row.weight,
-            category_id: row.category_id,
-        })
-    }
-}
-
-impl Item {
-    #[tracing::instrument(skip(pool))]
-    pub async fn _get_category_total_picked_weight(
-        ctx: &Context,
-        pool: &database::Pool,
-        category_id: Uuid,
-    ) -> Result<i32, RunError> {
-        database::execute_returning!(
-            &database::QueryClassification {
-                query_type: database::QueryType::Select,
-                component: super::Component::Inventory,
-            },
-            pool,
-            RunError,
-            "
-                SELECT COALESCE(SUM(i_item.weight), 0) as weight
-                FROM inventory_items_categories as category
-                INNER JOIN inventory_items as i_item
-                    ON i_item.category_id = category.id
-                INNER JOIN trip_items as t_item
-                    ON i_item.id = t_item.item_id
-                WHERE
-                    category_id = $1
-                    AND category.user_id = $2
-                    AND t_item.pick = true
-            ",
-            i32,
-            |row| i32::try_from(row.weight.unwrap()).unwrap(),
-            category_id,
-            ctx.user.id,
-        )
-        .await
+            Ok(weight)
+        }
     }
 }
