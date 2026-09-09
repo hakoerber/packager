@@ -12,6 +12,7 @@ rust-version = "1.90"
 [workspace]
 members = [
     "framework",
+    "leptos",
 ]
 resolver = "3"
 
