@@ -8,7 +8,16 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies.sqlx]
-workspace = true
+version = "*"
+default-features = false
+features = [
+  "macros",
+  "migrate",
+  "postgres",
+  "runtime-tokio-rustls",
+  "time",
+  "uuid",
+]
 
 [dependencies.base64]
 version = "*"
@@ -31,10 +40,21 @@ version = "*"
 default-features = false
 
 [dependencies.time]
-workspace = true
+version = "*"
+default-features = false
+features = [
+  "serde",
+]
 
 [dependencies.uuid]
-workspace = true
+version = "*"
+default-features = false
+features = [
+  "serde",
+  "v4",
+  "js",
+]
 
 [dependencies.futures]
-workspace = true
+version = "*"
+default-features = false
