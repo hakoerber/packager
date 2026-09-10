@@ -165,6 +165,16 @@ version = "*"
 default-features = false
 optional = true
 
+[dependencies.clap]
+version = "*"
+default-features = false
+features = [
+    "derive",
+    "help",
+    "std",
+]
+optional = true
+
 [features]
 default = ["ssr"]
 hydrate = [
@@ -197,6 +207,7 @@ ssr = [
     "dep:opentelemetry_sdk",
     "dep:tonic",
     "dep:console-subscriber",
+    "dep:clap",
 ]
 
 [package.metadata.leptos]

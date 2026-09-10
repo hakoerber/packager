@@ -1,7 +1,7 @@
 use axum::{
     extract::{Request, State},
     middleware::Next,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
 };
 use futures::FutureExt;
 use tracing::Instrument;
@@ -22,7 +22,7 @@ pub async fn authorize(
     State(state): State<AppState>,
     mut request: Request,
     next: Next,
-) -> Result<impl IntoResponse, RunError> {
+) -> Result<Response, RunError> {
     // We must not access `request` inside the async block above, otherwise there will be
     // errors like the following:
     //

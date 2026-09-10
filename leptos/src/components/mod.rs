@@ -1,6 +1,5 @@
 use std::fmt;
 
-pub mod error;
 pub mod inventory;
 pub mod todo;
 pub mod trip;

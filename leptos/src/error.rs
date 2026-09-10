@@ -1,10 +1,19 @@
 use std::{convert::Infallible, fmt, net::SocketAddr};
 
-use axum::http::StatusCode;
-
-use leptos::prelude::*;
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 
 pub use database::{Error as DatabaseError, QueryError};
+
+pub struct ErrorPage;
+
+impl ErrorPage {
+    pub fn build(message: &str) -> impl IntoResponse {
+        (StatusCode::INTERNAL_SERVER_ERROR, message.to_owned())
+    }
+}
 
 #[derive(Debug)]
 pub enum RequestError {
@@ -162,10 +171,8 @@ impl From<hyper::Error> for RunError {
     }
 }
 
-use crate::components::error::ErrorPage;
-
-impl RunError {
-    fn into_response(self) -> (StatusCode, impl IntoView) {
+impl IntoResponse for RunError {
+    fn into_response(self) -> Response {
         match self {
             Self::Database(ref db_error) => match db_error {
                 database::Error::Database(_) => (
@@ -213,6 +220,7 @@ impl RunError {
                 ErrorPage::build(&data_error.to_string()),
             ),
         }
+        .into_response()
     }
 }
 

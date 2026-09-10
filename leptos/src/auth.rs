@@ -1,7 +1,7 @@
 use axum::{
     extract::{Request, State},
     middleware::Next,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
 };
 use futures::FutureExt;
 use tracing::Instrument;
@@ -109,5 +109,5 @@ pub async fn authorize(
     .await??;
 
     request.extensions_mut().insert(user);
-    Ok::<http::Response<axum::body::Body>, RunError>(next.run(request).await)
+    Ok::<Response, RunError>(next.run(request).await)
 }

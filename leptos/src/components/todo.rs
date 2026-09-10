@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 mod list;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, Copy)]
 pub enum State {
     Todo,
     Done,
@@ -31,7 +31,7 @@ impl From<State> for bool {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Todo {
     pub id: Id,
     pub description: String,

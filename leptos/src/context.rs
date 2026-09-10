@@ -7,7 +7,7 @@ pub struct Context {
 
 #[cfg(feature = "ssr")]
 impl Context {
-    fn build(user: User) -> Self {
+    pub fn build(user: User) -> Self {
         Self { user }
     }
 }

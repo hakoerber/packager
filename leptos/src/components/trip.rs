@@ -22,7 +22,7 @@ impl fmt::Display for TripDate {
 }
 
 // TODO refactor the bools into an enum
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TripItem {
     pub item: inventory::item::Item,
     pub picked: bool,
@@ -31,7 +31,7 @@ pub struct TripItem {
     pub new: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Trip {
     pub id: Uuid,
     pub name: String,
@@ -52,7 +52,7 @@ pub struct Trip {
     sqlx(type_name = "trip_state"),
     sqlx(rename_all = "lowercase")
 )]
-#[derive(PartialEq, Eq, PartialOrd, Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum TripState {
     Init,
     Planning,
@@ -132,7 +132,7 @@ impl fmt::Display for TripItemStateKey {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TripCategory {
     pub category: inventory::category::Category,
     pub items: Option<Vec<TripItem>>,

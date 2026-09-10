@@ -10,7 +10,7 @@ pub mod trip {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Item {
     pub id: Uuid,
     pub name: String,

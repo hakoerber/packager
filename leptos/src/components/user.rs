@@ -1,3 +1,7 @@
+#[cfg(feature = "ssr")]
+use axum::extract::FromRequestParts;
+#[cfg(feature = "ssr")]
+use http::{request::Parts, StatusCode};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -11,6 +15,21 @@ pub struct User {
 pub struct NewUser<'a> {
     pub username: &'a str,
     pub fullname: &'a str,
+}
+#[cfg(feature = "ssr")]
+impl<S> FromRequestParts<S> for User
+where
+    S: Send + Sync,
+{
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<User>()
+            .cloned()
+            .ok_or(StatusCode::UNAUTHORIZED)
+    }
 }
 
 #[cfg(feature = "ssr")]

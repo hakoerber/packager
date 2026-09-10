@@ -2217,6 +2217,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum-prometheus",
+ "clap",
  "console-subscriber",
  "console_error_panic_hook",
  "futures",
