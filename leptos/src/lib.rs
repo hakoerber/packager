@@ -1,4 +1,4 @@
-use leptos::{logging::log, prelude::*, task::spawn_local};
+use leptos::prelude::*;
 
 #[cfg(feature = "ssr")]
 use axum::{

@@ -1,2 +1,2 @@
 [language-server.rust-analyzer]
-config = { cargo = { features = "all" } }
+config = { cargo = { features = "ssr" } }

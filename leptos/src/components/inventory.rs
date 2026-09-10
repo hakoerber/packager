@@ -1,5 +1,3 @@
-use super::Component;
-
 use uuid::Uuid;
 
 pub mod category;
@@ -279,7 +277,7 @@ mod model {
             database::query_exists!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Select,
-                    component: super::Component::Inventory,
+                    component: Component::Inventory,
                 },
                 pool,
                 "SELECT id
@@ -302,7 +300,7 @@ mod model {
             let results = database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Delete,
-                    component: super::Component::Inventory,
+                    component: Component::Inventory,
                 },
                 pool,
                 RunError,
@@ -330,7 +328,7 @@ mod model {
             database::execute_returning_uuid!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Update,
-                    component: super::Component::Inventory,
+                    component: Component::Inventory,
                 },
                 pool,
                 "UPDATE inventory_items AS item
@@ -364,7 +362,7 @@ mod model {
             database::execute!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Insert,
-                    component: super::Component::Inventory,
+                    component: Component::Inventory,
                 },
                 pool,
                 RunError,
@@ -393,7 +391,7 @@ mod model {
             let weight = database::execute_returning!(
                 &database::QueryClassification {
                     query_type: database::QueryType::Select,
-                    component: super::Component::Inventory,
+                    component: Component::Inventory,
                 },
                 pool,
                 RunError,
