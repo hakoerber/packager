@@ -1,2 +1,2 @@
-mod metrics;
-mod tracing;
+pub mod metrics;
+pub mod tracing;

@@ -35,7 +35,7 @@ pub mod error;
 pub mod auth;
 
 #[cfg(feature = "ssr")]
-mod telemetry;
+pub mod telemetry;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
@@ -98,26 +98,55 @@ fn TripList() -> impl IntoView {
     let trips = Resource::new(|| (), |_| get_trips());
 
     view! {
-        <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+        <Suspense fallback=|| {
+            view! { <p>"Loading..."</p> }
+        }>
             {move || {
-                trips.with(|trips| trips.as_ref().map(|result| {
-                    match result {
-                        Ok(trips) => view! {
-                            <ul>
-                                {trips
-                                    .into_iter()
-                                    .map(|trip| view! {
-                                        <li>{trip.name.clone()}</li>
-                                    })
-                                    .collect_view()}
-                            </ul>
-                        }.into_any(),
+                trips
+                    .with(|trips| {
+                        trips
+                            .as_ref()
+                            .map(|result| {
+                                match result {
+                                    Ok(trips) => {
+                                        view! {
+                                            <ul class="table table-auto border-collapse">
+                                                {trips
+                                                    .into_iter()
+                                                    .map(|trip| {
+                                                        view! {
+                                                            <li class="table-row">
+                                                                <p class="table-cell p-2 border border-gray-200">
+                                                                    {trip.name.clone()}
+                                                                </p>
+                                                                <p class="table-cell p-2 border border-gray-200">
+                                                                    {trip.date.start.to_string()}
+                                                                </p>
+                                                                <p class="table-cell p-2 border border-gray-200">
+                                                                    {trip.date.end.to_string()}
+                                                                </p>
+                                                                <p class="table-cell p-2 border border-gray-200">
+                                                                    {trip
+                                                                        .location
+                                                                        .clone()
+                                                                        .unwrap_or_else(|| "no location".to_owned())}
+                                                                </p>
+                                                            </li>
+                                                        }
+                                                    })
+                                                    .collect_view()}
+                                            </ul>
+                                        }
+                                            .into_any()
+                                    }
+                                    Err(e) => {
 
-                        Err(e) => view! {
-                            <p>{e.to_string()}</p>
-                        }.into_any(),
-                    }
-                }))
+                                        view! { <p>{e.to_string()}</p> }
+                                            .into_any()
+                                    }
+                                }
+                            })
+                    })
             }}
         </Suspense>
     }

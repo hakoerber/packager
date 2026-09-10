@@ -6,9 +6,8 @@ use axum::{
 use futures::FutureExt;
 use tracing::Instrument;
 
-use crate::components::user::User;
-
 use crate::{
+    components::user::User,
     error::{AuthError, RunError},
     state::AppState,
 };

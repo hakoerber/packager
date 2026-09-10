@@ -11,7 +11,7 @@ pub struct ErrorPage;
 
 impl ErrorPage {
     pub fn build(message: &str) -> impl IntoResponse {
-        (StatusCode::INTERNAL_SERVER_ERROR, message.to_owned())
+        format!("error: {message}")
     }
 }
 
